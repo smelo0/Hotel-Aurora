@@ -1,4 +1,4 @@
-## Instalación
+## Instalación (php 8.3.3)
 
 1. Clona el repositorio:
    git clone https://github.com/usuario/repositorio.git
