@@ -1,3 +1,10 @@
+<?php 
+require_once '../../vendor/autoload.php';
+
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../..');
+$dotenv->load();
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,6 +13,7 @@
     <title>Acceso Huespedes | Hotel Aurora</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -126,6 +134,12 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .g_id_signin {
+        margin-bottom: 20px;          /* Espaciado abajo */
+        
+        }
+
     </style>
 </head>
 <body>
@@ -172,16 +186,31 @@
                 <label for="password_login">Contrasena</label>
                 <input id="password_login" type="password" name="password" required placeholder="********">
 
-                <label class="captcha-box">
-                    <input type="checkbox" name="captcha" required>
-                    <span>No soy un robot</span>
-                </label>
-
                 <?php if ($recaptchaSiteKey !== ''): ?>
                     <div class="captcha-wrap">
                         <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
                     </div>
                 <?php endif; ?>
+                    
+                <!-- Configuración e integración del botón -->
+            
+                <!-- Configuración del cliente -->
+                <div id="g_id_onload"
+                     data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
+                     data-login_uri="http://localhost/software_hotel v2.0/controladores/callBack.php"
+                     data-auto_prompt="false">
+                </div>
+                <!-- Renderizado del botón -->
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-size="large"
+                     data-theme="outline"
+                     data-text="sign_in_with"
+                     data-shape="rectangular"
+                     data-logo_alignment="left">
+                </div>
+
+                <!-- Configuración e integración del botón -->   
 
                 <input type="submit" value="Iniciar sesion">
 
@@ -210,10 +239,7 @@
                 <label for="psw_usu">Contrasena</label>
                 <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
 
-                <label class="captcha-box">
-                    <input type="checkbox" name="captcha" required>
-                    <span>No soy un robot</span>
-                </label>
+              
 
                 <?php if ($recaptchaSiteKey !== ''): ?>
                     <div class="captcha-wrap">

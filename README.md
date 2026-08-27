@@ -1,3 +1,14 @@
+## Instalación
+
+1. Clona el repositorio:
+   git clone https://github.com/usuario/repositorio.git
+
+2. Instala las dependencias:
+
+   # O para PHP
+    Composer install
+
+
 # 🐙 Guía de Trabajo con Git y GitHub
 
 Instrucciones esenciales para gestionar tu proyecto, sincronizar código y trabajar con ramas en GitHub.
