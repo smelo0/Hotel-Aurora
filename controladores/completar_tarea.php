@@ -1,0 +1,75 @@
+<?php
+// controladores/completar_tarea.php
+// Reparacion: Este endpoint ahora responde JSON y permite que la UI confirme exito antes de quitar la tarea.
+
+session_start();
+require_once __DIR__ . '/../configuracion/conexion.php';
+
+function responder_completar_tarea($payload, $codigo_http = 200) {
+    http_response_code($codigo_http);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload);
+    exit();
+}
+
+if (!isset($_SESSION['emp_auth']['id_usuario'])) {
+    responder_completar_tarea([
+        "status" => "error",
+        "mensaje" => "No estas autorizado"
+    ], 401);
+}
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    responder_completar_tarea([
+        "status" => "error",
+        "mensaje" => "Metodo no permitido"
+    ], 405);
+}
+
+$id_tarea = isset($_POST['id_tarea']) ? (int) $_POST['id_tarea'] : 0;
+
+if ($id_tarea <= 0) {
+    responder_completar_tarea([
+        "status" => "error",
+        "mensaje" => "ID de tarea invalido"
+    ], 422);
+}
+
+try {
+    $conexion->begin_transaction(); // Transaccion: La tarea solo cambia de estado si MySQL confirma la actualizacion.
+
+    $sql = "UPDATE tarea SET est_tar = 'Completada' WHERE cod_tar = ? AND est_tar = 'Pendiente'";
+    $stmt = $conexion->prepare($sql);
+    $stmt->bind_param("i", $id_tarea);
+    $stmt->execute();
+
+    if ($stmt->affected_rows < 1) {
+        $conexion->rollback(); // Transaccion: Se revierte si la tarea no existe o ya fue procesada.
+        responder_completar_tarea([
+            "status" => "error",
+            "mensaje" => "La tarea no existe o ya fue procesada"
+        ], 404);
+    }
+
+    $conexion->commit(); // Transaccion: Confirmacion atomica para que el frontend actualice la cola.
+    $stmt->close();
+    $conexion->close();
+
+    responder_completar_tarea([
+        "status" => "exito",
+        "mensaje" => "Tarea completada correctamente",
+        "id_tarea" => $id_tarea
+    ], 200);
+} catch (Throwable $error) {
+    try {
+        $conexion->rollback(); // Transaccion: Manejo de errores try/catch en el completado.
+    } catch (Throwable $rollback_error) {
+        // Transaccion: Si no habia transaccion activa, mantenemos la respuesta JSON controlada.
+    }
+
+    responder_completar_tarea([
+        "status" => "error",
+        "mensaje" => "No se pudo completar la tarea"
+    ], 500);
+}
+?>
