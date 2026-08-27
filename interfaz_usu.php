@@ -217,13 +217,9 @@ $usuarioId = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
 $usuarioNombre = (string) ($_SESSION['user_auth']['nombre_usuario'] ?? '');
 $usuarioAutenticado = $usuarioId > 0;
 
-if(!empty($_SESSION['user_auth'])){
-    include 'includes/timeout.php';
-}
-;
-    
-    ?>
-?>
+?><?php if (!empty($_SESSION['user_auth'])): ?>
+    <?php require_once 'includes/timeout.php'; ?>
+<?php endif; ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>

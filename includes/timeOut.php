@@ -1,4 +1,3 @@
-<!-- Modal de Inactividad -->
 <div id="inactivityModal" class="inactivity-modal-overlay" style="display: none;">
     <div class="inactivity-modal-content glass-card reveal">
         <h3 class="font-display">¿Sigues ahí?</h3>
@@ -118,7 +117,7 @@
 (function() {
     let idleTimer;
     let countdownTimer;
-    const IDLE_TIME_LIMIT = 5; // segundos de inactividad
+    const IDLE_TIME_LIMIT = 60 * 5; // segundos de inactividad
     const COUNTDOWN_LIMIT = 10; // segundos del modal
     let secondsRemaining = COUNTDOWN_LIMIT;
 
@@ -157,8 +156,9 @@
 
             if (secondsRemaining <= 0) {
                 clearInterval(countdownTimer);
-                window.location.href = '<?php session_destroy(); header("Location: ../interfaz_usu.php");
-                ; ?>';
+                window.location.href = 
+                '<?php session_destroy(); 
+                echo "../interfaz_usu.php"; ?>';
             }
         }, 1000);
     }
