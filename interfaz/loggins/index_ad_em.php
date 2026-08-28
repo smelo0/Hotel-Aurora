@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso Unificado - Hotel Aurora</title>
     <link rel="stylesheet" href="hotel_ad_em.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300;400;500;700">
 </head>
 <body>
 
@@ -30,6 +31,11 @@
             </div>
         </form>
     </div>
+
+    <?php
+    $ayudaSistemaRol = 'admin';
+    require_once '../../includes/system_help.php';
+    ?>
 
 </body>
 </html>

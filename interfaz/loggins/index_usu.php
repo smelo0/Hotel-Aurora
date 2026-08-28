@@ -305,5 +305,9 @@ $dotenv->load();
             cambiarPanel('registro');
         }
     </script>
+    <?php
+    $ayudaSistemaRol = 'usuario';
+    require_once '../../includes/system_help.php';
+    ?>
 </body>
 </html>

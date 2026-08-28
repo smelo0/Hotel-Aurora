@@ -86,6 +86,11 @@ require_once 'componentes_ad/head.php';
         </div>
     </div>
 
+    <?php
+    $ayudaSistemaRol = 'admin';
+    require_once '../../includes/system_help.php';
+    ?>
+
     <script>
         const ROL_USUARIO = <?php echo isset($_SESSION['emp_auth']['rol_usuario']) ? (int) $_SESSION['emp_auth']['rol_usuario'] : 1; ?>;
         const ID_USUARIO_ACTIVO = <?php echo isset($_SESSION['emp_auth']['id_usuario']) ? (int) $_SESSION['emp_auth']['id_usuario'] : 0; ?>;

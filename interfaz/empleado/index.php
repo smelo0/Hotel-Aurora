@@ -45,6 +45,11 @@ require_once 'componentes/head.php';
 
     <?php require_once 'componentes/aside_tareas.php'; ?>
 
+    <?php
+    $ayudaSistemaRol = 'empleado';
+    require_once '../../includes/system_help.php';
+    ?>
+
     <script>
     const ROL_USUARIO = <?php echo (int) $_SESSION['emp_auth']['rol_usuario']; ?>;
     const ID_USUARIO_ACTIVO = <?php echo (int) $_SESSION['emp_auth']['id_usuario']; ?>;
