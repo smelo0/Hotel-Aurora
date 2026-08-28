@@ -1605,8 +1605,6 @@ async function processReservationPayment() {
             }
         });
     }
-    
-    /* modulo de ayudas */
 
     function toggleSystemHelp(forceState = null) {
         const panel = $('systemHelpPanel');
@@ -1697,19 +1695,11 @@ async function processReservationPayment() {
         if (event.key === 'Escape') toggleSystemHelp(false);
     });
 
-    /* modulo de ayudas */
-    if (!event.target.closest('.system-help')) {
-            toggleSystemHelp(false);
-        }
-
     // 7. Inicialización al cargar el DOM
     document.addEventListener('DOMContentLoaded', () => {
         initializeCalendar();
         updateGuestSummary();
         attachLogoutFlow();
-
-        if ($('systemHelpButton')) $('systemHelpButton').addEventListener('click', () => toggleSystemHelp());
-        if ($('closeSystemHelp')) $('closeSystemHelp').addEventListener('click', () => toggleSystemHelp(false));
 
         if ($('guestTrigger')) $('guestTrigger').addEventListener('click', () => toggleGuestPopover());
         if ($('closeGuestPopover')) $('closeGuestPopover').addEventListener('click', () => toggleGuestPopover(false));
