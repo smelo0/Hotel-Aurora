@@ -1621,6 +1621,21 @@ async function processReservationPayment() {
         }
     }
 
+    function toggleSystemHelp(forceState = null) {
+        const panel = $('systemHelpPanel');
+        const button = $('systemHelpButton');
+        if (!panel || !button) return;
+
+        const shouldOpen = forceState === null ? !panel.classList.contains('is-open') : forceState;
+        panel.classList.toggle('is-open', shouldOpen);
+        panel.setAttribute('aria-hidden', String(!shouldOpen));
+        button.setAttribute('aria-expanded', String(shouldOpen));
+
+        if (shouldOpen) {
+            $('closeSystemHelp')?.focus();
+        }
+    }
+
     // 6. Event Delegator Global
     document.addEventListener('click', event => {
         // Reservar Habitación
