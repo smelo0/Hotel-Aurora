@@ -542,6 +542,83 @@ $usuarioAutenticado = $usuarioId > 0;
             transform: translate3d(0, 0, 0) scale(1);
         }
 
+        .system-help {
+            position: fixed;
+            right: 1.25rem;
+            bottom: 1.25rem;
+            z-index: 100;
+        }
+
+        .system-help__panel {
+            position: absolute;
+            right: 0;
+            bottom: 4.5rem;
+            width: min(360px, calc(100vw - 2rem));
+            max-height: min(560px, calc(100vh - 7rem));
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 24px 60px rgba(9, 18, 31, 0.28);
+            color: #17354f;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px) scale(0.98);
+            transform-origin: bottom right;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        .system-help__panel.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .system-help__question {
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .system-help__question summary {
+            cursor: pointer;
+            list-style: none;
+            padding: 1rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 800;
+        }
+
+        .system-help__question summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .system-help__question summary::after {
+            content: '+';
+            float: right;
+            color: #c19046;
+            font-size: 1.1rem;
+        }
+
+        .system-help__question[open] summary::after {
+            content: '-';
+        }
+
+        .system-help__answer {
+            padding: 0 1.25rem 1rem;
+            color: #475569;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 767px) {
+            .system-help {
+                right: 1rem;
+                bottom: 1rem;
+            }
+
+            .system-help__panel {
+                right: -0.25rem;
+            }
+        }
+
         .payment-chip {
             border-radius: 16px;
             border: 1px solid rgba(23, 53, 79, 0.12);
@@ -897,7 +974,6 @@ $usuarioAutenticado = $usuarioId > 0;
                     <span class="material-symbols-outlined pointer-events-none">close</span>
                 </button>
             </div>
-
             <div>
                 <details class="system-help__question" open>
                     <summary>¿Cómo busco una habitación?</summary>
@@ -1530,6 +1606,21 @@ async function processReservationPayment() {
         });
     }
 
+    function toggleSystemHelp(forceState = null) {
+        const panel = $('systemHelpPanel');
+        const button = $('systemHelpButton');
+        if (!panel || !button) return;
+
+        const shouldOpen = forceState === null ? !panel.classList.contains('is-open') : forceState;
+        panel.classList.toggle('is-open', shouldOpen);
+        panel.setAttribute('aria-hidden', String(!shouldOpen));
+        button.setAttribute('aria-expanded', String(shouldOpen));
+
+        if (shouldOpen) {
+            $('closeSystemHelp')?.focus();
+        }
+    }
+
     // 6. Event Delegator Global
     document.addEventListener('click', event => {
         // Reservar Habitación
@@ -1579,6 +1670,14 @@ async function processReservationPayment() {
         if (event.target.id === 'bookingModal') {
             closeBookingModal();
         }
+
+        if (!event.target.closest('.system-help')) {
+            toggleSystemHelp(false);
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') toggleSystemHelp(false);
     });
 
     // 7. Inicialización al cargar el DOM

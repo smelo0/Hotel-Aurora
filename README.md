@@ -96,3 +96,18 @@ git push origin main
   
 #💡 Tip: Si solo quieres borrar un archivo de GitHub pero conservarlo en tu equipo local, usa:
 git rm --cached nombre-del-archivo.ext
+
+## Configurar reCAPTCHA
+
+El widget de Google se muestra únicamente cuando existen `RECAPTCHA_SITE_KEY` y
+`RECAPTCHA_SECRET_KEY`. Solicita ambas claves en:
+
+https://www.google.com/recaptcha/admin/create
+
+Selecciona **reCAPTCHA v2 > Casilla "No soy un robot"** y agrega `localhost` y
+`127.0.0.1` como dominios. Después configura las variables de entorno del
+servidor Apache de XAMPP con los valores obtenidos y reinicia Apache.
+
+El archivo `.envexample` contiene los nombres de todas las variables esperadas.
+El proyecto no carga automáticamente archivos `.env`; las variables deben estar
+disponibles en el entorno de PHP mediante Apache o la configuración del sistema.
