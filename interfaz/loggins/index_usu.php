@@ -245,7 +245,25 @@ $dotenv->load();
                 <label for="psw_usu">Contrasena</label>
                 <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
 
-              
+              <!-- Configuración e integración del botón -->
+            
+                <!-- Configuración del cliente -->
+                <div id="g_id_onload"
+                     data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
+                     data-login_uri="http://localhost/software_hotel v2.0/controladores/callBackRegistro.php"
+                     data-auto_prompt="false">
+                </div>
+                <!-- Renderizado del botón -->
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-size="large"
+                     data-theme="outline"
+                     data-text="sign_in_with"
+                     data-shape="rectangular"
+                     data-logo_alignment="left"
+                     data-width="350">>
+                </div>
+
 
                 <?php if ($recaptchaSiteKey !== ''): ?>
                     <div class="captcha-wrap">

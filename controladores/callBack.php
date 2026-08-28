@@ -128,3 +128,5 @@ $_SESSION['user_auth'] = [
 // Redirigir al panel principal
 header('Location: ../interfaz_usu.php');
 exit();
+
+?>
