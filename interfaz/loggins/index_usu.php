@@ -137,8 +137,12 @@ $dotenv->load();
 
         .g_id_signin {
         margin-bottom: 20px;          /* Espaciado abajo */
-        
+        padding: 15px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
         }
+
 
     </style>
 </head>
@@ -185,13 +189,7 @@ $dotenv->load();
 
                 <label for="password_login">Contrasena</label>
                 <input id="password_login" type="password" name="password" required placeholder="********">
-
-                <?php if ($recaptchaSiteKey !== ''): ?>
-                    <div class="captcha-wrap">
-                        <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
-                    </div>
-                <?php endif; ?>
-                    
+                
                 <!-- Configuración e integración del botón -->
             
                 <!-- Configuración del cliente -->
@@ -207,8 +205,16 @@ $dotenv->load();
                      data-theme="outline"
                      data-text="sign_in_with"
                      data-shape="rectangular"
-                     data-logo_alignment="left">
+                     data-logo_alignment="left"
+                     data-width="350">>
                 </div>
+
+                <?php if ($recaptchaSiteKey !== ''): ?>
+                    <div class="captcha-wrap">
+                        <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                    </div>
+                <?php endif; ?>
+                    
 
                 <!-- Configuración e integración del botón -->   
 
