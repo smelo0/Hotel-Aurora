@@ -172,11 +172,6 @@
                 <label for="password_login">Contrasena</label>
                 <input id="password_login" type="password" name="password" required placeholder="********">
 
-                <label class="captcha-box">
-                    <input type="checkbox" name="captcha" required>
-                    <span>No soy un robot</span>
-                </label>
-
                 <?php if ($recaptchaSiteKey !== ''): ?>
                     <div class="captcha-wrap">
                         <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>

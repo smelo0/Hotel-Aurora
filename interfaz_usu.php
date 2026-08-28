@@ -542,6 +542,83 @@ $usuarioAutenticado = $usuarioId > 0;
             transform: translate3d(0, 0, 0) scale(1);
         }
 
+        .system-help {
+            position: fixed;
+            right: 1.25rem;
+            bottom: 1.25rem;
+            z-index: 100;
+        }
+
+        .system-help__panel {
+            position: absolute;
+            right: 0;
+            bottom: 4.5rem;
+            width: min(360px, calc(100vw - 2rem));
+            max-height: min(560px, calc(100vh - 7rem));
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 24px 60px rgba(9, 18, 31, 0.28);
+            color: #17354f;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px) scale(0.98);
+            transform-origin: bottom right;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        .system-help__panel.is-open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .system-help__question {
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .system-help__question summary {
+            cursor: pointer;
+            list-style: none;
+            padding: 1rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 800;
+        }
+
+        .system-help__question summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .system-help__question summary::after {
+            content: '+';
+            float: right;
+            color: #c19046;
+            font-size: 1.1rem;
+        }
+
+        .system-help__question[open] summary::after {
+            content: '-';
+        }
+
+        .system-help__answer {
+            padding: 0 1.25rem 1rem;
+            color: #475569;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 767px) {
+            .system-help {
+                right: 1rem;
+                bottom: 1rem;
+            }
+
+            .system-help__panel {
+                right: -0.25rem;
+            }
+        }
+
         .payment-chip {
             border-radius: 16px;
             border: 1px solid rgba(23, 53, 79, 0.12);
@@ -885,6 +962,45 @@ $usuarioAutenticado = $usuarioId > 0;
     <footer class="px-4 pb-10 text-center text-sm text-white/72 md:px-6">
         Hotel Aurora © <?php echo date('Y'); ?> · Exclusividad, calma y servicio frente al mar.
     </footer>
+
+    <div class="system-help">
+        <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
+            <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">Centro de ayuda</p>
+                    <h2 id="systemHelpTitle" class="mt-1 text-lg font-black">¿Cómo podemos ayudarte?</h2>
+                </div>
+                <button id="closeSystemHelp" type="button" class="rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white" aria-label="Cerrar ayuda">
+                    <span class="material-symbols-outlined pointer-events-none">close</span>
+                </button>
+            </div>
+            <div>
+                <details class="system-help__question" open>
+                    <summary>¿Cómo busco una habitación?</summary>
+                    <p class="system-help__answer">Abre “Fechas”, selecciona tu check-in y check-out, ajusta los huéspedes y pulsa “Buscar disponibilidad”.</p>
+                </details>
+                <details class="system-help__question">
+                    <summary>¿Qué necesito para reservar?</summary>
+                    <p class="system-help__answer">Debes iniciar sesión, elegir fechas válidas y seleccionar una habitación disponible. Después revisa el total y el método de pago.</p>
+                </details>
+                <details class="system-help__question">
+                    <summary>¿Puedo pagar solo una parte?</summary>
+                    <p class="system-help__answer">Sí. En la confirmación puedes elegir pago total o un abono inicial del 50%. El saldo del abono se paga en recepción.</p>
+                </details>
+                <details class="system-help__question">
+                    <summary>¿Cómo solicito una experiencia?</summary>
+                    <p class="system-help__answer">En “Agenda tu estancia”, elige la experiencia, fecha, hora y tus datos de contacto. El equipo confirmará la solicitud.</p>
+                </details>
+                <div class="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
+                    ¿Necesitas más ayuda? Escríbenos desde tu correo a <a href="mailto:reservas@hotelaurora.com" class="!mt-1 !text-left font-bold !text-[#17354f] hover:!text-[#c19046]">reservas@hotelaurora.com</a>.
+                </div>
+            </div>
+        </section>
+        <button id="systemHelpButton" type="button" class="hero-button primary-button flex items-center gap-2 px-4 py-3 text-sm font-black shadow-xl" aria-controls="systemHelpPanel" aria-expanded="false">
+            <span class="material-symbols-outlined text-[20px]">help</span>
+            <span>Ayuda</span>
+        </button>
+    </div>
 
  <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
         
@@ -1490,6 +1606,21 @@ async function processReservationPayment() {
         });
     }
 
+    function toggleSystemHelp(forceState = null) {
+        const panel = $('systemHelpPanel');
+        const button = $('systemHelpButton');
+        if (!panel || !button) return;
+
+        const shouldOpen = forceState === null ? !panel.classList.contains('is-open') : forceState;
+        panel.classList.toggle('is-open', shouldOpen);
+        panel.setAttribute('aria-hidden', String(!shouldOpen));
+        button.setAttribute('aria-expanded', String(shouldOpen));
+
+        if (shouldOpen) {
+            $('closeSystemHelp')?.focus();
+        }
+    }
+
     // 6. Event Delegator Global
     document.addEventListener('click', event => {
         // Reservar Habitación
@@ -1539,6 +1670,14 @@ async function processReservationPayment() {
         if (event.target.id === 'bookingModal') {
             closeBookingModal();
         }
+
+        if (!event.target.closest('.system-help')) {
+            toggleSystemHelp(false);
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') toggleSystemHelp(false);
     });
 
     // 7. Inicialización al cargar el DOM
@@ -1546,6 +1685,9 @@ async function processReservationPayment() {
         initializeCalendar();
         updateGuestSummary();
         attachLogoutFlow();
+
+        if ($('systemHelpButton')) $('systemHelpButton').addEventListener('click', () => toggleSystemHelp());
+        if ($('closeSystemHelp')) $('closeSystemHelp').addEventListener('click', () => toggleSystemHelp(false));
 
         if ($('guestTrigger')) $('guestTrigger').addEventListener('click', () => toggleGuestPopover());
         if ($('closeGuestPopover')) $('closeGuestPopover').addEventListener('click', () => toggleGuestPopover(false));

@@ -3,9 +3,9 @@
 // En XAMPP/Windows, 127.0.0.1 evita bloqueos ocasionales de resolucion con "localhost".
 $servidor = getenv('DB_HOST') ?: 'localhost';
 $usuario = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASS') ?: '123456789';
+$password = getenv('DB_PASS') ?: '';
 $base_datos = getenv('DB_NAME') ?: 'hotel';
-$puerto = (int) (getenv('DB_PORT') ?: 3306);
+$puerto = (int) (getenv('DB_PORT') ?: 3308);
 $timeout = (int) (getenv('DB_TIMEOUT') ?: 5);
 
 mysqli_report(MYSQLI_REPORT_OFF);
