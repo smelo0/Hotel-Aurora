@@ -103,7 +103,7 @@ if ($stmt->num_rows !== 1) {
     $conexion->close();
     redirigir_login('error=credenciales');
 }
-
+     
 $stmt->bind_result($idUsuario, $nombreUsuario, $rolUsuario, $hashAlmacenado);
 
 if (!$stmt->fetch()) {
@@ -118,21 +118,44 @@ if (!$hashAlmacenado || !password_verify($passwordIngresada, $hashAlmacenado)) {
     redirigir_login('error=credenciales');
 }
 
-if ((int) $rolUsuario !== 6) {
-    $stmt->close();
-    $conexion->close();
-    redirigir_login('error=rol');
-}
-
-session_regenerate_id(true);
-$_SESSION['user_auth'] = [
-    'id_usuario' => (int) $idUsuario,
-    'nombre_usuario' => (string) $nombreUsuario,
-    'rol_usuario' => (int) $rolUsuario,
-];
-
+$rolActual = (int) $rolUsuario;
 $stmt->close();
 $conexion->close();
 
-header('Location: ../interfaz_usu.php');
-exit();
+session_regenerate_id(true);
+unset($_SESSION['emp_auth'], $_SESSION['user_auth']);
+
+switch ($rolActual) {
+    case 1:
+    case 2:
+        $_SESSION['emp_auth'] = [
+            'id_usuario' => (int) $idUsuario,
+            'nombre_usuario' => (string) $nombreUsuario,
+            'rol_usuario' => $rolActual,
+        ];
+        header('Location: ../interfaz/admin/index_ad.php');
+        exit();
+
+    case 3:
+    case 4:
+    case 5:
+        $_SESSION['emp_auth'] = [
+            'id_usuario' => (int) $idUsuario,
+            'nombre_usuario' => (string) $nombreUsuario,
+            'rol_usuario' => $rolActual,
+        ];
+        header('Location: ../interfaz/empleado/index.php');
+        exit();
+
+    case 6:
+        $_SESSION['user_auth'] = [
+            'id_usuario' => (int) $idUsuario,
+            'nombre_usuario' => (string) $nombreUsuario,
+            'rol_usuario' => $rolActual,
+        ];
+        header('Location: ../interfaz_usu.php');
+        exit();
+
+    default:
+        redirigir_login('error=rol');
+}

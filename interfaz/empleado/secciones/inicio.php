@@ -55,4 +55,40 @@
         </div>
         <span class="material-symbols-outlined absolute -right-10 -bottom-10 text-[15rem] opacity-5">sensors</span>
     </div>
+
+    <div class="mt-8 bg-white rounded-xl p-8 border border-primary/10 shadow-sm max-w-2xl">
+        <div class="flex items-center justify-between gap-3 mb-5">
+            <div>
+                <h4 class="font-black text-heading">Cuenta de acceso</h4>
+                <p class="text-xs text-slate-500 mt-1">Cambia el correo asociado a tu cuenta de empleado.</p>
+            </div>
+        </div>
+
+        <?php $correoActual = $_SESSION['emp_auth']['correo_usuario'] ?? ''; ?>
+        <?php if (isset($_GET['success']) && $_GET['success'] === 'correo_actualizado'): ?>
+            <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">Correo actualizado correctamente.</div>
+        <?php endif; ?>
+        <?php if (isset($_GET['error']) && $_GET['error'] === 'correo_duplicado'): ?>
+            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">Este correo ya está registrado en otra cuenta.</div>
+        <?php endif; ?>
+        <?php if (isset($_GET['error']) && $_GET['error'] === 'correo_invalido'): ?>
+            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">Ingresa un correo válido.</div>
+        <?php endif; ?>
+
+        <form method="POST" action="../../controladores/actualizar_correo.php" class="space-y-4">
+            <div>
+                <label class="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Correo actual</label>
+                <input type="text" value="<?php echo htmlspecialchars($correoActual, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700" disabled>
+            </div>
+
+            <div>
+                <label for="nuevo_correo" class="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Nuevo correo</label>
+                <input id="nuevo_correo" name="nuevo_correo" type="email" required class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary" placeholder="nuevo@hotelaurora.com">
+            </div>
+
+            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow hover:brightness-110 transition-all">
+                Guardar correo
+            </button>
+        </form>
+    </div>
 </section>

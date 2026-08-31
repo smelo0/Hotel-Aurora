@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $correo = $_POST['correo_electronico'] ?? '';
 $password_ingresada = $_POST['contrasena'] ?? '';
 
-$sql = "SELECT id_usu, nom_usu, cod_rol_usu, psw_usu FROM usuario WHERE corr_usu = ?";
+$sql = "SELECT id_usu, nom_usu, corr_usu, cod_rol_usu, psw_usu FROM usuario WHERE corr_usu = ?";
+/**@var mysqli $conexion */
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param("s", $correo);
 $stmt->execute();
@@ -24,7 +25,8 @@ if ($resultado && $resultado->num_rows > 0) {
         $_SESSION['emp_auth'] = [
             'id_usuario' => (int) $usuario['id_usu'],
             'nombre_usuario' => $usuario['nom_usu'],
-            'rol_usuario' => (int) $usuario['cod_rol_usu']
+            'rol_usuario' => (int) $usuario['cod_rol_usu'],
+            'correo_usuario' => (string) $usuario['corr_usu']
         ];
 
         switch ((int) $usuario['cod_rol_usu']) {
