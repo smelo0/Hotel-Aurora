@@ -50,5 +50,10 @@ if (!isset($usuario['id_usuario']) || (int) ($usuario['rol_usuario'] ?? 0) !== 6
         </div>
     </main>
 
+    <?php
+    $ayudaSistemaRol = 'usuario';
+    require_once '../../includes/system_help.php';
+    ?>
+
 </body>
 </html>

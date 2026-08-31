@@ -1701,6 +1701,9 @@ async function processReservationPayment() {
         updateGuestSummary();
         attachLogoutFlow();
 
+        if ($('systemHelpButton')) $('systemHelpButton').addEventListener('click', () => toggleSystemHelp());
+        if ($('closeSystemHelp')) $('closeSystemHelp').addEventListener('click', () => toggleSystemHelp(false));
+
         if ($('guestTrigger')) $('guestTrigger').addEventListener('click', () => toggleGuestPopover());
         if ($('closeGuestPopover')) $('closeGuestPopover').addEventListener('click', () => toggleGuestPopover(false));
         if ($('adultsMinus')) $('adultsMinus').addEventListener('click', () => changeGuest('adults', -1));

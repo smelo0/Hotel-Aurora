@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotel Aurora | Registrar Usuario</title>
     <link rel="stylesheet" href="../../estetica/estilos_usu.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300;400;500;700">
 </head>
 <body>
     <?php $error = isset($_GET['error']) ? (string) $_GET['error'] : ''; ?>
@@ -61,5 +62,9 @@
             input.addEventListener('wheel', event => event.preventDefault());
         });
     </script>
+    <?php
+    $ayudaSistemaRol = 'usuario';
+    require_once '../../includes/system_help.php';
+    ?>
 </body>
 </html>

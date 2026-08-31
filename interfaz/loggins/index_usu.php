@@ -1,7 +1,10 @@
-<?php 
-require_once '../../vendor/autoload.php';
+<?php
+require_once __DIR__ . '/../../vendor/autoload.php';
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../..');
+use Dotenv\Dotenv;
+
+// Define la ruta hacia la raíz donde está el archivo .env
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
 ?>
 
@@ -302,5 +305,9 @@ $dotenv->load();
             cambiarPanel('registro');
         }
     </script>
+    <?php
+    $ayudaSistemaRol = 'usuario';
+    require_once '../../includes/system_help.php';
+    ?>
 </body>
 </html>
