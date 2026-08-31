@@ -1,12 +1,21 @@
 <?php
+// 1. Cargar el autoloader de Composer (ajusta la ruta relativa si es necesario)
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use Dotenv\Dotenv;
+
+// 2. Inicializar y cargar las variables del archivo .env
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
+$dotenv->load();
+
 // Configuracion de base de datos con soporte para variables de entorno.
 // En XAMPP/Windows, 127.0.0.1 evita bloqueos ocasionales de resolucion con "localhost".
-$servidor = getenv('DB_HOST') ?: 'localhost';
-$usuario = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASS') ?: '';
-$base_datos = getenv('DB_NAME') ?: 'hotel';
-$puerto = (int) (getenv('DB_PORT') ?: 3308);
-$timeout = (int) (getenv('DB_TIMEOUT') ?: 5);
+$servidor = $_ENV['DB_HOST'];
+$usuario =  $_ENV['DB_USER'];
+$password =  $_ENV['DB_PASS'];
+$base_datos =  $_ENV['DB_NAME'];
+$puerto = (int)  $_ENV['DB_PORT'];
+$timeout = (int)  $_ENV['DB_TIMEOUT'];
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
