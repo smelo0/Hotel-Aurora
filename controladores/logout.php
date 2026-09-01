@@ -1,17 +1,23 @@
 <?php
-declare(strict_types=1);
-
+// 1. Iniciar la sesión para poder acceder a ella
 session_start();
 
-unset($_SESSION['emp_auth'], $_SESSION['user_auth']);
-$_SESSION = [];
+// 2. Limpiar todas las variables de sesión
+$_SESSION = array();
 
-if (ini_get('session.use_cookies')) {
+// 3. Si se desea destruir la cookie de sesión completamente
+if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    setcookie(session_name(), '', time() - 42000,
+        $params["path"], $params["domain"],
+        $params["secure"], $params["httponly"]
+    );
 }
 
+// 4. Destruir la sesión
 session_destroy();
 
-header('Location: ../interfaz/loggins/index_ad_em.php?logout=ok');
-exit();
+// 5. Redireccionar directamente a la interfaz pública/usuario
+header("Location: interfaz_usu.php");
+exit(); // Es primordial usar exit() para detener la ejecución inmediatamente
+?>

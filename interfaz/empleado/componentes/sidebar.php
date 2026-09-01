@@ -50,7 +50,7 @@
             <button onclick="cerrarModalLogoutEmpleado()" class="flex-1 px-6 py-4 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100" type="button">
                 Seguir trabajando
             </button>
-            <a href="../../controladores/logout.php?panel=emp" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
+            <a href="../../interfaz_usu.php" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
                 Salir
             </a>
         </div>

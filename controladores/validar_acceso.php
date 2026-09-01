@@ -3,7 +3,7 @@ session_start();
 require_once '../configuracion/conexion.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: ../interfaz/loggins/index_ad_em.php");
+    header("Location: interfaz_usu.php");
     exit();
 }
 
@@ -46,16 +46,16 @@ if ($resultado && $resultado->num_rows > 0) {
                 break;
 
             default:
-                header("Location: ../interfaz/loggins/index_ad_em.php?error=rol");
+                header("Location: ../interfaz/loggins/index_usu.php?error=rol");
                 break;
         }
         exit();
     }
 
-    header("Location: ../interfaz/loggins/index_ad_em.php?error=clave");
+    header("Location: ../interfaz/loggins/index_usu.php?error=clave");
     exit();
 }
 
-header("Location: ../interfaz/loggins/index_ad_em.php?error=usuario");
+header("Location: ../interfaz/loggins/index_usu.php?error=usuario");
 exit();
 ?>

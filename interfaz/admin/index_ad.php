@@ -8,7 +8,7 @@ if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
     !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2], true)
 ) {
-    header("Location: ../loggins/index_ad_em.php");
+    header("Location: ../loggins/index_usu.php");
     exit();
 }
 
@@ -60,7 +60,7 @@ require_once 'componentes_ad/head.php';
                 <button onclick="cerrarModalLogout()" class="flex-1 px-6 py-4 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100">
                     Seguir trabajando
                 </button>
-                <a href="../../controladores/logout.php?panel=emp" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
+                <a href="../../interfaz_usu.php" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
                     Sí, salir ahora
                 </a>
             </div>
