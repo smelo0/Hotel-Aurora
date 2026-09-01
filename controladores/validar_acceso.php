@@ -3,7 +3,7 @@ session_start();
 require_once '../configuracion/conexion.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header("Location: interfaz_usu.php");
+    header("Location: ../interfaz/loggins/index_usu.php");
     exit();
 }
 

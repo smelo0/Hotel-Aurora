@@ -353,8 +353,16 @@ CREATE TABLE `usuario` (
   `cod_rol_usu` bigint(20) DEFAULT NULL,
   `foto_usu` varchar(255) DEFAULT 'default_avatar.png',
   `tema_usu` enum('claro','oscuro') DEFAULT 'claro',
-  `idioma_usu` enum('es','en') DEFAULT 'es'
+  `idioma_usu` enum('es','en') DEFAULT 'es',
+  `data_consent` tinyint(1) NOT NULL DEFAULT 0,
+  `consent_date` datetime NULL,
+  `consent_ip` varchar(45) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `usuario`
+  ADD COLUMN `data_consent` TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN `consent_date` DATETIME NULL,
+  ADD COLUMN `consent_ip` VARCHAR(45) NULL;
 
 --
 -- Volcado de datos para la tabla `usuario`

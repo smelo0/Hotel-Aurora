@@ -62,11 +62,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 $nombre = trim((string) ($_POST['nom_usu'] ?? ''));
 $correo = trim((string) ($_POST['corr_usu'] ?? ''));
 $passwordPura = (string) ($_POST['psw_usu'] ?? '');
+$dataConsent = (int) ($_POST['data_consent'] ?? 0);
 $captchaToken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
 $captchaMarcado = (string) ($_POST['captcha'] ?? '');
+$consentIp = $_SERVER['REMOTE_ADDR'] ?? '';
 
 if ($nombre === '' || $correo === '' || $passwordPura === '') {
     redirectToUserLogin('vista=registro&error=vacio');
+}
+
+if ($dataConsent !== 1) {
+    redirectToUserLogin('vista=registro&error=consentimiento');
 }
 
 if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
@@ -110,7 +116,7 @@ $stmtCheck->close();
 $passwordEncriptada = password_hash($passwordPura, PASSWORD_BCRYPT);
 $rolHuesped = 6;
 
-$sql = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu) VALUES (?, ?, ?, ?)';
+$sql = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu, data_consent, consent_date, consent_ip) VALUES (?, ?, ?, ?, ?, NOW(), ?)';
 $stmt = $conexion->prepare($sql);
 
 if (!$stmt) {
@@ -118,7 +124,7 @@ if (!$stmt) {
     redirectToUserLogin('vista=registro&error=bd_insercion');
 }
 
-$stmt->bind_param('sssi', $nombre, $correo, $passwordEncriptada, $rolHuesped);
+$stmt->bind_param('sssiis', $nombre, $correo, $passwordEncriptada, $rolHuesped, $dataConsent, $consentIp);
 
 if (!$stmt->execute()) {
     $stmt->close();
