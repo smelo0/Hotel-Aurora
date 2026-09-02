@@ -4,6 +4,7 @@
 
 // Reparacion: Se reemplazo window.onload por DOMContentLoaded para no pisar el arranque inline de index_ad.php.
 document.addEventListener('DOMContentLoaded', () => {
+    inicializarPermisosAdmin();
     inicializarFechaAdmin();
     inicializarTogglesAdmin();
     actualizarContadorTareasAdmin();
@@ -13,6 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarSincronizacionHousekeeping();
     iniciarSincronizacionReservas();
 });
+
+function inicializarPermisosAdmin() {
+    const permisos = Array.isArray(window.PERMISOS_USUARIO) ? window.PERMISOS_USUARIO : [];
+    if (permisos.length === 0) return;
+    document.querySelectorAll('[data-permiso]').forEach(elemento => {
+        if (!permisos.includes(elemento.dataset.permiso)) {
+            elemento.remove();
+        }
+    });
+
+    const primerElemento = document.querySelector('.nav-item');
+    if (primerElemento && !document.querySelector('.nav-item.active-nav')) {
+        primerElemento.classList.add('active-nav');
+    }
+}
 
 // Reparacion: Se escucha el mismo canal en tiempo real usado por Operaciones/Housekeeping.
 window.addEventListener('storage', event => {
@@ -71,6 +87,15 @@ function inicializarTogglesAdmin() {
 // NAVEGACION Y UTILIDADES
 // =======================================================
 function navegar(sec, btn) {
+    const permisoSeccion = {
+        dashboard: 'dashboard.ver',
+        reservas: 'reservas.ver',
+        roles: 'roles.ver',
+        operaciones: 'operaciones.ver',
+        finanzas: 'finanzas.ver',
+        configuracion: 'configuracion.ver'
+    }[sec];
+    if (permisoSeccion && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
     document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
     const seccion = document.getElementById('sec-' + sec);
     if (seccion) seccion.classList.remove('hidden');

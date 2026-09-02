@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1:3308
--- Tiempo de generación: 27-08-2026 a las 18:31:14
+-- Tiempo de generación: 02-09-2026 a las 18:10:32
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -207,6 +207,39 @@ INSERT INTO `pagos` (`id_pago`, `cod_res_pago`, `monto`, `metodo_pago`, `referen
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `permiso`
+--
+
+CREATE TABLE `permiso` (
+  `cod_permiso` varchar(60) NOT NULL,
+  `modulo` varchar(40) NOT NULL,
+  `accion` varchar(40) NOT NULL,
+  `des_permiso` varchar(150) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `permiso`
+--
+
+INSERT INTO `permiso` (`cod_permiso`, `modulo`, `accion`, `des_permiso`) VALUES
+('configuracion.editar', 'configuracion', 'editar', 'Editar la configuración del sistema'),
+('configuracion.ver', 'configuracion', 'ver', 'Ver la sección de seguridad/configuración'),
+('dashboard.ver', 'dashboard', 'ver', 'Ver el panel principal'),
+('finanzas.exportar', 'finanzas', 'exportar', 'Exportar reportes financieros'),
+('finanzas.ver', 'finanzas', 'ver', 'Ver reportes financieros'),
+('operaciones.editar', 'operaciones', 'editar', 'Cambiar el estado de las habitaciones (aseo, mantenimiento, etc.)'),
+('operaciones.ver', 'operaciones', 'ver', 'Ver el estado de las habitaciones'),
+('reservas.crear', 'reservas', 'crear', 'Crear nuevas reservas'),
+('reservas.editar', 'reservas', 'editar', 'Editar reservas existentes'),
+('reservas.eliminar', 'reservas', 'eliminar', 'Eliminar reservas'),
+('reservas.ver', 'reservas', 'ver', 'Ver el listado de reservas'),
+('roles.asignar_permisos', 'roles', 'asignar_permisos', 'Asignar permisos a un rol'),
+('roles.gestionar', 'roles', 'gestionar', 'Crear, editar y eliminar roles'),
+('roles.ver', 'roles', 'ver', 'Ver la sección de roles y permisos');
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `reservas`
 --
 
@@ -279,12 +312,63 @@ CREATE TABLE `rol` (
 --
 
 INSERT INTO `rol` (`cod_rol`, `des_rol`, `detalle_rol`) VALUES
-(1, 'Gerente General', NULL),
+(1, 'Gerente General', ''),
 (2, 'Gestor de Ingresos', NULL),
 (3, 'Recepcionista', NULL),
 (4, 'Conserje', NULL),
 (5, 'Personal de Limpieza', NULL),
 (6, 'Cliente', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `rol_permiso`
+--
+
+CREATE TABLE `rol_permiso` (
+  `cod_rol` bigint(20) NOT NULL,
+  `cod_permiso` varchar(60) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `rol_permiso`
+--
+
+INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
+(1, 'configuracion.editar'),
+(1, 'configuracion.ver'),
+(1, 'dashboard.ver'),
+(1, 'finanzas.exportar'),
+(1, 'finanzas.ver'),
+(1, 'operaciones.editar'),
+(1, 'operaciones.ver'),
+(1, 'reservas.crear'),
+(1, 'reservas.editar'),
+(1, 'reservas.eliminar'),
+(1, 'reservas.ver'),
+(1, 'roles.asignar_permisos'),
+(1, 'roles.gestionar'),
+(1, 'roles.ver'),
+(2, 'dashboard.ver'),
+(2, 'finanzas.exportar'),
+(2, 'finanzas.ver'),
+(2, 'operaciones.ver'),
+(2, 'reservas.crear'),
+(2, 'reservas.editar'),
+(2, 'reservas.eliminar'),
+(2, 'reservas.ver'),
+(2, 'roles.ver'),
+(3, 'dashboard.ver'),
+(3, 'operaciones.ver'),
+(3, 'reservas.crear'),
+(3, 'reservas.editar'),
+(3, 'reservas.ver'),
+(4, 'dashboard.ver'),
+(4, 'operaciones.editar'),
+(4, 'operaciones.ver'),
+(5, 'dashboard.ver'),
+(5, 'operaciones.editar'),
+(5, 'operaciones.ver');
 
 -- --------------------------------------------------------
 
@@ -334,7 +418,8 @@ INSERT INTO `tarea` (`cod_tar`, `tit_tar`, `cat_tar`, `prioridad_tar`, `des_tar`
 (24, 'Reabastecimiento', 'URGENTE', 'Media', 'Despensa', 'Completada', '2026-04-24 13:44:22', 3),
 (25, 'Trapear', 'GENERAL', 'Media', 'piso 1', 'Completada', '2026-04-24 13:46:18', 4),
 (26, 'Trapear', 'URGENTE', 'Media', 'Piso 4, habitacion 401', 'Pendiente', '2026-04-24 13:57:32', 2),
-(27, 'Trapear', 'URGENTE', 'Media', 'gfgfh', 'Pendiente', '2026-04-24 15:32:27', 2);
+(27, 'Trapear', 'URGENTE', 'Media', 'gfgfh', 'Pendiente', '2026-04-24 15:32:27', 2),
+(28, 'fsa', 'GENERAL', 'Media', 'asd', 'Pendiente', '2026-09-02 17:45:27', 1);
 
 -- --------------------------------------------------------
 
@@ -355,42 +440,38 @@ CREATE TABLE `usuario` (
   `tema_usu` enum('claro','oscuro') DEFAULT 'claro',
   `idioma_usu` enum('es','en') DEFAULT 'es',
   `data_consent` tinyint(1) NOT NULL DEFAULT 0,
-  `consent_date` datetime NULL,
-  `consent_ip` varchar(45) NULL
+  `consent_date` datetime DEFAULT NULL,
+  `consent_ip` varchar(45) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-ALTER TABLE `usuario`
-  ADD COLUMN `data_consent` TINYINT(1) NOT NULL DEFAULT 0,
-  ADD COLUMN `consent_date` DATETIME NULL,
-  ADD COLUMN `consent_ip` VARCHAR(45) NULL;
 
 --
 -- Volcado de datos para la tabla `usuario`
 --
 
-INSERT INTO `usuario` (`id_usu`, `doc_usu`, `nom_usu`, `tel_usu`, `corr_usu`, `psw_usu`, `est_usu`, `cod_rol_usu`, `foto_usu`, `tema_usu`, `idioma_usu`) VALUES
-(1, NULL, 'Steven', NULL, 'gerente@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 1, 'default_avatar.png', 'claro', 'es'),
-(2, NULL, 'Yulli Recepcionista', NULL, 'yulli@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(3, NULL, 'Samuel Conserje', NULL, 'samuel@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 4, 'default_avatar.png', 'claro', 'es'),
-(4, NULL, 'Samantha Limpieza', NULL, 'samantha@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 5, 'default_avatar.png', 'claro', 'es'),
-(7, NULL, 'Santiago Melo', NULL, 'gestorIngresos@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 2, 'default_avatar.png', 'claro', 'es'),
-(10, NULL, 'Will Smith', NULL, 'will@actor.com', '', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(14, NULL, 'Adam Samdler', NULL, 'adam@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(16, NULL, 'Michael Jordan Cruz', NULL, 'mich@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(17, NULL, 'Camilo', NULL, 'camilo@g.com', '$2y$10$C5MOvFA77zrRQz9IMR1Bv..iZMVmzobsnqz1u.ywBiDKvE8EvQVCi', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(18, NULL, 'Camila', NULL, 'camila@g.com', '$2y$10$xiSIbm7gVkloBJERPufmgeAGoavh5Q0vBIGwG9.X4T.TqYTRWuBNu', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(19, NULL, 'Fernando Castro Pinzon', NULL, 'ferdinan@g.com', '$2y$10$YAHpYmVFCl0wre6hKamhs.Ir5/SqtcNUfBuul/No289f/4UKzoFVC', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(21, NULL, 'Rafael Orozco', NULL, 'rafael@g.com', '$2y$10$534ZvxIYsYyJ2D.i7xUd1.M1dgU7faF24LI1lIwhj8QasRZypLyl6', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(22, NULL, 'Luis Miguel', NULL, 'luismi@g.com', '$2y$10$8HiIzSpkbPAVBfclTyACL.wyUgK.A.NvdyKvR5E.ns9sejfMoAA8q', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(23, NULL, 'Laura Muñoz', NULL, 'lauritagomezochoa@g.com', '$2y$10$mvWep4bDRpLcTEYfFIFM2.oRqJ.24TEwLgtKk5iV5I2OHTgkGq4xq', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(24, NULL, 'Rafael Dominguez', NULL, 'rafa@g.com', '$2y$10$rQzRhByDkGBr3K3S6gf4MuzQgsqW985z6h1yguZHXeodm7THBESaq', 1, 3, 'default_avatar.png', 'claro', 'es'),
-(26, NULL, 'dana sara perez', NULL, 'dana_sara123@gmail.com', '$2y$10$vEZAxUJz4A3H1ounGeSnVukImYZaxHd6FTaGJfsdtkjEeHS7cjA8a', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(27, NULL, 'yulieth gomez', NULL, 'yuli.aa.gomez@gmsil.com', '$2y$10$i8rAos5Too9viPz8DOxI3OBIjCNOqqHT88T.mUUpHP8ENAFXcctU2', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(28, NULL, 'qasdsf', NULL, 'yuli.aa.gomez@gmail.com', '$2y$10$EFfRu1.iOeLkqxCl0/g3q.EYx8tX31TFxRjtQj9zWHnljusNxQw1G', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(29, NULL, 'noes', NULL, 'pylo@gmail.com', '$2y$10$NWneLtjhhaL4e96Mo0rWmeN4PqmeTgNfs1oM9c7T.3vPXOvWsngeG', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(30, NULL, 'yulieth gomez', NULL, 'i.aa.gomez@gmail.com', '$2y$10$0rcuXkMcvUajFBjgkphZeeCEBAggafd3IoM6QfV9LCd0wDMi5Ke2m', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(31, NULL, 'yulieth gome', NULL, 'aa.gomez@gmail.com', '$2y$10$0wRclmBPAly5kI/F85GOE.5zr4B/ycqI1S1kjFLBpaMWklkHQW3dK', 1, 6, 'default_avatar.png', 'claro', 'es'),
-(32, NULL, 'papito3000', NULL, 'papicho@gmail.coom', '$2y$10$50Ou6sLfQjhv.kd/tm.NreDBq0fPyL9qR6aQFVzooP2ShNVIpUWAy', 1, 6, 'default_avatar.png', 'claro', 'es');
+INSERT INTO `usuario` (`id_usu`, `doc_usu`, `nom_usu`, `tel_usu`, `corr_usu`, `psw_usu`, `est_usu`, `cod_rol_usu`, `foto_usu`, `tema_usu`, `idioma_usu`, `data_consent`, `consent_date`, `consent_ip`) VALUES
+(1, NULL, 'Steven', NULL, 'gerente@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 1, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(2, NULL, 'Yulli Recepcionista', NULL, 'yulli@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(3, NULL, 'Samuel Conserje', NULL, 'samuel@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 4, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(4, NULL, 'Samantha Limpieza', NULL, 'samantha@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 5, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(7, NULL, 'Santiago Melo', NULL, 'gestorIngresos@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 2, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(10, NULL, 'Will Smith', NULL, 'will@actor.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(14, NULL, 'Adam Samdler', NULL, 'adam@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(16, NULL, 'Michael Jordan Cruz', NULL, 'mich@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(17, NULL, 'Camilo', NULL, 'camilo@g.com', '$2y$10$C5MOvFA77zrRQz9IMR1Bv..iZMVmzobsnqz1u.ywBiDKvE8EvQVCi', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(18, NULL, 'Camila', NULL, 'camila@g.com', '$2y$10$xiSIbm7gVkloBJERPufmgeAGoavh5Q0vBIGwG9.X4T.TqYTRWuBNu', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(19, NULL, 'Fernando Castro Pinzon', NULL, 'ferdinan@g.com', '$2y$10$YAHpYmVFCl0wre6hKamhs.Ir5/SqtcNUfBuul/No289f/4UKzoFVC', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(21, NULL, 'Rafael Orozco', NULL, 'rafael@g.com', '$2y$10$534ZvxIYsYyJ2D.i7xUd1.M1dgU7faF24LI1lIwhj8QasRZypLyl6', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(22, NULL, 'Luis Miguel', NULL, 'luismi@g.com', '$2y$10$8HiIzSpkbPAVBfclTyACL.wyUgK.A.NvdyKvR5E.ns9sejfMoAA8q', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(23, NULL, 'Laura Muñoz', NULL, 'lauritagomezochoa@g.com', '$2y$10$mvWep4bDRpLcTEYfFIFM2.oRqJ.24TEwLgtKk5iV5I2OHTgkGq4xq', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(24, NULL, 'Rafael Dominguez', NULL, 'rafa@g.com', '$2y$10$rQzRhByDkGBr3K3S6gf4MuzQgsqW985z6h1yguZHXeodm7THBESaq', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(26, NULL, 'dana sara perez', NULL, 'dana_sara123@gmail.com', '$2y$10$vEZAxUJz4A3H1ounGeSnVukImYZaxHd6FTaGJfsdtkjEeHS7cjA8a', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(27, NULL, 'yulieth gomez', NULL, 'yuli.aa.gomez@gmsil.com', '$2y$10$i8rAos5Too9viPz8DOxI3OBIjCNOqqHT88T.mUUpHP8ENAFXcctU2', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(28, NULL, 'qasdsf', NULL, 'yuli.aa.gomez@gmail.com', '$2y$10$EFfRu1.iOeLkqxCl0/g3q.EYx8tX31TFxRjtQj9zWHnljusNxQw1G', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(29, NULL, 'noes', NULL, 'pylo@gmail.com', '$2y$10$NWneLtjhhaL4e96Mo0rWmeN4PqmeTgNfs1oM9c7T.3vPXOvWsngeG', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(30, NULL, 'yulieth gomez', NULL, 'i.aa.gomez@gmail.com', '$2y$10$0rcuXkMcvUajFBjgkphZeeCEBAggafd3IoM6QfV9LCd0wDMi5Ke2m', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(31, NULL, 'yulieth gome', NULL, 'aa.gomez@gmail.com', '$2y$10$0wRclmBPAly5kI/F85GOE.5zr4B/ycqI1S1kjFLBpaMWklkHQW3dK', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(32, NULL, 'papito3000', NULL, 'papicho@gmail.coom', '$2y$10$50Ou6sLfQjhv.kd/tm.NreDBq0fPyL9qR6aQFVzooP2ShNVIpUWAy', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(33, NULL, 'juandavid', NULL, 'juan_david@gmail.com', '$2y$10$ieQC3T6cWrRTjiu9U3y7D.HfKjxiKr9Ztn5r3hnjDXm7CgwZLtyT6', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-09-01 08:25:17', '::1');
 
 --
 -- Índices para tablas volcadas
@@ -432,6 +513,12 @@ ALTER TABLE `pagos`
   ADD KEY `cod_res_pago` (`cod_res_pago`);
 
 --
+-- Indices de la tabla `permiso`
+--
+ALTER TABLE `permiso`
+  ADD PRIMARY KEY (`cod_permiso`);
+
+--
 -- Indices de la tabla `reservas`
 --
 ALTER TABLE `reservas`
@@ -442,14 +529,27 @@ ALTER TABLE `reservas`
 -- Indices de la tabla `rol`
 --
 ALTER TABLE `rol`
-  ADD PRIMARY KEY (`cod_rol`);
+  ADD PRIMARY KEY (`cod_rol`),
+  ADD KEY `cod_rol` (`cod_rol`),
+  ADD KEY `cod_rol_2` (`cod_rol`),
+  ADD KEY `cod_rol_3` (`cod_rol`),
+  ADD KEY `cod_rol_4` (`cod_rol`);
+
+--
+-- Indices de la tabla `rol_permiso`
+--
+ALTER TABLE `rol_permiso`
+  ADD PRIMARY KEY (`cod_rol`,`cod_permiso`),
+  ADD KEY `fk_rol_permiso_permiso` (`cod_permiso`);
 
 --
 -- Indices de la tabla `tarea`
 --
 ALTER TABLE `tarea`
   ADD PRIMARY KEY (`cod_tar`),
-  ADD KEY `cod_usu_tar` (`cod_usu_tar`);
+  ADD KEY `cod_usu_tar` (`cod_usu_tar`),
+  ADD KEY `cod_tar` (`cod_tar`),
+  ADD KEY `cod_usu_tar_2` (`cod_usu_tar`);
 
 --
 -- Indices de la tabla `usuario`
@@ -509,13 +609,13 @@ ALTER TABLE `rol`
 -- AUTO_INCREMENT de la tabla `tarea`
 --
 ALTER TABLE `tarea`
-  MODIFY `cod_tar` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `cod_tar` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 
 --
 -- AUTO_INCREMENT de la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  MODIFY `id_usu` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id_usu` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- Restricciones para tablas volcadas
@@ -545,6 +645,13 @@ ALTER TABLE `pagos`
 --
 ALTER TABLE `reservas`
   ADD CONSTRAINT `reservas_ibfk_1` FOREIGN KEY (`id_usu_res`) REFERENCES `usuario` (`id_usu`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `rol_permiso`
+--
+ALTER TABLE `rol_permiso`
+  ADD CONSTRAINT `fk_rol_permiso_permiso` FOREIGN KEY (`cod_permiso`) REFERENCES `permiso` (`cod_permiso`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rol_permiso_rol` FOREIGN KEY (`cod_rol`) REFERENCES `rol` (`cod_rol`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `tarea`

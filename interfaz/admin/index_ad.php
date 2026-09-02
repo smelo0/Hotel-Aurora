@@ -18,7 +18,29 @@ $firma_actor_panel = hash_hmac(
     'software_hotel_actor_panel_v1'
 );
 
+require_once '../../configuracion/conexion.php';
+require_once '../../configuracion/permiso.php';
+/** @var mysqli $conexion */
 require_once 'componentes_ad/head.php';
+
+$permisos_usuario = [];
+$stmt_permisos = $conexion->prepare('SELECT rp.cod_permiso FROM rol_permiso rp WHERE rp.cod_rol = ?');
+$rol_sesion = (int) $_SESSION['emp_auth']['rol_usuario'];
+if ($stmt_permisos) {
+    $stmt_permisos->bind_param('i', $rol_sesion);
+    $stmt_permisos->execute();
+    $resultado_permisos = $stmt_permisos->get_result();
+    while ($permiso = $resultado_permisos->fetch_assoc()) {
+        $permisos_usuario[] = $permiso['cod_permiso'];
+    }
+}
+
+// Mantiene visible el panel mientras se instala la migración de permisos.
+if ($permisos_usuario === []) {
+    $permisos_usuario = $rol_sesion === 1
+        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver']
+        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver'];
+}
 ?>
 
 <body class="bg-surface font-body text-heading antialiased flex min-h-screen overflow-hidden">
@@ -93,6 +115,7 @@ require_once 'componentes_ad/head.php';
 
     <script>
         const ROL_USUARIO = <?php echo isset($_SESSION['emp_auth']['rol_usuario']) ? (int) $_SESSION['emp_auth']['rol_usuario'] : 1; ?>;
+        const PERMISOS_USUARIO = <?php echo json_encode($permisos_usuario, JSON_UNESCAPED_UNICODE); ?>;
         const ID_USUARIO_ACTIVO = <?php echo isset($_SESSION['emp_auth']['id_usuario']) ? (int) $_SESSION['emp_auth']['id_usuario'] : 0; ?>;
         const FIRMA_USUARIO_ACTIVO = "<?php echo htmlspecialchars($firma_actor_panel, ENT_QUOTES, 'UTF-8'); ?>";
     </script>

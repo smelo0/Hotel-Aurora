@@ -5,8 +5,11 @@ session_start();
 
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
+require_once '../configuracion/permiso.php';
 
 header('Content-Type: application/json; charset=utf-8');
+/**@var mysqli $conexion */
+exigir_permiso($conexion, 'reservas.crear');
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 

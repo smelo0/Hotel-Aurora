@@ -1,122 +1,29 @@
 <?php
-// Modificación: Nueva Sección: Esqueleto base para la Gestión de Roles.
-// Aquí se construirá el CRUD completo de Roles y Permisos. Por ahora, la interfaz está preparada con estructura, estilos y acciones listas para conectar.
-
 require_once '../../configuracion/conexion.php';
-
-// Datos de ejemplo (más adelante se reemplazará por consulta real)
-$roles = [
-    ['codigo' => 1, 'nombre' => 'Admin', 'descripcion' => 'Acceso total al sistema', 'usuarios' => 2],
-    ['codigo' => 2, 'nombre' => 'Gestor', 'descripcion' => 'Gestión de reservas y reportes', 'usuarios' => 5],
-    ['codigo' => 3, 'nombre' => 'Recepcionista', 'descripcion' => 'Check-in/out y tareas diarias', 'usuarios' => 12],
-    ['codigo' => 4, 'nombre' => 'Conserje', 'descripcion' => 'Mantenimiento dehabitaciones', 'usuarios' => 8],
-    ['codigo' => 5, 'nombre' => 'Limpieza', 'descripcion' => 'Gestión de estado de habitaciones', 'usuarios' => 15],
-];
+require_once '../../configuracion/permiso.php';
+/** @var mysqli $conexion */
+if (!usuario_tiene_permiso($conexion, 'roles.ver')) { return; }
 ?>
-
 <section id="sec-roles" class="seccion-contenido hidden fade-in">
     <div class="bg-white rounded-xl p-8 border border-primary/10 shadow-sm">
-        <div class="mb-8 flex justify-between items-end">
-            <div>
-                <h3 class="text-2xl font-black text-primary tracking-tight">Gestión de Roles y Permisos</h3>
-                <p class="text-xs text-slate-400 mt-1">Control de acceso, asignación de funcionalidades y administración de perfiles del personal.</p>
-            </div>
-            <button onclick="abrirModalNuevoRol()" class="bg-primary text-white px-6 py-3 rounded-lg font-bold text-sm shadow hover:brightness-110 transition-all">
-                <span class="material-symbols-outlined text-sm align-middle mr-1">add</span> Nuevo Rol
-            </button>
+        <div class="mb-8 flex flex-wrap justify-between items-end gap-4">
+            <div><h3 class="text-2xl font-black text-primary tracking-tight">Gestión de Roles y Permisos</h3><p class="text-xs text-slate-400 mt-1">Define qué acciones puede realizar cada perfil.</p></div>
+            <button id="btnNuevoRol" type="button" onclick="abrirModalNuevoRol()" class="hidden bg-primary text-white px-6 py-3 rounded-lg font-bold text-sm shadow hover:brightness-110"><span class="material-symbols-outlined text-sm align-middle mr-1">add</span> Nuevo Rol</button>
         </div>
-
-        <!-- Modificación: Tabla de roles con formato moderno, preparada para CRUD -->
-        <div class="border border-slate-200 rounded-xl overflow-hidden">
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                    <tr>
-                        <th class="px-6 py-4">Código</th>
-                        <th class="px-6 py-4">Rol</th>
-                        <th class="px-6 py-4">Descripción</th>
-                        <th class="px-6 py-4">Usuarios</th>
-                        <th class="px-6 py-4 text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 text-sm">
-                    <?php foreach($roles as $rol): ?>
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-6 py-4 text-slate-400 font-mono text-xs">#<?php echo str_pad($rol['codigo'], 3, '0', STR_PAD_LEFT); ?></td>
-                        <td class="px-6 py-4 font-black text-slate-800"><?php echo htmlspecialchars($rol['nombre']); ?></td>
-                        <td class="px-6 py-4 text-slate-500 text-xs"><?php echo htmlspecialchars($rol['descripcion']); ?></td>
-                        <td class="px-6 py-4">
-                            <span class="bg-accent/10 text-primary px-2 py-1 rounded text-xs font-bold"><?php echo $rol['usuarios']; ?> activos</span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button class="text-slate-400 hover:text-primary mx-1" title="Editar rol" onclick="abrirEditarRol(<?php echo $rol['codigo']; ?>)">
-                                <span class="material-symbols-outlined text-lg">edit</span>
-                            </button>
-                            <button class="text-slate-400 hover:text-red-600 mx-1" title="Eliminar rol" onclick="confirmarEliminacionRol(<?php echo $rol['codigo']; ?>, '<?php echo htmlspecialchars($rol['nombre'], ENT_QUOTES); ?>')">
-                                <span class="material-symbols-outlined text-lg">delete</span>
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <p class="text-[10px] text-slate-300 mt-4 text-center">* La gestión de permisos específicos se habilitará en una fase posterior.</p>
+        <div id="mensajeRoles" class="hidden mb-5 rounded-lg px-4 py-3 text-sm font-bold"></div>
+        <div class="border border-slate-200 rounded-xl overflow-x-auto"><table class="w-full min-w-[700px] text-left"><thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500"><tr><th class="px-6 py-4">Código</th><th class="px-6 py-4">Rol</th><th class="px-6 py-4">Descripción</th><th class="px-6 py-4">Usuarios</th><th class="px-6 py-4">Permisos</th><th class="px-6 py-4 text-right">Acciones</th></tr></thead><tbody id="tablaRoles" class="divide-y divide-slate-100 text-sm"></tbody></table></div>
     </div>
 </section>
-
-<!-- Modificación: Modal base para crear/editar roles (a conectar más adelante). -->
-<div id="modalRol" class="modal-rol-backdrop z-[100] flex items-center justify-center modal-oculto transition-all duration-500">
-    <div class="bg-white p-10 rounded-xl w-[500px] shadow-2xl">
-        <h2 id="tituloModalRol" class="text-2xl font-black text-primary mb-6">Nuevo Rol</h2>
-        <form id="formRol" class="space-y-4">
-            <input type="hidden" id="codigoRol">
-            <div>
-                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre del Rol</label>
-                <input type="text" id="nombreRol" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 focus:ring-1 focus:ring-primary outline-none" placeholder="Ej: Supervisor">
-            </div>
-            <div>
-                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">Descripción</label>
-                <textarea id="descripcionRol" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 focus:ring-1 focus:ring-primary outline-none" rows="3" placeholder="Breve explicación de las funciones..."></textarea>
-            </div>
-            <div class="flex gap-4 pt-4">
-                <button type="button" onclick="cerrarModalRol()" class="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
-                <button type="submit" class="flex-1 py-3 bg-primary text-white font-bold rounded-lg shadow-lg hover:brightness-110">Guardar</button>
-            </div>
-        </form>
-    </div>
-</div>
-
+<div id="modalRol" class="modal-rol-backdrop z-[100] flex items-center justify-center modal-oculto transition-all duration-500"><div class="bg-white p-8 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"><div class="flex items-start justify-between gap-4 mb-6"><div><h2 id="tituloModalRol" class="text-2xl font-black text-primary">Nuevo Rol</h2><p class="text-xs text-slate-400 mt-1">Los cambios se aplican inmediatamente.</p></div><button type="button" onclick="cerrarModalRol()" class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button></div><form id="formRol" class="space-y-5"><input type="hidden" id="codigoRol"><div><label for="nombreRol" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre del rol</label><input type="text" id="nombreRol" maxlength="200" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div><div><label for="descripcionRol" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Descripción</label><textarea id="descripcionRol" maxlength="200" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary" rows="2"></textarea></div><fieldset id="listaPermisos" class="grid sm:grid-cols-2 gap-3"></fieldset><div class="flex gap-4 pt-2"><button type="button" onclick="cerrarModalRol()" class="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-100 rounded-lg">Cancelar</button><button type="submit" class="flex-1 py-3 bg-primary text-white font-bold rounded-lg shadow-lg hover:brightness-110">Guardar</button></div></form></div></div>
 <script>
-function abrirModalNuevoRol() {
-    document.getElementById('formRol').reset();
-    document.getElementById('codigoRol').value = '';
-    document.getElementById('tituloModalRol').innerText = 'Nuevo Rol';
-    const modal = document.getElementById('modalRol');
-    modal.classList.remove('modal-oculto');
-    modal.classList.add('modal-visible');
-}
-
-function abrirEditarRol(codigo) {
-    // Placeholder: conectar más adelante para cargar datos y permitir edición.
-    alert('Función de edición de rol se conectará cuando el backend esté listo. Código: ' + codigo);
-}
-
-function confirmarEliminacionRol(codigo, nombre) {
-    if (confirm('¿Estás seguro de eliminar el rol "' + nombre + '"? Esta acción no se puede deshacer.')) {
-        alert('Eliminación se implementará cuando el endpoint esté disponible. Código: ' + codigo);
-    }
-}
-
-function cerrarModalRol() {
-    const modal = document.getElementById('modalRol');
-    modal.classList.add('modal-oculto');
-    modal.classList.remove('modal-visible');
-}
-
-// Manejo del formulario (solo por ahora validación;Más adelante se conectará)
-document.getElementById('formRol').addEventListener('submit', function(e) {
-    e.preventDefault();
-    alert('El envío del formulario de roles se conectará en la próxima fase.');
-});
+const ENDPOINT_ROLES = '../../controladores/gestionar_roles.php'; let datosRoles = { roles: [], permisos: [], puede_gestionar: false, puede_asignar: false };
+function escaparRoles(valor) { return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter])); }
+function mostrarMensajeRoles(texto, error = false) { const mensaje = document.getElementById('mensajeRoles'); mensaje.textContent = texto; mensaje.className = `mb-5 rounded-lg px-4 py-3 text-sm font-bold ${error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`; }
+async function cargarRoles() { try { const respuesta = await fetch(`${ENDPOINT_ROLES}?accion=listar`, { headers: { Accept: 'application/json' } }); const datos = await respuesta.json(); if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar los roles'); datosRoles = datos; document.getElementById('btnNuevoRol').classList.toggle('hidden', !datos.puede_gestionar); renderizarRoles(); } catch (error) { mostrarMensajeRoles(error.message, true); } }
+function renderizarRoles() { document.getElementById('tablaRoles').innerHTML = datosRoles.roles.map(rol => { const acciones = datosRoles.puede_gestionar && rol.cod_rol > 6 ? `<button type="button" class="text-slate-400 hover:text-primary mx-1" title="Editar rol" onclick="abrirEditarRol(${rol.cod_rol})"><span class="material-symbols-outlined text-lg">edit</span></button><button type="button" class="text-slate-400 hover:text-red-600 mx-1" title="Eliminar rol" onclick="confirmarEliminacionRol(${rol.cod_rol}, '${escaparRoles(rol.des_rol)}')"><span class="material-symbols-outlined text-lg">delete</span></button>` : (datosRoles.puede_gestionar ? `<button type="button" class="text-slate-400 hover:text-primary mx-1" title="Editar permisos" onclick="abrirEditarRol(${rol.cod_rol})"><span class="material-symbols-outlined text-lg">tune</span></button>` : '<span class="text-slate-300">Solo lectura</span>'); return `<tr class="hover:bg-slate-50/50"><td class="px-6 py-4 text-slate-400 font-mono text-xs">#${String(rol.cod_rol).padStart(3, '0')}</td><td class="px-6 py-4 font-black text-slate-800">${escaparRoles(rol.des_rol)}</td><td class="px-6 py-4 text-slate-500 text-xs">${escaparRoles(rol.detalle_rol || 'Sin descripción')}</td><td class="px-6 py-4"><span class="bg-accent/10 text-primary px-2 py-1 rounded text-xs font-bold">${rol.usuarios} usuarios</span></td><td class="px-6 py-4 text-xs font-bold text-slate-500">${rol.permisos.length} permisos</td><td class="px-6 py-4 text-right">${acciones}</td></tr>`; }).join(''); }
+function abrirModalNuevoRol() { abrirModalRol(null); } function abrirEditarRol(codigo) { abrirModalRol(datosRoles.roles.find(rol => rol.cod_rol === codigo)); }
+function abrirModalRol(rol) { document.getElementById('formRol').reset(); document.getElementById('codigoRol').value = rol?.cod_rol || ''; document.getElementById('nombreRol').value = rol?.des_rol || ''; document.getElementById('descripcionRol').value = rol?.detalle_rol || ''; document.getElementById('tituloModalRol').textContent = rol ? `Editar: ${rol.des_rol}` : 'Nuevo Rol'; document.getElementById('listaPermisos').innerHTML = datosRoles.permisos.map(permiso => `<label class="flex items-start gap-2 rounded-lg border border-slate-200 p-3 cursor-pointer hover:bg-slate-50"><input type="checkbox" name="permisos" value="${escaparRoles(permiso.cod_permiso)}" ${rol?.permisos.includes(permiso.cod_permiso) ? 'checked' : ''} ${datosRoles.puede_asignar ? '' : 'disabled'} class="mt-1 accent-primary"><span><strong class="block text-xs text-slate-700">${escaparRoles(permiso.cod_permiso)}</strong><small class="text-[11px] text-slate-400">${escaparRoles(permiso.des_permiso)}</small></span></label>`).join(''); const modal = document.getElementById('modalRol'); modal.classList.remove('modal-oculto'); modal.classList.add('modal-visible'); }
+function cerrarModalRol() { const modal = document.getElementById('modalRol'); modal.classList.add('modal-oculto'); modal.classList.remove('modal-visible'); }
+async function confirmarEliminacionRol(codigo, nombre) { if (!confirm(`¿Eliminar el rol "${nombre}"?`)) return; const respuesta = await fetch(ENDPOINT_ROLES, { method: 'POST', headers: { Accept: 'application/json' }, body: new URLSearchParams({ accion: 'eliminar', cod_rol: codigo }) }); const datos = await respuesta.json(); if (!respuesta.ok) return mostrarMensajeRoles(datos.mensaje, true); mostrarMensajeRoles(datos.mensaje); cargarRoles(); }
+document.getElementById('formRol').addEventListener('submit', async evento => { evento.preventDefault(); const cuerpo = new URLSearchParams({ accion: 'guardar', cod_rol: document.getElementById('codigoRol').value, des_rol: document.getElementById('nombreRol').value.trim(), detalle_rol: document.getElementById('descripcionRol').value.trim() }); document.querySelectorAll('#listaPermisos input[name="permisos"]:checked').forEach(input => cuerpo.append('permisos[]', input.value)); const respuesta = await fetch(ENDPOINT_ROLES, { method: 'POST', headers: { Accept: 'application/json' }, body: cuerpo }); const datos = await respuesta.json(); if (!respuesta.ok) return mostrarMensajeRoles(datos.mensaje, true); cerrarModalRol(); mostrarMensajeRoles(datos.mensaje); cargarRoles(); }); cargarRoles();
 </script>
