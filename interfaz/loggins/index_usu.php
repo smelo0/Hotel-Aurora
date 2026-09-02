@@ -199,7 +199,7 @@ $dotenv->load();
                 <!-- Configuración del cliente -->
                 <div id="g_id_onload"
                      data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
-                     data-login_uri="http://localhost/software_hotel v2.0/controladores/callBack.php"
+                     data-login_uri="http://localhost/Hotel-Aurora/controladores/callBack.php"
                      data-auto_prompt="false">
                 </div>
                 <!-- Renderizado del botón -->
