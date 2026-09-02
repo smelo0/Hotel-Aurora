@@ -146,6 +146,16 @@ $dotenv->load();
         justify-content: center;
         }
 
+        .logo {
+            max-width: 50px;
+            max-height: 50px;
+        }
+
+        .flex-logo {
+            display: flex;
+            justify-content: center;
+        }
+
 
     </style>
 </head>
@@ -171,10 +181,9 @@ $dotenv->load();
     ?>
 
     <div class="form-card">
-        <span class="logo">
-                <img src="img/WhatsApp Image 2026-07-31 at 7.32.43 AM.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto">
-                
-                </span>
+        <span class="flex-logo">
+            <img class="logo" src="../../img/logo.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto"> 
+        </span>
 
         <div id="panel-login" class="fade-in" style="display: block;">
             <h1>Sea bienvenido</h1>
