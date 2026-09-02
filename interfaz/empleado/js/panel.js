@@ -34,7 +34,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3. Traer las Tareas Reales
     await cargarTareasEmpleado();
     iniciarSincronizacionTareasEmpleado();
-});
+
+    // 4. (aside_tareas.php) Escuchadores de eventos para la Cola de Tareas (Event Listeners)
+    document.querySelector('[data-action="abrir-cola"]')?.addEventListener('click', abrirColaTareas);
+    document.querySelector('[data-action="cerrar-cola"]')?.addEventListener('click', cerrarColaTareas);
+
+    // 5.  (modal_habitacion.php) Cerrar el modal con el nuevo botón
+    document.querySelector('[data-action="cerrar-modal-hab"]')?.addEventListener('click', cerrarModalHabitacion);
+
+    // Escuchar el cambio de estado para mostrar/ocultar prioridad y descripción
+    document.getElementById('estadoHabitacionModal')?.addEventListener('change', toggleDescripcionMantenimiento);
+
+    // Escuchar cambios en la prioridad
+    document.getElementById('prioridadMantenimientoModal')?.addEventListener('change', actualizarPrioridadMantenimiento);
+
+    // Escuchar la escritura en la descripción
+    document.getElementById('descripcionMantenimientoModal')?.addEventListener('input', toggleDescripcionMantenimiento);
+    });
 
 // Reparación: Función centralizada para restaurar la Cola de Tareas desde MySQL y reutilizarla en sincronización.
 async function cargarTareasEmpleado() {

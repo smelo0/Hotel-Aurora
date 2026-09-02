@@ -4,31 +4,43 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>HOTEL AURORA - Terminal Operativa</title>
-    
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Optimizaciones de conexión para recursos de Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Tipografías de Google -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <!-- Tailwind CSS (Script CDN optimizado) -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     
+    <!-- Configuración del Tema alineada a la estética Verde Esmeralda / Dorado / Blanco / Negro -->
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#2C5E5E", 
-                        "secondary": "#4A8B8B", 
-                        "accent": "#E6F2F2",    
-                        "heading": "#1A3B3B",   
-                        // Modificación: Se cambió el color de fondo a un tono más gris para resaltar los recuadros blancos.
-                        "surface": "#DDE6E6", 
+                        "primary": "#0B462B",     /* Verde Esmeralda Principal (Resaltante) */
+                        "primary-hover": "#07301D",
+                        "gold": "#C5A059",        /* Dorado Accent */
+                        "gold-light": "#E5C889",
+                        "dark": "#111111",        /* Negro Profundo */
+                        "surface": "#F4F6F5",     /* Fondo claro balanceado */
+                        "card-bg": "#FFFFFF"      /* Blanco Puro */
                     },
                     borderRadius: { "lg": "1rem", "xl": "2rem", "full": "9999px" },
-                    fontFamily: { "headline": ["Plus Jakarta Sans"], "body": ["Manrope"] }
+                    fontFamily: { "headline": ["Plus Jakarta Sans", "sans-serif"], "body": ["Manrope", "sans-serif"] }
                 },
             },
         }
     </script>
 
+    <!-- Hojas de estilo locales -->
     <link rel="stylesheet" href="css/estilos.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22></text></svg>">
+    
+    <!-- Favicon SVG Funcional con Isotipo en Dorado/Verde -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%230B462B'/><text x='50%' y='55%' font-size='60' text-anchor='middle' dominant-baseline='middle' fill='%23C5A059' font-family='sans-serif' font-weight='bold'>A</text></svg>">
 </head>
