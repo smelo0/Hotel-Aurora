@@ -801,7 +801,7 @@ $usuarioAutenticado = $usuarioId > 0;
                             Buscar Disponibilidad
                         </button>
                     </div>
-
+                    
                     <div class="mt-4 flex flex-col gap-2">
                         <p id="searchFeedback" class="hidden text-sm font-bold"></p>
                         
@@ -817,8 +817,16 @@ $usuarioAutenticado = $usuarioId > 0;
                 <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Habitaciones destacadas</p>
+
                         <h2 class="section-title font-display mt-3 text-4xl text-white">Descubre las estancias listas para tu próxima reserva.</h2>
                     </div>
+
+                     <div class="flex flex-wrap gap-2 mb-6">
+    <button type="button" class="filter-btn active-filter px-4 py-2 rounded-full text-xs font-bold uppercase border border-teal-600 bg-teal-600 text-white" data-filter="todos">Todas</button>
+    <button type="button" class="filter-btn px-4 py-2 rounded-full text-xs font-bold uppercase border border-slate-300 text-slate-300 hover:bg-slate-800" data-filter="Sencilla">Sencilla</button>
+    <button type="button" class="filter-btn px-4 py-2 rounded-full text-xs font-bold uppercase border border-slate-300 text-slate-300 hover:bg-slate-800" data-filter="Doble">Doble</button>
+    <button type="button" class="filter-btn px-4 py-2 rounded-full text-xs font-bold uppercase border border-slate-300 text-slate-300 hover:bg-slate-800" data-filter="Suite">Suite</button>
+</div>
                     <span class="soft-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
                         <span class="material-symbols-outlined text-base">verified</span>
                         Disponibilidad en tiempo real
@@ -831,7 +839,7 @@ $usuarioAutenticado = $usuarioId > 0;
         $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
         $features = roomFeatures((string) $room['tipo_hab']);
         ?>
-        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>">
+        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo e((string) $room['tipo_hab']); ?>">>
             <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
             <div class="p-6">
                 <div class="flex items-start justify-between gap-4">
@@ -1167,7 +1175,30 @@ $usuarioAutenticado = $usuarioId > 0;
         if (!element) return;
         element.classList.toggle('is-active', enabled);
     }
+    
 
+    document.querySelectorAll('.filter-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const filter = button.getAttribute('data-filter');
+
+        // Actualizar estilos de los botones
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
+            btn.classList.add('text-slate-600', 'border-slate-300');
+        });
+        button.classList.add('bg-teal-600', 'text-white', 'border-teal-600');
+
+        // Ocultar / Mostrar tarjetas
+        document.querySelectorAll('[data-room-card]').forEach(card => {
+            const type = card.getAttribute('data-room-type');
+            if (filter === 'todos' || type === filter) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+});
     function calculateNights() {
         if (!currentSearchIsReady()) return 1;
         const checkin = new Date(`${searchState.checkin}T00:00:00`);

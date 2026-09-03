@@ -258,10 +258,6 @@ $dotenv->load();
                 <label for="psw_usu">Contrasena</label>
                 <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
 
-                <label style="display:flex; align-items:flex-start; gap:10px; margin: 0 0 18px; text-transform:none; font-size:13px; line-height:1.5; color:#355b4a; letter-spacing:0;">
-                    <input type="checkbox" name="data_consent" value="1" required style="width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
-                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
-                </label>
 
               <!-- Configuración e integración del botón -->
             
@@ -289,7 +285,14 @@ $dotenv->load();
                     </div>
                 <?php endif; ?>
 
+                <label style="display:flex; align-items:flex-start; gap:10px; margin: 0 0 18px; text-transform:none; font-size:13px; line-height:1.5; color:#355b4a; letter-spacing:0;">
+                    <input type="checkbox" name="data_consent" value="1" required style="width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
+                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
+                </label>
+
+
                 <input type="submit" value="Crear cuenta">
+                
 
                 <a href="#" onclick="cambiarPanel('login'); return false;" class="link-switch">Ya tienes cuenta? Inicia sesion.</a>
             </form>
