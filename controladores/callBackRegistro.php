@@ -43,7 +43,7 @@ function validarRecaptcha(string $token): bool
 
 function redirectToUserLogin(string $query = ''): never
 {
-    $destination = '../interfaz/loggins/index_usu.php';
+    $destination = '../interfaz/loggins/loginUsuario.php';
     if ($query !== '') {
         $destination .= '?' . $query;
     }

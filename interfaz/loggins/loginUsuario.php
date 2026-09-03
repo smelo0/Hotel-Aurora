@@ -17,7 +17,7 @@ $dotenv->load();
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link rel="stylesheet" href="../../assets/loginUsuario.css">
+    <link rel="stylesheet" href="../../assets/css/loginUsuario.css">
 </head>
 <body>
     <?php
@@ -118,17 +118,13 @@ $dotenv->load();
                 <label for="psw_usu">Contrasena</label>
                 <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
 
-                <label style="display:flex; align-items:flex-start; gap:10px; margin: 0 0 18px; text-transform:none; font-size:13px; line-height:1.5; color:#355b4a; letter-spacing:0;">
-                    <input type="checkbox" name="data_consent" value="1" required style="width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
-                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
-                </label>
-
+    
               <!-- Configuración e integración del botón -->
             
                 <!-- Configuración del cliente -->
                 <div id="g_id_onload"
                      data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
-                     data-login_uri="http://localhost/software_hotel v2.0/controladores/callBackRegistro.php"
+                     data-login_uri="http://localhost/Hotel-Aurora/controladores/callBackRegistro.php"
                      data-auto_prompt="false">
                 </div>
                 <!-- Renderizado del botón -->
@@ -149,10 +145,16 @@ $dotenv->load();
                     </div>
                 <?php endif; ?>
 
+                <label class="consent-label"style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
+                    <input type="checkbox" name="data_consent" value="1" required style=" width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
+                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
+                </label>
+
                 <input type="submit" value="Crear cuenta">
 
                 <a href="#" onclick="cambiarPanel('login'); return false;" class="link-switch">Ya tienes cuenta? Inicia sesion.</a>
             </form>
+
         </div>
     </div>
 
