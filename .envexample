@@ -2,7 +2,7 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASS=
 DB_NAME=hotel
-DB_PORT=3308
+DB_PORT=3306
 DB_TIMEOUT=5
 
 # Claves de Google reCAPTCHA v2 Checkbox
