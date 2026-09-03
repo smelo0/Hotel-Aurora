@@ -255,7 +255,7 @@ $usuarioAutenticado = $usuarioId > 0;
 
         body {  
            
-            background-image: url(img/WhatsApp\ Image\ 2026-07-30\ at\ 10.41.43\ AM.jpeg);
+            background-image: url(img/fondo.jpeg);
             background-size: cover;       
             background-position: center;  
             background-repeat: no-repeat; 
@@ -683,7 +683,7 @@ $usuarioAutenticado = $usuarioId > 0;
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
             <a href="#inicio" class="flex items-center gap-3 text-white">
                 <span class="logo">
-                <img src="img/WhatsApp Image 2026-07-31 at 7.32.43 AM.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto">
+                <img src="img/logo.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto">
                 
                 </span>
                 <div>
