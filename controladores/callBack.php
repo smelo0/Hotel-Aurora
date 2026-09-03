@@ -12,7 +12,7 @@ $dotenv->load();
 
 function redirigir_login(string $query = ''): never
 {
-    $destino = '../interfaz/loggins/index_usu.php';
+    $destino = '../interfaz/loggins/loginUsuario.php';
     if ($query !== '') {
         $destino .= '?' . $query;
     }
@@ -126,7 +126,7 @@ $_SESSION['user_auth'] = [
 ];
 
 // Redirigir al panel principal
-header('Location: ../interfaz_usu.php');
+header('Location: ../landingPage.php');
 exit();
 
 ?>

@@ -17,147 +17,7 @@ $dotenv->load();
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            min-height: 100vh;
-            font-size: cover;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #c8e6d4;
-            font-family: 'DM Sans', sans-serif;
-            padding: 20px;
-        }
-
-        .form-card {
-            background: #fffdf7;
-            border-radius: 28px;
-            padding: 32px 40px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 8px 48px rgba(50, 120, 90, 0.13);
-        }
-
-        h1 {
-            font-family: 'DM Serif Display', serif;
-            font-size: 30px;
-            color: #1a3d30;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        label {
-            font-size: 11px;
-            font-weight: 500;
-            color: #6a9a82;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        input[type="text"], input[type="email"], input[type="password"] {
-            display: block;
-            width: 100%;
-            padding: 13px 16px;
-            margin-bottom: 18px;
-            border: 1.5px solid #c8e6d4;
-            border-radius: 14px;
-            background: #f4fbf7;
-            outline: none;
-        }
-
-        input[type="submit"] {
-            width: 100%;
-            padding: 15px;
-            background: #2a7a5c;
-            color: white;
-            border: none;
-            border-radius: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        input[type="submit"]:hover { background: #3a9e78; }
-
-        .link-switch {
-            display: block;
-            text-align: center;
-            font-size: 13px;
-            color: #5bb89a;
-            text-decoration: none;
-            margin-top: 15px;
-        }
-
-        .error-msg {
-            color: #ef4444;
-            font-size: 12px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-        }
-
-        .success-msg {
-            color: #10b981;
-            font-size: 12px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .captcha-wrap {
-            display: flex;
-            justify-content: center;
-            margin: 0 0 18px;
-        }
-
-        .captcha-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-            color: #295f49;
-            margin: 0 0 18px;
-            cursor: pointer;
-        }
-
-        .captcha-box input {
-            width: 18px;
-            height: 18px;
-            accent-color: #2a7a5c;
-            margin: 0;
-        }
-
-        .fade-in { animation: fadeIn 0.4s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .g_id_signin {
-        margin-bottom: 20px;          /* Espaciado abajo */
-        padding: 15px;
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        }
-
-        .logo {
-            max-width: 50px;
-            max-height: 50px;
-        }
-
-        .flex-logo {
-            display: flex;
-            justify-content: center;
-        }
-
-
-    </style>
+    <link rel="stylesheet" href="../../assets/css/loginUsuario.css">
 </head>
 <body>
     <?php
@@ -182,7 +42,7 @@ $dotenv->load();
 
     <div class="form-card">
         <span class="flex-logo">
-            <img class="logo" src="../../img/logo.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto"> 
+            <img class="logo" src="../../assets/images/logo.jpeg" alt="Hotel Aurora Logo" class="h-10 w-auto"> 
         </span>
 
         <div id="panel-login" class="fade-in" style="display: block;">
@@ -258,17 +118,13 @@ $dotenv->load();
                 <label for="psw_usu">Contrasena</label>
                 <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
 
-                <label style="display:flex; align-items:flex-start; gap:10px; margin: 0 0 18px; text-transform:none; font-size:13px; line-height:1.5; color:#355b4a; letter-spacing:0;">
-                    <input type="checkbox" name="data_consent" value="1" required style="width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
-                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
-                </label>
-
+    
               <!-- Configuración e integración del botón -->
             
                 <!-- Configuración del cliente -->
                 <div id="g_id_onload"
                      data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
-                     data-login_uri="http://localhost/software_hotel v2.0/controladores/callBackRegistro.php"
+                     data-login_uri="http://localhost/Hotel-Aurora/controladores/callBackRegistro.php"
                      data-auto_prompt="false">
                 </div>
                 <!-- Renderizado del botón -->
@@ -289,10 +145,16 @@ $dotenv->load();
                     </div>
                 <?php endif; ?>
 
+                <label class="consent-label"style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
+                    <input type="checkbox" name="data_consent" value="1" required style=" width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
+                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
+                </label>
+
                 <input type="submit" value="Crear cuenta">
 
                 <a href="#" onclick="cambiarPanel('login'); return false;" class="link-switch">Ya tienes cuenta? Inicia sesion.</a>
             </form>
+
         </div>
     </div>
 
