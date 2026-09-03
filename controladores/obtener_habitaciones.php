@@ -2,9 +2,11 @@
 // controladores/obtener_habitaciones.php
 session_start();
 require_once __DIR__ . '/../configuracion/conexion.php';
+require_once __DIR__ . '/../configuracion/permiso.php';
 header('Content-Type: application/json');
+exigir_permiso($conexion, 'operaciones.ver');
 
-// Conexión: Se agrega join con reserva/usuario para pintar huésped y fechas reales en paneles.
+// Conexiï¿½n: Se agrega join con reserva/usuario para pintar huï¿½sped y fechas reales en paneles.
 $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
                u.nom_usu AS huesped_nombre, r.fec_ent_res, r.fec_sal_res, r.est_res
         FROM habitacion h

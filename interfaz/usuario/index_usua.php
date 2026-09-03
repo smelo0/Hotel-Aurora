@@ -32,7 +32,7 @@ if (!isset($usuario['id_usuario']) || (int) ($usuario['rol_usuario'] ?? 0) !== 6
         <div class="flex items-center gap-4">
             <span class="font-medium text-slate-600">Hola, <?php echo htmlspecialchars($usuario['nombre_usuario']); ?></span>
             
-            <a href="../../controladores/logout.php?panel=user" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition flex items-center gap-2 font-bold text-sm">
+            <a href="../../interfaz_usu.php" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition flex items-center gap-2 font-bold text-sm">
                 <span class="material-symbols-outlined text-sm">logout</span> Salir
             </a>
         </div>

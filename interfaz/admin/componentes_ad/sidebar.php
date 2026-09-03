@@ -9,27 +9,27 @@
     <!-- Modificación: Se igualó la estructura de navegación con el panel empleado para que el active state funcione igual. -->
     <nav class="flex-1 flex flex-col">
         <!-- Modificación: Se reemplazó el botón tipo píldora por el estilo lineal activo del panel empleado. -->
-        <button onclick="navegar('dashboard', this)" class="nav-item active-nav relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="dashboard.ver" onclick="navegar('dashboard', this)" class="nav-item active-nav relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">dashboard</span><span class="text-sm font-bold">Dashboard</span>
         </button>
         <!-- Modificación: Se aplicó el mismo estilo de item de navegación del panel empleado. -->
-        <button onclick="navegar('reservas', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="reservas.ver" onclick="navegar('reservas', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-bold">Reservas</span>
         </button>
         <!-- Nueva Sección: ítem de navegación para Gestión de Roles y Permisos -->
-        <button onclick="navegar('roles', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="roles.ver" onclick="navegar('roles', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">admin_panel_settings</span><span class="text-sm font-bold">Roles y Permisos</span>
         </button>
         <!-- Modificación: Se aplicó el mismo estilo de item de navegación del panel empleado. -->
-        <button onclick="navegar('operaciones', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="operaciones.ver" onclick="navegar('operaciones', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">bed</span><span class="text-sm font-bold">Operaciones</span>
         </button>
         <!-- Modificación: Se aplicó el mismo estilo de item de navegación del panel empleado. -->
-        <button onclick="navegar('finanzas', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="finanzas.ver" onclick="navegar('finanzas', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">payments</span><span class="text-sm font-bold">Finanzas</span>
         </button>
         <!-- Modificación: Se aplicó el mismo estilo de item de navegación del panel empleado. -->
-        <button onclick="navegar('configuracion', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button data-permiso="configuracion.ver" onclick="navegar('configuracion', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">security</span><span class="text-sm font-bold">Seguridad</span>
         </button>
 
