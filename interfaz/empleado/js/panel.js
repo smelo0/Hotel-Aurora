@@ -50,7 +50,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Escuchar la escritura en la descripción
     document.getElementById('descripcionMantenimientoModal')?.addEventListener('input', toggleDescripcionMantenimiento);
+
+    // 6. (modal_tarea.php) Escuchadores de eventos para el modal de Tareas
+    document.querySelectorAll('[data-action="cerrar-modal-tarea"]').forEach(boton => {
+        boton.addEventListener('click', cerrarModal);
     });
+
+    // 7. (sidebar.php) Manejo de la navegación principal del Sidebar
+    document.querySelectorAll('[data-nav]').forEach(boton => {
+        boton.addEventListener('click', function() {
+            const seccion = this.getAttribute('data-nav');
+            if (typeof navegar === 'function') navegar(seccion, this);
+        });
+    });
+
+    // Control del Modal de Logout
+    const modalLogout = document.getElementById('modalLogoutEmpleado');
+    const cajaLogout = document.getElementById('cajaLogoutEmpleado');
+
+    document.querySelector('[data-action="abrir-modal-logout"]')?.addEventListener('click', () => {
+        modalLogout?.classList.remove('hidden');
+        setTimeout(() => {
+            cajaLogout?.classList.remove('scale-95', 'opacity-0');
+            cajaLogout?.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    });
+
+    document.querySelector('[data-action="cerrar-modal-logout"]')?.addEventListener('click', () => {
+        cajaLogout?.classList.remove('scale-100', 'opacity-100');
+        cajaLogout?.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modalLogout?.classList.add('hidden');
+        }, 200);
+    });
+
+    // Abrir modal de nueva tarea desde el sidebar
+    document.querySelector('[data-action="abrir-modal-tarea"]')?.addEventListener('click', abrirModal);
+
+});
 
 // Reparación: Función centralizada para restaurar la Cola de Tareas desde MySQL y reutilizarla en sincronización.
 async function cargarTareasEmpleado() {

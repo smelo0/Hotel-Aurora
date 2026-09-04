@@ -18,6 +18,6 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // 5. Redireccionar directamente a la interfaz pública/usuario
-header("Location: interfaz_usu.php");
+header("Location: ../interfaz_usu.php");
 exit(); // Es primordial usar exit() para detener la ejecución inmediatamente
 ?>
