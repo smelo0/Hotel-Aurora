@@ -137,7 +137,7 @@ function procesarPagoFinal(e) {
     .then(data => {
         if (data.status === 'success' || data.exito) {
             alert("¡Reserva y pago realizados con éxito!");
-            window.location.href = "interfaz_usu.php?estado=reserva_exitosa";
+            window.location.href = "index_usu.php?estado=reserva_exitosa";
         } else {
             alert("Error al procesar la reserva: " + (data.mensaje || "inténtalo de nuevo."));
             btn.disabled = false;

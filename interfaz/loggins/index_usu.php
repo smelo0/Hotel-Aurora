@@ -17,7 +17,7 @@ $dotenv->load();
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link rel="stylesheet" href="../../assets/css/loginUsuario.css">
+    <link rel="stylesheet" href="../../assets/css/index_usu.css">
 </head>
 <body>
     <?php

@@ -9,7 +9,7 @@ session_start();
 $usuario = $_SESSION['user_auth'] ?? [];
 if (!isset($usuario['id_usuario']) || (int) ($usuario['rol_usuario'] ?? 0) !== 6) {
     // Si es un intruso, lo mandamos al login de usuarios
-    header("Location: ../loggins/index_usu.php");
+    header("Location: ../loggins/loginUsuario.php");
     exit();
 }
 ?>

@@ -236,7 +236,7 @@ $usuarioAutenticado = $usuarioId > 0;
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
-    <link rel="stylesheet" href="assets/css/landingPage.css?v=1.5">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=1.5">
     <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>;</script>
 </head>
 <body>
@@ -269,10 +269,10 @@ $usuarioAutenticado = $usuarioId > 0;
 
                     </button>
                 <?php else: ?>
-                    <a href="interfaz/loggins/loginUsuario.php" class="hero-button secondary-button px-4 py-3 text-sm">
+                    <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-4 py-3 text-sm">
                         Iniciar sesión
                     </a>
-                    <a href="interfaz/loggins/loginUsuario.phpvista=registro" class="hero-button bg-white px-4 py-3 text-sm font-extrabold text-slate-900">
+                    <a href="interfaz/loggins/index_usu.php?vista=registro" class="hero-button bg-white px-4 py-3 text-sm font-extrabold text-slate-900">
                         Registrarse
                     </a>
                 <?php endif; ?>
