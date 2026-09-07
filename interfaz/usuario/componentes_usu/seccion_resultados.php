@@ -14,7 +14,7 @@
         // CONSULTA SQL: Extraer TODAS las habitaciones con estado 'Disponible' desde la base de datos
         require __DIR__ . '/../../configuracion/conexion.php';
         
-        $sqlHabitaciones = "SELECT cod_hab, num_hab, tipo_hab, pre_hab, est_hab, obs_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC";
+        $sqlHabitaciones = "SELECT cod_hab, num_hab, tipo_hab, pre_hab, est_hab, obs_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC LIMIT 20";
         /**@var mysqli $conexion */
         $resultadoHabitaciones = $conexion->query($sqlHabitaciones);
 

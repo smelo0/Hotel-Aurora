@@ -156,9 +156,7 @@
 
             if (secondsRemaining <= 0) {
                 clearInterval(countdownTimer);
-                window.location.href = 
-                '<?php session_destroy(); 
-                echo "../interfaz_usu.php"; ?>';
+                window.location.href = 'controladores/logout.php?panel=user';
             }
         }, 1000);
     }

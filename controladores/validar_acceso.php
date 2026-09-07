@@ -21,27 +21,39 @@ if ($resultado && $resultado->num_rows > 0) {
     $usuario = $resultado->fetch_assoc();
 
     if (password_verify($password_ingresada, $usuario['psw_usu'])) {
-        // Seguridad: Espacio de nombres de sesión único para evitar conflicto con panel de Usuario.
-        $_SESSION['emp_auth'] = [
-            'id_usuario' => (int) $usuario['id_usu'],
-            'nombre_usuario' => $usuario['nom_usu'],
-            'rol_usuario' => (int) $usuario['cod_rol_usu'],
-            'correo_usuario' => (string) $usuario['corr_usu']
-        ];
+        unset($_SESSION['emp_auth'], $_SESSION['user_auth']);
 
         switch ((int) $usuario['cod_rol_usu']) {
             case 1:
             case 2:
+                $_SESSION['emp_auth'] = [
+                    'id_usuario' => (int) $usuario['id_usu'],
+                    'nombre_usuario' => $usuario['nom_usu'],
+                    'rol_usuario' => (int) $usuario['cod_rol_usu'],
+                    'correo_usuario' => (string) $usuario['corr_usu']
+                ];
                 header("Location: ../interfaz/admin/index_ad.php");
                 break;
 
             case 3:
             case 4:
             case 5:
+                $_SESSION['emp_auth'] = [
+                    'id_usuario' => (int) $usuario['id_usu'],
+                    'nombre_usuario' => $usuario['nom_usu'],
+                    'rol_usuario' => (int) $usuario['cod_rol_usu'],
+                    'correo_usuario' => (string) $usuario['corr_usu']
+                ];
                 header("Location: ../interfaz/empleado/index.php");
                 break;
 
             case 6:
+                $_SESSION['user_auth'] = [
+                    'id_usuario' => (int) $usuario['id_usu'],
+                    'nombre_usuario' => $usuario['nom_usu'],
+                    'rol_usuario' => (int) $usuario['cod_rol_usu'],
+                    'correo_usuario' => (string) $usuario['corr_usu']
+                ];
                 header("Location: ../interfaz_usu.php");
                 break;
 

@@ -125,7 +125,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 }
 
                 // Mejora: selector de habitaciones solo disponibles.
-                $sql_habitaciones_disponibles = "SELECT cod_hab, num_hab, tipo_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC";
+                $sql_habitaciones_disponibles = "SELECT cod_hab, num_hab, tipo_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC LIMIT 20";
                 $resultado_hab_disponibles = $conexion->query($sql_habitaciones_disponibles);
                 $habitaciones_disponibles = [];
                 if ($resultado_hab_disponibles && $resultado_hab_disponibles->num_rows > 0) {

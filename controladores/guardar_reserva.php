@@ -9,7 +9,13 @@ require_once '../configuracion/permiso.php';
 
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
-exigir_permiso($conexion, 'reservas.crear');
+if (!isset($_SESSION['user_auth']) && !isset($_SESSION['emp_auth'])) {
+    jsonResponse(401, ['status' => 'error', 'mensaje' => 'Debes iniciar sesión para reservar.']);
+}
+
+if (!isset($_SESSION['user_auth'])) {
+    exigir_permiso($conexion, 'reservas.crear');
+}
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
@@ -35,6 +41,33 @@ function parseDateOnly(string $value): ?DateTimeImmutable
     return $date;
 }
 
+function normalizarMetodoPago(string $metodo): string
+{
+    $valor = trim($metodo);
+    if ($valor === '') {
+        return 'Tarjeta';
+    }
+
+    $normalizado = strtolower($valor);
+    $normalizado = str_replace(['-', '_'], ' ', $normalizado);
+    $normalizado = iconv('UTF-8', 'ASCII//TRANSLIT', $normalizado) ?: $normalizado;
+
+    if (str_contains($normalizado, 'recepcion')) {
+        return 'Recepción';
+    }
+    if (str_contains($normalizado, 'transferencia') || str_contains($normalizado, 'pse')) {
+        return 'Transferencia';
+    }
+    if (str_contains($normalizado, 'tarjeta') || str_contains($normalizado, 'credito') || str_contains($normalizado, 'debito')) {
+        return 'Tarjeta';
+    }
+    if (str_contains($normalizado, 'wompi')) {
+        return 'Wompi';
+    }
+
+    return $valor;
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     jsonResponse(405, ['status' => 'error', 'mensaje' => 'Método no permitido.']);
 }
@@ -48,7 +81,7 @@ $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
 
 // Nuevos parámetros recibidos desde la pasarela / modal de pago
-$metodoPago = trim((string) ($_POST['metodo_pago'] ?? 'Tarjeta'));
+$metodoPago = normalizarMetodoPago((string) ($_POST['metodo_pago'] ?? 'Tarjeta'));
 $referenciaPago = trim((string) ($_POST['referencia_pago'] ?? ''));
 $totalReserva = (float) ($_POST['total_reserva'] ?? 0.0);
 $wompiTransactionId = trim((string) ($_POST['wompi_transaction_id'] ?? ''));
@@ -116,9 +149,11 @@ $idUsuarioFinal = 0;
 try {
     $conexion->begin_transaction();
 
-    $idUsuarioSesion = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $usuarioSesion = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
+    $idUsuarioSesion = (int) ($usuarioSesion['id_usuario'] ?? 0);
+    $rolUsuarioSesion = (int) ($usuarioSesion['rol_usuario'] ?? 0);
 
-    if ($idUsuarioSesion > 0 && $tipoHuesped === '') {
+    if ($idUsuarioSesion > 0 && ($tipoHuesped === '' || $rolUsuarioSesion === 6)) {
         $idUsuarioFinal = $idUsuarioSesion;
     } else {
         $nombreNuevo = trim((string) ($_POST['nuevo_nombre'] ?? ''));

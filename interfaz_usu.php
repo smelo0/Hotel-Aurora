@@ -58,13 +58,45 @@ function roomFeatures(string $type): array
     return ['Cama doble', 'Baño privado', 'Wi-Fi', 'Caja fuerte'];
 }
 
+function formatReservationHistoryDate(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return 'Sin fecha';
+    }
+
+    $date = DateTime::createFromFormat('Y-m-d H:i:s', $value)
+        ?: DateTime::createFromFormat('Y-m-d', $value);
+
+    if ($date === false) {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    return $date->format('d/m/Y');
+}
+
+function reservationStatusBadge(string $estado): string
+{
+    $estado = trim($estado);
+    $map = [
+        'Confirmada' => 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+        'Pendiente' => 'bg-amber-100 text-amber-700 border border-amber-200',
+        'Cancelada' => 'bg-rose-100 text-rose-700 border border-rose-200',
+        'Cancelado' => 'bg-rose-100 text-rose-700 border border-rose-200',
+        'Finalizada' => 'bg-slate-200 text-slate-700 border border-slate-300',
+        'En Casa' => 'bg-cyan-100 text-cyan-700 border border-cyan-200',
+    ];
+
+    return $map[$estado] ?? 'bg-slate-100 text-slate-700 border border-slate-200';
+}
+
 function fetchRoomCatalog(mysqli $conexion): array
 {
     $rooms = [];
     $todayCheckin = (new DateTimeImmutable('today'))->setTime(0, 0, 0)->format('Y-m-d H:i:s');
     $todayCheckout = (new DateTimeImmutable('tomorrow'))->setTime(0, 0, 0)->format('Y-m-d H:i:s');
 
-    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab
+        $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab
             FROM habitacion h
             WHERE h.est_hab NOT IN ('Mantenimiento', 'Sucia')
               AND NOT EXISTS (
@@ -77,6 +109,8 @@ function fetchRoomCatalog(mysqli $conexion): array
                     AND ? > r.fec_ent_res
               )
             ORDER BY h.num_hab ASC";
+        // limitar el sistema a un máximo de 20 habitaciones
+        $sql .= " LIMIT 20";
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param('ss', $todayCheckin, $todayCheckout);
     $stmt->execute();
@@ -181,6 +215,8 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
                                AND ? > r.fec_ent_res
                          )
                        ORDER BY h.num_hab ASC";
+        // limitar la búsqueda de disponibilidad a las primeras 20 habitaciones
+        $sqlDisponibles .= " LIMIT 20";
     $stmtDisponibles = $conexion->prepare($sqlDisponibles);
 
     if ($stmtDisponibles === false) {
@@ -213,9 +249,35 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
 }
 
 $habitaciones = fetchRoomCatalog($conexion);
-$usuarioId = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
-$usuarioNombre = (string) ($_SESSION['user_auth']['nombre_usuario'] ?? '');
-$usuarioAutenticado = $usuarioId > 0;
+$visibleRooms = 6; // mostrar sólo las primeras N habitaciones en el carrusel
+$usuarioSesion = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
+$usuarioId = (int) ($usuarioSesion['id_usuario'] ?? 0);
+$usuarioNombre = (string) ($usuarioSesion['nombre_usuario'] ?? '');
+$usuarioAutenticado = $usuarioId > 0 && ((int) ($usuarioSesion['rol_usuario'] ?? 0) === 6);
+
+$historialReservas = [];
+if ($usuarioAutenticado) {
+    $sqlHistorial = "SELECT r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
+                            h.num_hab, h.tipo_hab
+                     FROM reservas r
+                     LEFT JOIN detalle d ON d.cod_res_det = r.cod_res
+                     LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
+                     WHERE r.id_usu_res = ?
+                     ORDER BY r.fec_ent_res DESC";
+
+    $stmtHistorial = $conexion->prepare($sqlHistorial);
+    if ($stmtHistorial) {
+        $stmtHistorial->bind_param('i', $usuarioId);
+        $stmtHistorial->execute();
+        $resultHistorial = $stmtHistorial->get_result();
+
+        while ($fila = $resultHistorial->fetch_assoc()) {
+            $historialReservas[] = $fila;
+        }
+
+        $stmtHistorial->close();
+    }
+}
 
 ?><?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once 'includes/timeout.php'; ?>
@@ -257,6 +319,7 @@ $usuarioAutenticado = $usuarioId > 0;
                 <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
                 <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
+        
             </div>
 
             <div class="flex items-center gap-3">
@@ -386,13 +449,37 @@ $usuarioAutenticado = $usuarioId > 0;
                     </span>
                 </div>
 
-             <div class="mt-8 flex gap-6 overflow-x-auto pb-4 snap-x">
-    <?php foreach ($habitaciones as $room): ?>
+                <div class="mt-4 flex items-center justify-between">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25">Todas</button>
+                        <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite</button>
+                        <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Doble</button>
+                        <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
+                    </div>
+                </div>
+
+             <div class="mt-8 relative">
+                <button id="roomsPrev" aria-label="Anterior" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 left-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-auto pb-4 snap-x px-4 md:px-0">
+                    <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
         <?php
         $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
         $features = roomFeatures((string) $room['tipo_hab']);
+        $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
+        if (str_contains($tipoLower, 'suite')) {
+            $roomType = 'suite';
+        } elseif (str_contains($tipoLower, 'doble')) {
+            $roomType = 'doble';
+        } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
+            $roomType = 'sencilla';
+        } else {
+            $roomType = 'otra';
+        }
         ?>
-        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>">
+        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo $roomType; ?>">
             <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
             <div class="p-6">
                 <div class="flex items-start justify-between gap-4">
@@ -434,7 +521,12 @@ $usuarioAutenticado = $usuarioId > 0;
             </div>
         </article>
     <?php endforeach; ?>
-</div>
+                </div>
+
+                <button id="roomsNext" aria-label="Siguiente" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 right-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
                 <div id="emptyRoomsState" class="hidden rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
                     <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
                     <p class="muted-light mt-2">Cambia el rango de fechas o vuelve a consultar en unos segundos.</p>
@@ -518,6 +610,70 @@ $usuarioAutenticado = $usuarioId > 0;
                 </form>
             </div>
         </section>
+
+        <?php if ($usuarioAutenticado): ?>
+                
+         
+<section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
+    <!-- Borde grueso gris medio transparente (border-8 border-slate-300/30) -->
+    <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
+        
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
+                <h2 class="mt-2 text-3xl font-black text-white">Reservas realizadas</h2>
+            </div>
+        
+            <span class="rounded-full bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800 border border-slate-200">
+                <?php echo count($historialReservas); ?> registros
+            </span>
+        </div>
+
+        <?php if (empty($historialReservas)): ?>
+            <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
+                <span class="material-symbols-outlined text-4xl text-emerald-700">travel_explore</span>
+                <p class="mt-3 text-lg font-black text-slate-800">Aún no tienes reservas registradas.</p>
+                <p class="mt-2 text-sm text-slate-600">Cuando reserves una estancia, aparecerá aquí el historial completo.</p>
+            </div>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-separate border-spacing-y-3 text-left">
+                    <thead>
+                        <tr class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                            <th class="px-4 py-2">Reserva</th>
+                            <th class="px-4 py-2">Habitación</th>
+                            <th class="px-4 py-2">Check-in</th>
+                            <th class="px-4 py-2">Check-out</th>
+                            <th class="px-4 py-2">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($historialReservas as $reserva): ?>
+                            <?php
+                            $descripcionHabitacion = !empty($reserva['tipo_hab'])
+                                ? (!empty($reserva['num_hab']) ? 'Habitación ' . (int) $reserva['num_hab'] . ' · ' . htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8') : htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8'))
+                                : 'Habitación sin asignar';
+                            ?>
+                            
+                            <tr class="rounded-2xl bg-emerald-950/50 text-sm text-white shadow-sm transition-colors hover:bg-emerald-700">
+                                <td class="rounded-l-2xl px-4 py-4 font-black text-emerald-200">#<?php echo (int) $reserva['cod_res']; ?></td>
+                                <td class="px-4 py-4 text-white"><?php echo $descripcionHabitacion; ?></td>
+                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $reserva['fec_ent_res']); ?></td>
+                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $reserva['fec_sal_res']); ?></td>
+                                <td class="rounded-r-2xl px-4 py-4">
+                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($reserva['est_res'] ?? 'Pendiente')); ?>">
+                                        <?php echo e((string) ($reserva['est_res'] ?? 'Pendiente')); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
+<?php endif; ?>
     </main>
 
     <footer class="px-4 pb-10 text-center text-sm text-white/72 md:px-6">
@@ -687,6 +843,73 @@ $usuarioAutenticado = $usuarioId > 0;
     </div>
 </div>
 
+    <script>
+        (function(){
+            const carousel = document.getElementById('roomsCarousel');
+            const prev = document.getElementById('roomsPrev');
+            const next = document.getElementById('roomsNext');
+            const filters = Array.from(document.querySelectorAll('.room-filter'));
+            if (!carousel || !prev || !next) return;
+
+            // Nav enable/disable based on overflow
+            function updateNavState(){
+                const hasOverflow = carousel.scrollWidth > carousel.clientWidth + 1;
+                prev.disabled = !hasOverflow;
+                next.disabled = !hasOverflow;
+                prev.setAttribute('aria-disabled', String(!hasOverflow));
+                next.setAttribute('aria-disabled', String(!hasOverflow));
+                prev.classList.toggle('opacity-40', !hasOverflow);
+                next.classList.toggle('opacity-40', !hasOverflow);
+            }
+            updateNavState();
+            window.addEventListener('resize', updateNavState);
+
+            const step = () => Math.round(carousel.clientWidth * 0.8) || 380;
+
+            prev.addEventListener('click', () => {
+                carousel.scrollBy({ left: -step(), behavior: 'smooth' });
+            });
+
+            next.addEventListener('click', () => {
+                carousel.scrollBy({ left: step(), behavior: 'smooth' });
+            });
+
+            // mousewheel horizontal scroll
+            carousel.addEventListener('wheel', (e) => {
+                if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+                    e.preventDefault();
+                    carousel.scrollBy({ left: e.deltaY, behavior: 'auto' });
+                }
+            }, { passive: false });
+
+            // Filtering logic
+            function applyFilter(filter){
+                const cards = Array.from(carousel.querySelectorAll('[data-room-card]'));
+                cards.forEach(card => {
+                    const type = (card.getAttribute('data-room-type') || 'otra');
+                    const show = filter === 'all' || type === filter;
+                    card.style.display = show ? '' : 'none';
+                });
+                // reset scroll and update nav
+                carousel.scrollLeft = 0;
+                setTimeout(updateNavState, 120);
+            }
+
+            filters.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filters.forEach(b => b.classList.remove('bg-white/6', 'text-white'));
+                    btn.classList.add('bg-white/6', 'text-white');
+                    const filter = btn.getAttribute('data-filter') || 'all';
+                    applyFilter(filter);
+                });
+            });
+
+            // initialize: ensure 'Todas' is active
+            const active = document.querySelector('.room-filter[data-filter="all"]');
+            if (active) active.classList.add('bg-white/6','text-white');
+            applyFilter('all');
+        })();
+    </script>
    <script>
     // 1. Helper selector de IDs
     const $ = (id) => document.getElementById(id);
@@ -753,6 +976,18 @@ $usuarioAutenticado = $usuarioId > 0;
 
     function currentSearchIsReady() {
         return searchState.checkin !== '' && searchState.checkout !== '';
+    }
+
+    function normalizePaymentMethod(method) {
+        const value = String(method || '').trim();
+        const normalized = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        if (normalized.includes('recepcion')) return 'Recepción';
+        if (normalized.includes('transferencia') || normalized.includes('pse')) return 'Transferencia';
+        if (normalized.includes('tarjeta') || normalized.includes('credito') || normalized.includes('debito')) return 'Tarjeta';
+        if (normalized.includes('wompi')) return 'Wompi';
+
+        return value || 'Tarjeta';
     }
 
     function scrollToResults() {
@@ -994,6 +1229,8 @@ $usuarioAutenticado = $usuarioId > 0;
 async function processReservationPayment() {
     const feedback = document.getElementById('modalFeedback');
     const btn = document.getElementById('confirmBookingBtn');
+    const metodoPago = normalizePaymentMethod(selectedReservation.payment);
+    selectedReservation.payment = metodoPago;
 
     // Validar datos esenciales
     if (!selectedReservation.roomId || !searchState.checkin || !searchState.checkout) {
@@ -1005,14 +1242,16 @@ async function processReservationPayment() {
         return;
     }
 
-    if (btn) {
-        btn.disabled = true;
-        btn.innerText = 'ABRIENDO WOMPI...';
+    if (metodoPago !== 'Recepción') {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'ABRIENDO WOMPI...';
+        }
     }
 
     try {
         let transaction = null;
-        if (selectedReservation.payment !== 'Recepción') {
+        if (metodoPago !== 'Recepción') {
             if (typeof WidgetCheckout === 'undefined') {
                 throw new Error('No se pudo cargar el widget de Wompi.');
             }
@@ -1050,7 +1289,7 @@ async function processReservationPayment() {
         fd.append('fecha_out', searchState.checkout);
         fd.append('cant_adultos', guests.adults);
         fd.append('cant_ninos', guests.children);
-        fd.append('metodo_pago', transaction ? 'Wompi' : selectedReservation.payment);
+        fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
         fd.append('porcentaje_pago', selectedReservation.porcentajePago);
         fd.append('total_reserva', selectedReservation.montoAPagar);
         if (transaction) {
@@ -1060,9 +1299,11 @@ async function processReservationPayment() {
         fd.append('tipo_huesped', '');
         fd.append('notas_reserva', `Porcentaje de cobro: ${selectedReservation.porcentajePago}%`);
 
-        const res = await fetch('controladores/guardar_reserva.php', { 
-            method: 'POST', 
-            body: fd
+        const res = await fetch('controladores/guardar_reserva.php', {
+            method: 'POST',
+            body: fd,
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
         });
 
         const rawText = await res.text();
@@ -1140,7 +1381,7 @@ async function processReservationPayment() {
                 icon: 'error',
                 title: 'Error',
                 text: error.message,
-                confirmButtonColor: '#17354f'
+                confirmButtonColor: '#0d3a1a'
             });
         }
     }
@@ -1157,8 +1398,8 @@ async function processReservationPayment() {
                 showCancelButton: true,
                 confirmButtonText: 'Sí, salir',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#17354f',
-                cancelButtonColor: '#c19046'
+                confirmButtonColor: '#519b5b',
+                cancelButtonColor: '#b37922'
             });
 
             if (result.isConfirmed) {
@@ -1219,7 +1460,7 @@ async function processReservationPayment() {
         // Método de pago (Tarjeta, Transferencia, Recepción)
         const paymentButton = event.target.closest('[data-payment]');
         if (paymentButton) {
-            selectedReservation.payment = paymentButton.dataset.payment;
+            selectedReservation.payment = normalizePaymentMethod(paymentButton.dataset.payment);
             document.querySelectorAll('[data-payment]').forEach(node => node.classList.remove('is-active'));
             paymentButton.classList.add('is-active');
 

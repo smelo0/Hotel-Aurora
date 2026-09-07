@@ -24,7 +24,7 @@ $dotenv->load();
     $error = isset($_GET['error']) ? (string) $_GET['error'] : '';
     $vista = isset($_GET['vista']) ? (string) $_GET['vista'] : 'login';
     $exito = isset($_GET['exito']) ? (string) $_GET['exito'] : '';
-    $recaptchaSiteKey = trim((string) (getenv('RECAPTCHA_SITE_KEY') ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? '')));
+    $recaptchaSiteKey = trim((string) (getenv('RECAPTCHA_SITE_KEY') ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')));
 
     $mensajesError = [
         'rol' => 'Esta cuenta no pertenece al panel de huespedes.',
@@ -92,6 +92,8 @@ $dotenv->load();
                 <!-- Configuración e integración del botón -->   
 
                 <input type="submit" value="Iniciar sesion">
+
+                <a href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
 
                 <a href="#" onclick="cambiarPanel('registro'); return false;" class="link-switch">No tienes cuenta? Registrate aqui.</a>
             </form>
