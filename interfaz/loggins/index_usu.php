@@ -93,7 +93,7 @@ $dotenv->load();
 
                 <input type="submit" value="Iniciar sesion">
 
-                <a href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
+                <a class="link-switch" href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
 
                 <a href="#" onclick="cambiarPanel('registro'); return false;" class="link-switch">No tienes cuenta? Registrate aqui.</a>
             </form>
