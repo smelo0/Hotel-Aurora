@@ -87,6 +87,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Abrir modal de nueva tarea desde el sidebar
     document.querySelector('[data-action="abrir-modal-tarea"]')?.addEventListener('click', abrirModal);
 
+    // 7. (topbar.php) Actualización dinámica de fecha y encabezado en la Topbar
+    const elementoFecha = document.getElementById('fechaHoy');
+    if (elementoFecha) {
+        const opcionesFecha = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const fechaActual = new Date().toLocaleDateString('es-ES', opcionesFecha);
+        elementoFecha.textContent = fechaActual.charAt(0).toUpperCase() + fechaActual.slice(1);
+    }
+
+
 });
 
 // Reparación: Función centralizada para restaurar la Cola de Tareas desde MySQL y reutilizarla en sincronización.
@@ -425,48 +434,6 @@ async function actualizarInterfaz(habitacionesLocales = null) {
             });
         }
 
-        const gridHousekeeping = document.getElementById('gridHousekeeping');
-        if(gridHousekeeping) {
-            gridHousekeeping.innerHTML = '';
-            DATA_HOTEL.forEach(h => {
-                const estadoUI = clasesEstadoHousekeeping(h.estado);
-                const motivoMantenimiento = obtenerMotivoMantenimiento(h.observacion);
-                const textoMotivo = motivoMantenimiento || 'Motivo no registrado.';
-                const eventoMantenimiento = h.estado === 'Mantenimiento' ? `onclick="toggleMotivoMantenimiento(${h.id})"` : '';
-                const cursorMantenimiento = h.estado === 'Mantenimiento' ? 'cursor-pointer' : '';
-                const popoverMantenimiento = h.estado === 'Mantenimiento' ? `
-                    <div class="maintenance-popover" role="status" aria-live="polite">
-                        <p class="text-[9px] font-black uppercase tracking-[0.18em] text-red-400 mb-2">Motivo de mantenimiento</p>
-                        <p class="text-xs font-bold text-slate-600 leading-relaxed">${escaparHTML(textoMotivo)}</p>
-                    </div>
-                ` : '';
-
-                // Corrección: Se arregló la estructura de la franja y el difuminado en la sección Limpieza para heredar los estilos funcionales de Habitaciones.
-                gridHousekeeping.insertAdjacentHTML('beforeend', `
-                    <!-- Modificación: Se aplicó fondo blanco y animación hover igual a la sección habitaciones en los recuadros de limpieza. -->
-                    <article id="housekeeping-${h.id}" ${eventoMantenimiento} class="metric-card habitacion-card housekeeping-card ${estadoUI.tarjeta} ${cursorMantenimiento} p-6 rounded-xl shadow-md border relative overflow-visible">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Habitacion</p>
-                                <h4 class="text-3xl font-black text-heading leading-none">${escaparHTML(h.numero)}</h4>
-                            </div>
-                            <div class="housekeeping-icon">
-                                <span class="material-symbols-outlined text-[22px]">${estadoUI.icono}</span>
-                            </div>
-                        </div>
-                        <div class="mt-8 flex items-end justify-between gap-4">
-                            <div>
-                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">${escaparHTML(h.tipo)}</p>
-                                <span class="inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${estadoUI.etiqueta}">${estadoUI.titulo}</span>
-                            </div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Turno</p>
-                        </div>
-                        ${popoverMantenimiento}
-                    </article>
-                `);
-            });
-        }
-
         const gridHue = document.getElementById('gridHuespedes');
         if(gridHue) {
             gridHue.innerHTML = '';
@@ -492,18 +459,52 @@ async function actualizarInterfaz(habitacionesLocales = null) {
         console.error("Error al cargar la interfaz:", error);
     }
 } // <-- Ahora sí, una sola llave de cierre.
+
 // 4. LÓGICA DE NAVEGACIÓN: Oculta y muestra pestañas
-function navegar(sec, btn) {
-    document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
-    document.getElementById('sec-' + sec).classList.remove('hidden');
-    document.getElementById('tituloCabecera').innerText = sec === 'dashboard' ? 'Panel Hoy' : { 'habitaciones': 'Habitaciones', 'limpieza': 'Limpieza', 'huespedes': 'Huéspedes' }[sec];
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active-nav'));
-    btn.classList.add('active-nav');
+// LÓGICA DE NAVEGACIÓN CORREGIDA
+function navegar(sec, btn = null) {
+    // 1. Ocultar todas las secciones que existen
+    document.querySelectorAll('.seccion-contenido').forEach(s => {
+        if (s) s.classList.add('hidden');
+    });
+    
+    // 2. Obtener la sección destino y verificar que NO sea null antes de usar classList
+    const seccionObjetivo = document.getElementById('sec-' + sec);
+    if (seccionObjetivo) {
+        seccionObjetivo.classList.remove('hidden');
+    } else {
+        console.warn(`La sección id="sec-${sec}" no existe en el DOM.`);
+        return; // Detiene la ejecución de forma limpia si no existe la sección
+    }
+
+    // 3. Actualizar el título principal (si el contenedor existe)
+    const titulos = { 
+        'dashboard': 'Panel Hoy', 
+        'habitaciones': 'Habitaciones', 
+        'huespedes': 'Huéspedes',
+        'calendario': 'Calendario',
+        'configuracion': 'Configuración'
+    };
+    const tituloCabecera = document.getElementById('tituloCabecera');
+    if (tituloCabecera) {
+        tituloCabecera.innerText = titulos[sec] || 'Panel Hoy';
+    }
+
+    // 4. Marcar botón activo en el Sidebar SOLO SI 'btn' existe (evita el error 'reading classList of null')
+    document.querySelectorAll('.nav-item').forEach(b => {
+        if (b) b.classList.remove('active-nav');
+    });
+
+    // Si no se pasó un botón directamente, busca el del Sidebar correspondiente a la sección
+    const botonActivo = btn || document.querySelector(`.nav-item[data-target="sec-${sec}"]`) || document.querySelector(`.nav-item[onclick*="${sec}"]`);
+    if (botonActivo) {
+        botonActivo.classList.add('active-nav');
+    }
 }
 
+// Función global que invocan los onclick del Dashboard
 function redirigirDesdeDash(sec) {
-    const btn = document.querySelector(`.nav-item[onclick*="${sec}"]`);
-    if (btn) navegar(sec, btn);
+    navegar(sec);
 }
 
 // 5. LÓGICA DEL MODAL DE TAREAS

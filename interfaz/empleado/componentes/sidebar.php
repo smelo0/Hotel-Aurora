@@ -30,11 +30,11 @@
                 <span class="text-sm font-bold">Habitaciones</span>
             </button>
 
-            <!-- 4. Caja y Ventas -->
+            <!-- 4. Caja y Ventas 
             <button data-nav="caja" class="nav-item relative flex items-center gap-4 px-8 py-3 text-slate-400 hover:text-primary transition-all text-left w-full">
                 <span class="material-symbols-outlined" aria-hidden="true">point_of_sale</span>
                 <span class="text-sm font-bold">Caja y Ventas</span>
-            </button>
+            </button> -->
 
             <!-- 5. Huéspedes -->
             <button data-nav="huespedes" class="nav-item relative flex items-center gap-4 px-8 py-3 text-slate-400 hover:text-primary transition-all text-left w-full">
