@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../configuracion/conexion.php';
+require_once 'includes/lang.php';
 
 $token = trim((string) ($_GET['token'] ?? $_POST['token'] ?? ''));
 $error = '';

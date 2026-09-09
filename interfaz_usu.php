@@ -282,12 +282,17 @@ if ($usuarioAutenticado) {
 ?><?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once 'includes/timeout.php'; ?>
 <?php endif; ?>
+
+<?php
+
+require_once 'includes/lang.php';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotel Aurora | Reservas y Experiencias</title>
+    <title><?= $lang['title'] ?? "Reservas & Experiencias" ?></title>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -311,32 +316,38 @@ if ($usuarioAutenticado) {
                 </span>
                 <div>
                     
-                    <p class="font-display text-2xl leading-none text-white">Hotel Aurora</p>
+                    <p class="font-display text-2xl leading-none text-white"><?= $lang['hotel']; ?></p>
                 </div>
             </a>
           
             <div class="hidden items-center gap-8 text-sm font-bold text-white/85 lg:flex">
-                <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
-                <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
-                <a href="#planner" class="transition hover:text-white">Agenda</a>
-        
+                <a href="#habitaciones" class="transition hover:text-white"><?= $lang['rooms']?></a>
+                <a href="#experiencias" class="transition hover:text-white"><?= $lang['experiences']?></a>
+                <a href="#planner" class="transition hover:text-white"><?= $lang['booking']?></a>
+            </div>
+            
+            <!-- Toggle de idiomas -->
+            <div class="language-selector">
+                <a href="?lang=es" class="lang-btn <?= ($idioma_actual === 'es') ? 'active' : '' ?>">ES</a>
+                <span class="lang-separator">/</span>
+                <a href="?lang=en" class="lang-btn <?= ($idioma_actual === 'en') ? 'active' : '' ?>">EN</a>
             </div>
 
             <div class="flex items-center gap-3">
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
-                        Hola, <?php echo e($usuarioNombre); ?>
+                        <?php echo $lang['greating'], ($usuarioNombre); ?>
                     </span>
                     <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
-                        Cerrar sesión
+                        <?php echo $lang['logOut'] ?>
 
                     </button>
                 <?php else: ?>
                     <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-4 py-3 text-sm">
-                        Iniciar sesión
+                        <?= $lang['logIn'] ?>
                     </a>
                     <a href="interfaz/loggins/index_usu.php?vista=registro" class="hero-button bg-white px-4 py-3 text-sm font-extrabold text-slate-900">
-                        Registrarse
+                        <?= $lang['signIn'] ?>
                     </a>
                 <?php endif; ?>
             </div>
@@ -347,20 +358,19 @@ if ($usuarioAutenticado) {
         <div class="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end" >
             <div class="reveal">
                 <p class="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-[#ffe3aa]">
-                    Reservas premium frente al mar
+                    <?= $lang['premiunBookingInFrontOfSea'] ?>
                 </p>
                <h1 class="font-display max-w-3xl text-5xl leading-tight text-white md:text-7xl">
-                    Reserva tu próxima estancia con una experiencia visual impecable.
-                </h1>
+                    <?= $lang['bookingYourNextStayWithAFlawlessVisualExperience'] ?>
                 <p class="hero-copy mt-6 max-w-2xl text-lg leading-8 text-white md:text-xl">
-                    Elige tus fechas, ajusta tus huéspedes y encuentra habitaciones disponibles al instante con una búsqueda realmente funcional.
+                    <?= $lang['chooseYourDates'] ?>
                 </p>
                 <div class="mt-8 flex flex-wrap gap-4">
                     <a href="#bookingBar" class="hero-button primary-button inline-flex items-center gap-2 px-6 py-4 text-sm uppercase tracking-[0.18em]">
-                        Reservar ahora
+                        <?= $lang['bookNow'] ?>
                     </a>
                     <a href="#experiencias" class="hero-button secondary-button inline-flex items-center gap-2 px-6 py-4 text-sm">
-                        Explorar experiencias
+                        <?= $lang['exploreExperiences'] ?>
                     </a>
                 </div>
             </div>
@@ -371,7 +381,7 @@ if ($usuarioAutenticado) {
                         <div class="booking-control p-5">
                             <button id="dateTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
                                 <span>
-                                    <span class="booking-label">Fechas</span>
+                                    <span class="booking-label"><?= $lang['dates'] ?></span>
                                     <span id="dateSummary" class="booking-value">Selecciona check-in y check-out</span>
                                 </span>
                                 <span class="material-symbols-outlined text-3xl text-[#17354f]">calendar_month</span>
@@ -465,20 +475,20 @@ if ($usuarioAutenticado) {
 
                 <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-auto pb-4 snap-x px-4 md:px-0">
                     <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
-        <?php
-        $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
-        $features = roomFeatures((string) $room['tipo_hab']);
-        $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
-        if (str_contains($tipoLower, 'suite')) {
-            $roomType = 'suite';
-        } elseif (str_contains($tipoLower, 'doble')) {
-            $roomType = 'doble';
-        } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
-            $roomType = 'sencilla';
-        } else {
-            $roomType = 'otra';
-        }
-        ?>
+                    <?php
+                    $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
+                    $features = roomFeatures((string) $room['tipo_hab']);
+                    $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
+                    if (str_contains($tipoLower, 'suite')) {
+                        $roomType = 'suite';
+                    } elseif (str_contains($tipoLower, 'doble')) {
+                        $roomType = 'doble';
+                    } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
+                        $roomType = 'sencilla';
+                    } else {
+                        $roomType = 'otra';
+                    }
+                    ?>
         <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo $roomType; ?>">
             <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
             <div class="p-6">
@@ -512,7 +522,7 @@ if ($usuarioAutenticado) {
                         class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
                         data-room-select
                         data-room-id="<?php echo (int) $room['cod_hab']; ?>"
-                        data-room-name="<?php echo e($roomName); ?>"
+                        data-room-name="<?php echo ($roomName); ?>"
                         data-room-price="<?php echo (float) $room['pre_hab']; ?>"
                     >
                         Reservar
@@ -520,6 +530,7 @@ if ($usuarioAutenticado) {
                 </div>
             </div>
         </article>
+
     <?php endforeach; ?>
                 </div>
 

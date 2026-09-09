@@ -1,4 +1,6 @@
 <?php
+require_once '../../includes/lang.php';
+
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use Dotenv\Dotenv;
@@ -16,7 +18,7 @@ $dotenv->load();
     <title>Acceso Huespedes | Hotel Aurora</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client?hl=<?=$idioma_actual?>" async defer></script>
     <link rel="stylesheet" href="../../assets/css/index_usu.css">
 </head>
 <body>
@@ -46,18 +48,18 @@ $dotenv->load();
         </span>
 
         <div id="panel-login" class="fade-in" style="display: block;">
-            <h1>Sea bienvenido</h1>
+            <h1><?= $log['saludo'] ?></h1>
 
             <?php if ($vista !== 'registro' && $error !== '' && isset($mensajesError[$error])): ?>
                 <p class="error-msg"><?php echo htmlspecialchars($mensajesError[$error], ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
 
             <?php if ($exito === 'registrado'): ?>
-                <p class="success-msg">Registro exitoso. Ya puedes iniciar sesion.</p>
+                <p class="success-msg"><?= $log['registroExitoso'] ?></p>
             <?php endif; ?>
 
             <form method="POST" action="../../controladores/validar_usuario.php">
-                <label for="correo_login">Correo</label>
+                <label for="correo_login"><?= $log['correo'] ?></label>
                 <input id="correo_login" type="email" name="correo" required placeholder="ejemplo@correo.com">
 
                 <label for="password_login">Contrasena</label>
@@ -79,7 +81,7 @@ $dotenv->load();
                      data-text="sign_in_with"
                      data-shape="rectangular"
                      data-logo_alignment="left"
-                     data-width="350">>
+                     data-width="350">
                 </div>
 
                 <?php if ($recaptchaSiteKey !== ''): ?>

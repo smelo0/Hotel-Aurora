@@ -17,6 +17,8 @@ if (isset($_GET['error'])) {
     if ($err === 'invalid_email') $error = 'Introduce un correo válido.';
     elseif ($err === 'bd') $error = 'Error en el servidor. Intenta más tarde.';
 }
+
+require_once 'includes/lang.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">

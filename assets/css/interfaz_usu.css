@@ -436,4 +436,33 @@
             }
         }
 
-       
+       .language-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15); /* Borde sutil similar al botón de Iniciar sesión */
+    border-radius: 50px; /* Estilo de píldora idéntico al de tus botones */
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.language-selector .lang-btn {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    padding: 2px 4px;
+}
+
+.language-selector .lang-btn:hover,
+.language-selector .lang-btn.active {
+    color: #ffffff; /* Blanco puro cuando está activo o se pasa el cursor */
+    font-weight: 700;
+}
+
+.language-selector .lang-separator {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 12px;
+}
