@@ -280,8 +280,9 @@ if ($usuarioAutenticado) {
 }
 
 ?><?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once 'includes/timeout.php'; ?>
+    <?php require_once 'includes/timeout.js'; ?>
 <?php endif; ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -319,9 +320,10 @@ if ($usuarioAutenticado) {
                 <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
                 <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
-        
             </div>
-
+            <!-- boton de traduccion gon google -->
+            <div id="google_translate_element"></div>
+            
             <div class="flex items-center gap-3">
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
@@ -680,6 +682,9 @@ if ($usuarioAutenticado) {
         Hotel Aurora © <?php echo date('Y'); ?> · Exclusividad, calma y servicio frente al mar.
     </footer>
 
+    <!-- script de traducciones -->
+    
+    
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
             <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
@@ -830,13 +835,13 @@ if ($usuarioAutenticado) {
 
                     <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
                     <button 
-    id="confirmBookingBtn" 
-    type="button" 
-    onclick="processReservationPayment()" 
-    class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
->
-    Confirmar y Pagar
-</button>
+                        id="confirmBookingBtn" 
+                        type="button" 
+                        onclick="processReservationPayment()" 
+                        class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
+                    >
+                        Confirmar y Pagar
+                    </button>
                 </section>
             </div>
         </div>

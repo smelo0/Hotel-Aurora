@@ -76,7 +76,6 @@ $ayudaSistema = $ayudaSistemaContenido[$ayudaSistemaRol] ?? $ayudaSistemaConteni
         <span>Ayuda</span>
     </button>
 </div>
-
 <script>
 (() => {
     const panel = document.getElementById('systemHelpPanel');

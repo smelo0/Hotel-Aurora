@@ -98,7 +98,7 @@ if ($token === '') {
                 <input type="submit" value="Actualizar contraseña">
             </form>
         <?php endif; ?>
-
+        <?php require_once __DIR__ . "../../../includes/system_help.php" ?>
     </div>
 </body>
 </html>
