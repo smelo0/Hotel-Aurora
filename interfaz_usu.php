@@ -378,7 +378,7 @@ require_once 'includes/lang.php';
                             <button id="dateTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
                                 <span>
                                     <span class="booking-label"><?= $lang['dates'] ?></span>
-                                    <span id="dateSummary" class="booking-value">Selecciona check-in y check-out</span>
+                                    <span id="dateSummary" class="booking-value"><?= $lang['selectCheckin&Checkout'] ?></span>
                                 </span>
                                 <span class="material-symbols-outlined text-3xl text-[#17354f]">calendar_month</span>
                             </button>
@@ -388,8 +388,8 @@ require_once 'includes/lang.php';
                         <div class="booking-control p-5">
                             <button id="guestTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
                                 <span>
-                                    <span class="booking-label">Huéspedes</span>
-                                    <span id="guestSummary" class="booking-value">2 adultos, 0 niños</span>
+                                    <span class="booking-label"><?= $lang['guess']  ?></span>
+                                    <span id="guestSummary" class="booking-value"><?= $lang['adults&children'] ?></span>
                                 </span>
                                 <span class="material-symbols-outlined text-3xl text-[#17354f]">groups</span>
                             </button>
@@ -398,8 +398,8 @@ require_once 'includes/lang.php';
                                 <div class="guest-popover__panel">
                                     <div class="guest-row">
                                         <div>
-                                            <p class="font-black text-[#17354f]">Adultos</p>
-                                            <p class="text-sm text-slate-500">Mayores de 12 años</p>
+                                            <p class="font-black text-[#17354f]"><?= $lang['adults'] ?></p>
+                                            <p class="text-sm text-slate-500"><?= $lang['greatherThan12'] ?></p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="adultsMinus" type="button" class="guest-stepper">-</button>
@@ -410,8 +410,8 @@ require_once 'includes/lang.php';
 
                                     <div class="guest-row border-t border-slate-200">
                                         <div>
-                                            <p class="font-black text-[#17354f]">Niños</p>
-                                            <p class="text-sm text-slate-500">De 0 a 12 años</p>
+                                            <p class="font-black text-[#17354f]"><?= $lang['children'] ?></p>
+                                            <p class="text-sm text-slate-500"><?= $lang['0to12yo'] ?></p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="childrenMinus" type="button" class="guest-stepper">-</button>
@@ -421,14 +421,14 @@ require_once 'includes/lang.php';
                                     </div>
 
                                     <button id="closeGuestPopover" type="button" class="hero-button primary-button mt-4 w-full px-5 py-3 text-sm uppercase tracking-[0.18em]">
-                                        Aplicar
+                                        <?= $lang['apply'] ?>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         <button id="btnBuscarDisponibilidad" type="button" class="hero-button primary-button min-h-[78px] px-7 text-sm uppercase tracking-[0.18em]">
-                            Buscar Disponibilidad
+                            <?= $lang['searchdisponibility'] ?>
                         </button>
                     </div>
 
@@ -445,30 +445,30 @@ require_once 'includes/lang.php';
             <div id="habitaciones" class="glass-section rounded-[34px] px-6 py-8 md:px-8">
                 <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Habitaciones destacadas</p>
-                        <h2 class="section-title font-display mt-3 text-4xl text-white">Descubre las estancias listas para tu próxima reserva.</h2>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]"><?= $lang['destacatedRooms'] ?></p>
+                        <h2 class="section-title font-display mt-3 text-4xl text-white"><?= $lang['findYourNextStay'] ?></h2>
                     </div>
                     <span class="soft-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
                         <span class="material-symbols-outlined text-base">verified</span>
-                        Disponibilidad en tiempo real
+                        <?=  $lang['availabilityInRealTime'] ?>
                     </span>
                 </div>
 
                 <div class="mt-4 flex items-center justify-between">
                     <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25">Todas</button>
-                        <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite</button>
-                        <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Doble</button>
-                        <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
+                        <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25"><?=  $lang['all']  ?></button>
+                        <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"><?= $lang['suite'] ?></button>
+                        <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"><?= $lang['double']  ?></button>
+                        <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"><?= $lang['simple'] ?></button>
                     </div>
                 </div>
 
                 <div class="mt-8 relative">
-                    <button id="roomsPrev" aria-label="Anterior" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 left-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
-                        <span class="material-symbols-outlined">chevron_left</span>
+                    <button id="roomsPrev" aria-label="Anterior" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 left-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-[0_0_20px_5px_rgba(8,59,38,0.86)] transition transform duration-200 hover:scale-110 items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl">chevron_left</span>
                     </button>
 
-                    <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-auto pb-4 snap-x px-4 md:px-0">
+                    <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-hidden pb-4 snap-x px-4 md:px-0">
                         <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
                         <?php
                         $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
@@ -493,7 +493,7 @@ require_once 'includes/lang.php';
                                         <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
                                     </div>
                                     <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
-                                        Reserva online
+                                        <?= $lang['onlineBook'] ?>
                                     </span>
                                 </div>
 
@@ -520,7 +520,7 @@ require_once 'includes/lang.php';
                                         data-room-name="<?php echo ($roomName); ?>"
                                         data-room-price="<?php echo (float) $room['pre_hab']; ?>"
                                     >
-                                        Reservar
+                                        <?= $lang['bookbtn'] ?>
                                     </button>
                                 </div>
                             </div>
@@ -528,118 +528,122 @@ require_once 'includes/lang.php';
                         <?php endforeach; ?>
                     </div>
 
-                    <button id="roomsNext" aria-label="Siguiente" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 right-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
-                        <span class="material-symbols-outlined">chevron_right</span>
+                    <button id="roomsNext" aria-label="Siguiente" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 right-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-[0_0_20px_5px_rgba(8,59,38,0.86)] transition transform duration-200 hover:scale-110 items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl">chevron_right</span>
                     </button>
                 </div>
+
                 <div id="emptyRoomsState" class="hidden rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
-                    <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
-                    <p class="muted-light mt-2">Cambia el rango de fechas o vuelve a consultar en unos segundos.</p>
+                    <p class="text-lg font-black text-white"><?= $lang['noAvailableRooms'] ?></p>
+                    <p class="muted-light mt-2"><?= $lang['changeDatesOrSearchLater'] ?></p>
                 </div>
             </div>
         </section>
-
+        
+        <!-- Sección de experiencias -->
         <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
-            <div class="grid gap-6 lg:grid-cols-3">
+            <div class="grid gap-6 lg:grid-cols-2">
                 <article class="room-card">
                     <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900" alt="Spa y bienestar" class="h-64 w-full object-cover" loading="lazy" decoding="async">
                     <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Curaduría Aurora</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Spa y bienestar</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente.</p>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?= $lang['curatedAurora'] ?></p>
+                        <h3 class="card-title mt-3 text-2xl font-black text-white"><?= $lang['spa&Wellness'] ?></h3>
+                        <p class="muted-light mt-3 text-sm leading-7"><?= $lang['relaxationMassage'] ?></p>
                     </div>
                 </article>
 
                 <article class="room-card">
                     <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
                     <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sabores exclusivos</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Alta gastronomía</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.</p>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?= $lang['exclusiveFlavors'] ?></p>
+                        <h3 class="card-title mt-3 text-2xl font-black text-white"><?= $lang['fineCuise'] ?></h3>
+                        <p class="muted-light mt-3 text-sm leading-7"><?= $lang['costalCousin'] ?></p>
                     </div>
                 </article>
             </div>
         </section>
 
+        <!-- Programar experiencias -->
         <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
             <div class="glass-section grid gap-8 rounded-[34px] px-6 py-8 md:px-8 lg:grid-cols-[1fr_0.95fr]">
                 <div>
-                    <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Agenda tu estancia</p>
-                    <h2 class="section-title font-display mt-3 text-4xl text-white">Solicita una experiencia antes de llegar.</h2>
+                    <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]"><?= $lang['bookYourStay'] ?></p>
+                    <h2 class="section-title font-display mt-3 text-4xl text-white"><?= $lang['askForAExperience'] ?></h2>
                     <p class="muted-light mt-4 max-w-2xl text-base leading-8">
-                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación.
+                        <?= $lang['bookASpaSession'] ?>
                     </p>
                 </div>
 
                 <form id="activityForm" class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                     <div class="grid gap-4 md:grid-cols-2">
                         <div class="md:col-span-2">
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="actividad">Experiencia</label>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="actividad"><?= $lang['experiences'] ?></label>
                             <select id="actividad" name="actividad" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
-                                <option value="Spa privado">Spa privado</option>
-                                <option value="Cena de autor">Cena de autor</option>
-                                <option value="Paseo náutico">Paseo náutico</option>
+                                <option value="Spa privado"><?= $lang['privateSpace'] ?></option>
+                                <option value="Cena de autor"><?= $lang['authorDinner'] ?></option>
+                                <option value="Paseo náutico"><?= $lang['nauticalTour'] ?></option>
                             </select>
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="fechaActividad">Fecha</label>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="fechaActividad"><?= $lang['dateExperiences'] ?></label>
                             <input id="fechaActividad" name="fecha" type="date" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="horaActividad">Hora</label>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="horaActividad"><?= $lang['hourExperience'] ?></label>
                             <input id="horaActividad" name="hora" type="time" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="nombreActividad">Nombre</label>
-                            <input id="nombreActividad" name="nombre" type="text" value="<?php echo e($usuarioNombre); ?>" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" <?php echo $usuarioAutenticado ? 'readonly' : ''; ?>>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="nombreActividad"><?= $lang['nameExperiences'] ?></label>
+                            <input id="nombreActividad" name="nombre" type="text" value="<?php echo ($usuarioNombre); ?>" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" <?php echo $usuarioAutenticado ? 'readonly' : ''; ?>>
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="correoActividad">Correo</label>
-                            <input id="correoActividad" name="correo" type="email" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" placeholder="ejemplo@correo.com">
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="correoActividad"><?= $lang['emailExperiences'] ?></label>
+                            <input id="correoActividad" name="correo" type="email" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" placeholder="<?= $lang['emailExperiencesPlaceHolder'] ?>">
                         </div>
                     </div>
 
                     <button type="submit" class="hero-button primary-button mt-5 w-full px-5 py-4 text-sm uppercase tracking-[0.18em]">
-                        Programar experiencia
+                        <?= $lang['bookAExperience'] ?>
                     </button>
                 </form>
             </div>
         </section>
 
+        <!-- Historial para usuarios autenticados -->
         <?php if ($usuarioAutenticado): ?>
         <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
             <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
                 <div class="flex items-center justify-between gap-4 mb-6">
                     <div>
-                        <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
-                        <h2 class="mt-2 text-3xl font-black text-white">Reservas realizadas</h2>
+                        <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300"><?= $lang['myHistory'] ?></p>
+                        <h2 class="mt-2 text-3xl font-black text-white"><?= $lang['doneBookings'] ?></h2>
                     </div>
                 
                     <span class="rounded-full bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800 border border-slate-200">
-                        <?php echo count($historialReservas); ?> registros
+                        <?php echo count($historialReservas); ?> <?= $lang['registers'] ?>
                     </span>
                 </div>
 
                 <?php if (empty($historialReservas)): ?>
                     <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
                         <span class="material-symbols-outlined text-4xl text-emerald-700">travel_explore</span>
-                        <p class="mt-3 text-lg font-black text-slate-800">Aún no tienes reservas registradas.</p>
-                        <p class="mt-2 text-sm text-slate-600">Cuando reserves una estancia, aparecerá aquí el historial completo.</p>
+                        <p class="mt-3 text-lg font-black text-slate-800"><?= $lang['noBookingsYet'] ?></p>
+                        <p class="mt-2 text-sm text-slate-600"><?= $lang['whenBookingItAppearsHere'] ?></p>
                     </div>
                 <?php else: ?>
                     <div class="overflow-x-auto">
                         <table class="min-w-full border-separate border-spacing-y-3 text-left">
                             <thead>
                                 <tr class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                                    <th class="px-4 py-2">Reserva</th>
-                                    <th class="px-4 py-2">Habitación</th>
-                                    <th class="px-4 py-2">Check-in</th>
-                                    <th class="px-4 py-2">Check-out</th>
-                                    <th class="px-4 py-2">Estado</th>
+                                    <th class="px-4 py-2"><?= $lang['bookingsHistory'] ?></th>
+                                    <th class="px-4 py-2"><?= $lang['roomHistory'] ?></th>
+                                    <th class="px-4 py-2"><?= $lang['checkinHistory'] ?></th>
+                                    <th class="px-4 py-2"><?= $lang['checkoutHistory'] ?></th>
+                                    <th class="px-4 py-2"><?= $lang['state'] ?></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -671,15 +675,16 @@ require_once 'includes/lang.php';
     </main>
 
     <footer class="px-4 pb-10 text-center text-sm text-white/72 md:px-6">
-        Hotel Aurora © <?php echo date('Y'); ?> · Exclusividad, calma y servicio frente al mar.
+        Hotel Aurora © <?php echo date('Y'); ?> · <?= $lang['footer'] ?>
     </footer>
 
+    <!-- Centro de Ayuda -->
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
             <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">Centro de ayuda</p>
-                    <h2 id="systemHelpTitle" class="mt-1 text-lg font-black">¿Cómo podemos ayudarte?</h2>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/60"><?= $lang['helpCenter'] ?></p>
+                    <h2 id="systemHelpTitle" class="mt-1 text-lg font-black"><?= $lang['howQuestionHelp'] ?></h2>
                 </div>
                 <button id="closeSystemHelp" type="button" class="rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white" aria-label="Cerrar ayuda">
                     <span class="material-symbols-outlined pointer-events-none">close</span>
@@ -687,62 +692,63 @@ require_once 'includes/lang.php';
             </div>
             <div>
                 <details class="system-help__question" open>
-                    <summary>¿Cómo busco una habitación?</summary>
-                    <p class="system-help__answer">Abre “Fechas”, selecciona tu check-in y check-out, ajusta los huéspedes y pulsa “Buscar disponibilidad”.</p>
+                    <summary><?= $lang['howSearchHelp'] ?></summary>
+                    <p class="system-help__answer"><?= $lang['explanationSearchHelp'] ?></p>
                 </details>
                 <details class="system-help__question">
-                    <summary>¿Qué necesito para reservar?</summary>
-                    <p class="system-help__answer">Debes iniciar sesión, elegir fechas válidas y seleccionar una habitación disponible. Después revisa el total y el método de pago.</p>
+                    <summary><?= $lang['WhatNeededHelp'] ?></summary>
+                    <p class="system-help__answer"><?= $lang['explanationNeedHelp'] ?></p>
                 </details>
                 <details class="system-help__question">
-                    <summary>¿Puedo pagar solo una parte?</summary>
-                    <p class="system-help__answer">Sí. En la confirmación puedes elegir pago total o un abono inicial del 50%. El saldo del abono se paga en recepción.</p>
+                    <summary><?= $lang['canPayHelp'] ?></summary>
+                    <p class="system-help__answer"><?= $lang['explanationPayHelp'] ?></p>
                 </details>
                 <details class="system-help__question">
-                    <summary>¿Cómo solicito una experiencia?</summary>
-                    <p class="system-help__answer">En “Agenda tu estancia”, elige la experiencia, fecha, hora y tus datos de contacto. El equipo confirmará la solicitud.</p>
+                    <summary><?= $lang['howAskExperienceHelp'] ?></summary>
+                    <p class="system-help__answer"><?= $lang['explanationAskExperienceHelp'] ?></p>
                 </details>
                 <div class="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
-                    ¿Necesitas más ayuda? Escríbenos desde tu correo a <a href="mailto:reservas@hotelaurora.com" class="!mt-1 !text-left font-bold !text-[#17354f] hover:!text-[#c19046]">reservas@hotelaurora.com</a>.
+                    <?= $lang['howEmailHelp'] ?> <a href="mailto:reservas@hotelaurora.com" class="!mt-1 !text-left font-bold !text-[#17354f] hover:!text-[#c19046]"><?= $lang['emailHelp'] ?></a>.
                 </div>
             </div>
         </section>
         <button id="systemHelpButton" type="button" class="hero-button primary-button flex items-center gap-2 px-4 py-3 text-sm font-black shadow-xl" aria-controls="systemHelpPanel" aria-expanded="false">
             <span class="material-symbols-outlined text-[20px]">help</span>
-            <span>Ayuda</span>
+            <span><?= $lang['helpbtn'] ?></span>
         </button>
     </div>
 
-    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
+    <!-- Módulo de Pagos -->
+    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] hidden items-center justify-center bg-emerald-950/40 px-4 py-10">
         <div class="flex min-h-full items-center justify-center">
             <div class="glass-card w-full max-w-5xl overflow-hidden rounded-[32px]">
                 <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
                     <aside class="bg-[#17354f] px-7 py-8 text-white">
-                        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
-                        <h3 id="modalRoomName" class="mt-2 text-3xl font-black">Habitación seleccionada</h3>
-                        <p class="mt-3 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
+                        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60"><?= $lang['confirmation&Payment'] ?></p>
+                        <h3 id="modalRoomName" class="mt-2 text-3xl font-black"><?= $lang['selectedRoom'] ?></h3>
+                        <p class="mt-3 max-w-md text-white/74"><?= $lang['checkBillBeforePayment'] ?></p>
 
                         <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-out</p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50"><?= $lang['checkInPayment'] ?></p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50"><?= $lang['check-outPayment'] ?></p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50"><?= $lang['Guesses'] ?></p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
                         </div>
 
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
                             <div class="flex justify-between text-sm text-white/70">
-                                <span>Subtotal estadía:</span>
+                                <span><?= $lang['staySubtotal'] ?></span>
                                 <span id="modalSubtotal">$0</span>
                             </div>
                             <div class="flex justify-between text-sm text-white/70">
-                                <span>Impuestos (IVA 19%):</span>
+                                <span><?= $lang['taxesIva'] ?></span>
                                 <span id="modalIva">$0</span>
                             </div>
                             <div class="flex justify-between text-base font-black text-white border-t border-white/10 pt-2">
-                                <span>Total Reserva:</span>
+                                <span><?= $lang['totalPaymentStay'] ?></span>
                                 <span id="modalTotal">$0</span>
                             </div>
                             <div class="flex justify-between text-sm font-bold text-emerald-400 pt-1">
-                                <span>Monto a pagar ahora:</span>
+                                <span><?= $lang['totalToBePaidPayment'] ?></span>
                                 <span id="modalMontoPagarAhora">$0</span>
                             </div>
                         </div>
@@ -751,8 +757,8 @@ require_once 'includes/lang.php';
                     <section class="bg-white/88 px-7 py-8 backdrop-blur-lg overflow-y-auto max-h-[85vh]">
                         <div class="flex items-start justify-between gap-4">
                             <div>
-                                <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
-                                <h4 class="mt-2 text-3xl font-black text-[#17354f]">Detalles de Pago</h4>
+                                <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300"><?= $lang['chargeProcess'] ?></p>
+                                <h4 class="mt-2 text-3xl font-black text-[#17354f]"><?= $lang['paymentDetails'] ?></h4>
                             </div>
                             <button 
                                 id="closeBookingModal" 
@@ -765,40 +771,40 @@ require_once 'includes/lang.php';
                         </div>
 
                         <div class="mt-6">
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400">Modalidad de Cobro</label>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400"><?= $lang['paymentMethod'] ?></label>
                             <div class="grid grid-cols-2 gap-3">
                                 <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="100">
-                                    <p class="text-xs font-black uppercase text-[#000000]">Pago Total (100%)</p>
-                                    <p class="text-xs text-black-500">Liquida el valor completo ahora</p>
+                                    <p class="text-xs font-black uppercase text-[#000000]"><?= $lang['totalPayment100%'] ?></p>
+                                    <p class="text-xs text-black-500"><?= $lang['payNow'] ?></p>
                                 </button>
                                 <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="50">
-                                    <p class="text-xs font-black uppercase text-[#000000]">Abono inicial (50%)</p>
-                                    <p class="text-xs text-black">Paga el resto en recepción</p>
+                                    <p class="text-xs font-black uppercase text-[#000000]"><?= $lang['payHalf'] ?></p>
+                                    <p class="text-xs text-black"><?= $lang['paytheRemainingInReception'] ?></p>
                                 </button>
                             </div>
                         </div>
 
                         <div class="mt-6">
-                            <p class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
+                            <p class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300"><?= $lang['paymentMethod'] ?></p>
                             <div class="grid gap-3 md:grid-cols-3">
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción">Pago en Recepción</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia"><?= $lang['paymentCoso'] ?></button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción"><?= $lang['payInReception'] ?></button>
                             </div>
                         </div>
 
                         <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
                             <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
                                 <span class="material-symbols-outlined text-[18px]">verified_user</span>
-                                Pago seguro procesado por Wompi
+                                <?= $lang['wompiSafePayment'] ?>
                             </div>
                             <div id="cardFields" class="grid gap-3">
                                 <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Número de Tarjeta</label>
+                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500"><?= $lang['cardNumber'] ?></label>
                                     <input id="payCardNumber" type="text" maxlength="19" placeholder="0000 0000 0000 0000" class="w-full rounded-xl border-slate-300 bg-white text-sm">
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Expiración</label>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500"><?= $lang['cardExperation'] ?></label>
                                         <input id="payCardExpiry" type="text" placeholder="MM/AA" maxlength="5" class="w-full rounded-xl border-slate-300 bg-white text-sm">
                                     </div>
                                     <div>
@@ -808,9 +814,9 @@ require_once 'includes/lang.php';
                                 </div>
                             </div>
                             <div id="transferFields" class="hidden text-xs text-slate-600">
-                                <p class="font-bold text-slate-800 mb-1">Datos bancarios para consignación:</p>
-                                <p>Cuenta de Ahorros: <strong>123-456789-00</strong></p>
-                                <p>Titular: <strong>Hotel Aurora S.A.S</strong></p>
+                                <p class="font-bold text-slate-800 mb-1"><?= $lang['bankData'] ?></p>
+                                <p><?= $lang['savingAc'] ?> <strong>123-456789-00</strong></p>
+                                <p><?= $lang['accountHolder'] ?> <strong>Hotel Aurora S.A.S</strong></p>
                             </div>
                         </div>
 
@@ -821,7 +827,7 @@ require_once 'includes/lang.php';
                             onclick="processReservationPayment()" 
                             class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
                         >
-                            Confirmar y Pagar
+                            <?= $lang['confirm&Pay'] ?>
                         </button>
                     </section>
                 </div>
@@ -1177,8 +1183,6 @@ require_once 'includes/lang.php';
             if ($('modalCheckin')) $('modalCheckin').innerText = searchState.checkin;
             if ($('modalCheckout')) $('modalCheckout').innerText = searchState.checkout;
             if ($('modalGuests')) $('modalGuests').innerText = `${guests.adults} adultos, ${guests.children} niños`;
-            if ($('modalNights')) $('modalNights').innerText = String(nights);
-            if ($('modalNightPrice')) $('modalNightPrice').innerText = formatCurrency(selectedReservation.roomPrice);
 
             calcularTotalesCobro(nights);
 
@@ -1186,8 +1190,8 @@ require_once 'includes/lang.php';
             
             const modal = $('bookingModal');
             if (modal) {
-                modal.classList.add('is-open');
-                modal.style.display = 'flex';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
                 document.body.classList.add('overflow-hidden');
             }
         }
@@ -1195,8 +1199,8 @@ require_once 'includes/lang.php';
         function closeBookingModal() {
             const modal = $('bookingModal');
             if (modal) {
-                modal.classList.remove('is-open');
-                modal.style.display = 'none';
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
                 document.body.classList.remove('overflow-hidden');
             }
         }
@@ -1281,7 +1285,6 @@ require_once 'includes/lang.php';
                 });
 
                 const rawText = await res.text();
-                console.log("Respuesta del servidor PHP:", rawText);
 
                 let result;
                 try {

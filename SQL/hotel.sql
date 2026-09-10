@@ -27,6 +27,10 @@ SET time_zone = "+00:00";
 -- Estructura de tabla para la tabla `agenda_actividad`
 --
 
+CREATE DATABASE hotel;
+
+USE hotel;
+
 CREATE TABLE `agenda_actividad` (
   `id_agenda` bigint(20) NOT NULL,
   `actividad` varchar(120) NOT NULL,
