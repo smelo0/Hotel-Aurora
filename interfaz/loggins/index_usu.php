@@ -1,13 +1,14 @@
 <?php
-require_once '../../includes/lang.php';
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-// Define la ruta hacia la raíz donde está el archivo .env
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
+
+// Forzar la carga limpia del archivo de idiomas asegurando la ruta absoluta
+require_once __DIR__ . '/../../includes/lang.php';
 ?>
 
 <!DOCTYPE html>
@@ -15,7 +16,7 @@ $dotenv->load();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Huespedes | Hotel Aurora</title>
+    <title><?= $log['title'] ?></title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client?hl=<?=$idioma_actual?>" async defer></script>
@@ -27,19 +28,18 @@ $dotenv->load();
     $vista = isset($_GET['vista']) ? (string) $_GET['vista'] : 'login';
     $exito = isset($_GET['exito']) ? (string) $_GET['exito'] : '';
     $recaptchaSiteKey = trim((string) (getenv('RECAPTCHA_SITE_KEY') ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')));
-
-    $mensajesError = [
-        'rol' => 'Esta cuenta no pertenece al panel de huespedes.',
-        'vacio' => 'Por favor completa todos los campos.',
-        'email' => 'Ingresa un correo valido.',
-        'credenciales' => 'Correo o contrasena incorrectos.',
-        'captcha' => 'Debes marcar la casilla: No soy un robot.',
-        'consentimiento' => 'Debes aceptar el tratamiento de tus datos personales para continuar.',
-        'conexion_fallida' => 'No se pudo conectar con la base de datos.',
-        'bd_preparacion' => 'No se pudo preparar la consulta. Intenta de nuevo.',
-        'bd_insercion' => 'No se pudo preparar el registro. Intenta de nuevo.',
-        'bd_ejecucion' => 'Ocurrio un error al procesar la solicitud.',
-    ];
+        $mensajesError = [
+            'rol' => 'Esta cuenta no pertenece al panel de huespedes.',
+            'vacio' => 'Por favor completa todos los campos.',
+            'email' => 'Ingresa un correo valido.',
+            'credenciales' => 'Correo o contrasena incorrectos.',
+            'captcha' => 'Debes marcar la casilla: No soy un robot.',
+            'consentimiento' => 'Debes aceptar el tratamiento de tus datos personales para continuar.',
+            'conexion_fallida' => 'No se pudo conectar con la base de datos.',
+            'bd_preparacion' => 'No se pudo preparar la consulta. Intenta de nuevo.',
+            'bd_insercion' => 'No se pudo preparar el registro. Intenta de nuevo.',
+            'bd_ejecucion' => 'Ocurrio un error al procesar la solicitud.',
+        ];
     ?>
 
     <div class="form-card">
@@ -48,18 +48,18 @@ $dotenv->load();
         </span>
 
         <div id="panel-login" class="fade-in" style="display: block;">
-            <h1><?= $log['saludo'] ?></h1>
+            <h1><?= $log['greeting'] ?></h1>
 
             <?php if ($vista !== 'registro' && $error !== '' && isset($mensajesError[$error])): ?>
                 <p class="error-msg"><?php echo htmlspecialchars($mensajesError[$error], ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
 
             <?php if ($exito === 'registrado'): ?>
-                <p class="success-msg"><?= $log['registroExitoso'] ?></p>
+                <p class="success-msg"><?= $log['successfulSignUp'] ?></p>
             <?php endif; ?>
 
             <form method="POST" action="../../controladores/validar_usuario.php">
-                <label for="correo_login"><?= $log['correo'] ?></label>
+                <label for="correo_login"><?= $log['email'] ?></label>
                 <input id="correo_login" type="email" name="correo" required placeholder="ejemplo@correo.com">
 
                 <label for="password_login">Contrasena</label>

@@ -1,7 +1,7 @@
 <?php
 // includes/lang.php
 
-if (session_status() === PHP_SESSION_NONE) {
+/* if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
@@ -129,6 +129,7 @@ if ($idioma_actual === 'en') {
     $lang['confirm&Pay'] = "Confirm and Pay";
 
     // Registro
+    
     $log['greeting'] = "Welcome!";
 } else {
 
@@ -197,7 +198,6 @@ if ($idioma_actual === 'en') {
     $lang['checkoutHistory'] = "Check-out";
     $lang['state'] = "EstadoS";
     $lang['footer'] = "Exclusividad, calma y servicio frente al mar.";
-
     // centro de ayuda
     $lang['helpCenter'] = "Centro de ayuda";
     $lang['howQuestionHelp'] = "¿Cómo podemos ayudarte?";
@@ -240,14 +240,10 @@ if ($idioma_actual === 'en') {
     $lang['accountHolder'] = "Titular: ";
     $lang['confirm&Pay'] = "Confirmar y Pagar";
 
-
-
-
-
-    // Registros
-    
-    $log['saludo'] = "Sea Bienvenido";
-    $log['registroExitoso'] = "Registro exitoso. Ya puedes iniciar sesion.";
-    $log['correo'] = 'Correo';
-    
+    // index_usu.php
+    // Login y registro
+    $lang['title'] = "Acceso Huespedes | Hotel Aurora";
+    $log['greeting'] = "Sea Bienvenido";
+    $log['successfulSignUp'] = "Registro exitoso. Ya puedes iniciar sesion.";
+    $log['email'] = 'Correo';
 }
