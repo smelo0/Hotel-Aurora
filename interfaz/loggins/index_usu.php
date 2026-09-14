@@ -7,7 +7,6 @@ use Dotenv\Dotenv;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
 ?>
-<?php require_once __DIR__ . '../../../includes/lang.php' ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -184,9 +183,17 @@ $dotenv->load();
             cambiarPanel('registro');
         }
     </script>
+    
     <?php
+    
     $ayudaSistemaRol = 'usuario';
-    require_once '../../includes/system_help.php';
     ?>
+
+    <div class="login-layout">
+        <?php include __DIR__ . "../../../includes/translate.php";?>
+        <? require_once '../../../includes/system_help.php';?>
+    </div>
+
+    
 </body>
 </html>

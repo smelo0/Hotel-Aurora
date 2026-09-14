@@ -280,7 +280,7 @@ if ($usuarioAutenticado) {
 }
 
 ?><?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once 'includes/timeout.js'; ?>
+    <?php require_once __DIR__ . "/includes/timeOut.php"; ?>
 <?php endif; ?>
 
 <!DOCTYPE html>
@@ -299,7 +299,7 @@ if ($usuarioAutenticado) {
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=1.5">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css"> 
     <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>;</script>
 </head>
 <body>
@@ -321,13 +321,13 @@ if ($usuarioAutenticado) {
                 <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
             </div>
-            <!-- boton de traduccion gon google -->
-            <div id="google_translate_element"></div>
+
+            <?php include __DIR__ . "/includes/translate.php";?>
             
             <div class="flex items-center gap-3">
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
-                        Hola, <?php echo e($usuarioNombre); ?>
+                        Hola, <?php echo ($usuarioNombre); ?>
                     </span>
                     <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
                         Cerrar sesión
