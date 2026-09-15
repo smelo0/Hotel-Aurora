@@ -279,9 +279,7 @@ if ($usuarioAutenticado) {
     }
 }
 
-?><?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once __DIR__ . "/includes/timeOut.php"; ?>
-<?php endif; ?>
+?>
 
 <!DOCTYPE html>
 <html lang="es">
@@ -1521,3 +1519,8 @@ async function processReservationPayment() {
         if ($('activityForm')) $('activityForm').addEventListener('submit', submitActivityForm);
     });
 </script>
+<!-- Modal y lógica de inactividad -->
+<?php if (!empty($_SESSION['user_auth'])): ?>
+    <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
+    <script src="assets/js/inactividad.js"></script>
+<?php endif; ?>
