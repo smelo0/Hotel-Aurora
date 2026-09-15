@@ -280,8 +280,9 @@ if ($usuarioAutenticado) {
 }
 
 ?><?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once 'includes/timeout.php'; ?>
+    <?php require_once __DIR__ . "/includes/timeOut.php"; ?>
 <?php endif; ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -298,7 +299,7 @@ if ($usuarioAutenticado) {
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=1.5">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css"> 
     <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>;</script>
 </head>
 <body>
@@ -319,13 +320,14 @@ if ($usuarioAutenticado) {
                 <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
                 <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
-        
             </div>
 
+            <?php include __DIR__ . "/includes/translate.php";?>
+            
             <div class="flex items-center gap-3">
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
-                        Hola, <?php echo e($usuarioNombre); ?>
+                        Hola, <?php echo ($usuarioNombre); ?>
                     </span>
                     <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
                         Cerrar sesión
@@ -680,6 +682,9 @@ if ($usuarioAutenticado) {
         Hotel Aurora © <?php echo date('Y'); ?> · Exclusividad, calma y servicio frente al mar.
     </footer>
 
+    <!-- script de traducciones -->
+    
+    
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
             <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
@@ -830,13 +835,13 @@ if ($usuarioAutenticado) {
 
                     <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
                     <button 
-    id="confirmBookingBtn" 
-    type="button" 
-    onclick="processReservationPayment()" 
-    class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
->
-    Confirmar y Pagar
-</button>
+                        id="confirmBookingBtn" 
+                        type="button" 
+                        onclick="processReservationPayment()" 
+                        class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
+                    >
+                        Confirmar y Pagar
+                    </button>
                 </section>
             </div>
         </div>

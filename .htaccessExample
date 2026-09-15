@@ -1,0 +1,2 @@
+RECAPTCHA_SITE_KEY=pega_aqui_la_clave_publica
+RECAPTCHA_SECRET_KEY=pega_aqui_la_clave_secreta
