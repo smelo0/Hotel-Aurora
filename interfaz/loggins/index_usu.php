@@ -149,8 +149,10 @@ $dotenv->load();
 
                 <label class="consent-label"style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
                     <input type="checkbox" name="data_consent" value="1" required style=" width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
-                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio, conforme a la política de privacidad del hotel.
+                    Acepto el tratamiento de mis datos personales para la gestión de mi reserva y atención del servicio.<br>  
+                   <a href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981">Ley 1581 de 2012-Tratamiento de datos personales.</a>
                 </label>
+                
 
                 <input type="submit" value="Crear cuenta">
 
