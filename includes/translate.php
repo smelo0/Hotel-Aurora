@@ -52,7 +52,6 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-</script>
 <style>
 body { top: 0px !important; }
     .goog-te-banner-frame { display: none !important; }
@@ -69,7 +68,7 @@ body { top: 0px !important; }
 #language-select-label {
     margin: 0 2px;
     color: #fff;
-    font-size: rem;
+    font-size: 1em;
     font-weight: bold;
 }
 
@@ -85,23 +84,19 @@ body > .skiptranslate { display: none !important; }
 
 
 .language-switcher {
-    border: 1px solid ;
+    border: 0.2rem solid ;
     font-weight: 800;
     transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
     will-change: transform;
-    background: rgba(255, 255, 255, 0.08);
+    background-color: rgba(8, 59, 38, 0.86);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #000;
     border-radius: 18px;
-    padding: 0 3px;
-}
-
-#language-switcher:hover {
-    transform: translate3d(0, -4px, 0);
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-#language-switcher {
+    padding: 0px 0px 0px 4px;
+    font-size: 1rem;
+    #language-switcher {
     background-color: #fff;
+    }
 }
+
 </style>

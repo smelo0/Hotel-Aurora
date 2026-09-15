@@ -48,7 +48,7 @@ $ayudaSistema = $ayudaSistemaContenido[$ayudaSistemaRol] ?? $ayudaSistemaConteni
     @media (max-width: 767px) { .system-help-widget { right: 1rem; bottom: 1rem; } .system-help-widget__panel { right: -.25rem; } }
 </style>
 
-<div class="system-help-widget">
+<div class="main-help-container">
     <section id="systemHelpPanel" class="system-help-widget__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
         <div class="flex items-start justify-between gap-4 bg-[#2C5E5E] px-5 py-4 text-white">
             <div>

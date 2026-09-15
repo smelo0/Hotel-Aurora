@@ -98,7 +98,18 @@ if ($token === '') {
                 <input type="submit" value="Actualizar contraseña">
             </form>
         <?php endif; ?>
-        <?php require_once __DIR__ . "../../../includes/system_help.php" ?>
+       
     </div>
+    <div class="login-layouts">
+        <?php include __DIR__ . "../../../includes/translate.php";?>
+        <?php require_once __DIR__ . "../../../includes/system_help.php"?>
+    </div>
+    <style>
+        .login-layouts {
+            position: absolute;
+            right: 100px;
+            bottom: 50px;
+        }
+    </style>
 </body>
 </html>
