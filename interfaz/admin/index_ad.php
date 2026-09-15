@@ -41,6 +41,7 @@ if ($permisos_usuario === []) {
         ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver']
         : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver'];
 }
+
 ?>
 
 <body class="bg-surface font-body text-heading antialiased flex min-h-screen overflow-hidden">
@@ -110,8 +111,9 @@ if ($permisos_usuario === []) {
 
     <?php
     $ayudaSistemaRol = 'admin';
-    require_once '../../includes/system_help.php';
+    // borre el system-help.php
     ?>
+    
 
     <script>
         const ROL_USUARIO = <?php echo isset($_SESSION['emp_auth']['rol_usuario']) ? (int) $_SESSION['emp_auth']['rol_usuario'] : 1; ?>;

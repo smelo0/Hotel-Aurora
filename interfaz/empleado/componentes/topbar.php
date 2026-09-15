@@ -10,6 +10,10 @@
         </div>
     </div>
 
+    <div class="login-layouts">
+        <?php include __DIR__ . "../../../includes/translate.php";?>
+    </div>
+
     <!-- Modificación: Se eliminó el botón "Salir del Turno" del header para unificar el cierre de sesión en el sidebar. -->
     <div class="flex items-center gap-6">
         <div class="h-12 w-12 rounded-full border-2 border-primary/30 p-0.5 shadow-inner">

@@ -9,8 +9,10 @@
             <span class="text-primary/20">•</span>
             <p class="text-[10px] font-bold text-secondary uppercase tracking-widest">Panel Admin</p>
         </div>
+        <!-- boton de traduccion gon google -->
+        
     </div>
-
+    <?php include __DIR__ . "../../../../includes/translate.php" ?>
     <!-- Modificación: Se eliminó botón duplicado de salida en el header; el cierre de sesión queda solo en el sidebar. -->
     <div class="flex items-center gap-6">
         <div class="h-12 w-12 rounded-full border-2 border-primary/30 p-0.5 shadow-inner">

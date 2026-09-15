@@ -7,7 +7,6 @@ use Dotenv\Dotenv;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -93,7 +92,7 @@ $dotenv->load();
 
                 <input type="submit" value="Iniciar sesion">
 
-                <a href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
+                <a class="link-switch" href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
 
                 <a href="#" onclick="cambiarPanel('registro'); return false;" class="link-switch">No tienes cuenta? Registrate aqui.</a>
             </form>
@@ -184,9 +183,24 @@ $dotenv->load();
             cambiarPanel('registro');
         }
     </script>
+    
     <?php
+    
     $ayudaSistemaRol = 'usuario';
-    require_once '../../includes/system_help.php';
     ?>
+
+    <div class="login-layouts">
+        <?php include __DIR__ . "../../../includes/translate.php";?>
+        <?php require_once __DIR__ . "../../../includes/system_help.php"?>
+    </div>
+    <style>
+        .login-layouts {
+            position: absolute;
+            right: 100px;
+            bottom: 50px;
+        }
+    </style>
+
+    
 </body>
 </html>

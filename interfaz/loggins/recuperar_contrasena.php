@@ -48,10 +48,21 @@ if (isset($_GET['error'])) {
                 <input type="submit" value="Enviar instrucciones">
             </form>
         <?php endif; ?>
-
         <p class="mt-4">
             <a href="index_usu.php" class="link-switch">Volver al inicio de sesión</a>
         </p>
     </div>
+
+    <div class="login-layouts">
+        <?php include __DIR__ . "../../../includes/translate.php";?>
+        <?php require_once __DIR__ . "../../../includes/system_help.php"?>
+    </div>
+    <style>
+        .login-layouts {
+            position: absolute;
+            right: 100px;
+            bottom: 50px;
+        }
+    </style>
 </body>
 </html>
