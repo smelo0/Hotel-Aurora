@@ -537,8 +537,8 @@ if ($usuarioAutenticado) {
                 <article class="room-card">
                     <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900" alt="Spa y bienestar" class="h-64 w-full object-cover" loading="lazy" decoding="async">
                     <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Curaduría Aurora</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Spa y bienestar</h3>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Diversion y entretenimiento</p>
+                        <h3 class="card-title mt-3 text-2xl font-black text-white">Planes especiales</h3>
                         <p class="muted-light mt-3 text-sm leading-7">Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente.</p>
                     </div>
                 </article>
@@ -548,8 +548,39 @@ if ($usuarioAutenticado) {
                  <article class="room-card">
                     <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
                     <div class="p-6">
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sales de tu estado de comford</p>
+                        <h3 class="card-title mt-3 text-2xl font-black text-white">Actividades</h3>
+                        <button id="openModalBtn" class="btn-primary mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-none transition duration-200">
+    Aqui
+  </button>
+
+  <!-- Ventana Modal / Desplegable (oculta por defecto con 'hidden') -->
+  <div id="modalOverlay" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <!-- Contenido de la ventana -->
+    <div class="bg-white p-6 rounded-none shadow-xl max-w-md w-full relative mx-4">
+      
+      <!-- Botón para cerrar (X) -->
+      <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-xl">
+        &times;
+      </button>
+
+      <h3 class="text-xl font-bold text-gray-800 mb-2">Ventana Desplegada</h3>
+      <p class="text-gray-600 mb-4">
+        Bienvenido a 
+      </p>
+
+      <div class="flex justify-end">
+        <button id="actionCloseBtn" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-none text-sm">
+          Cerrar
+        </button>
+                    </div>
+                </article>
+
+                                 <article class="room-card">
+                    <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                    <div class="p-6">
                         <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sabores exclusivos</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Alta gastronomía</h3>
+                        <h3 class="card-title mt-3 text-2xl font-black text-white">Gastronomia</h3>
                         <p class="muted-light mt-3 text-sm leading-7">Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.</p>
                     </div>
                 </article>
@@ -678,8 +709,9 @@ if ($usuarioAutenticado) {
         Hotel Aurora © <?php echo date('Y'); ?> · Exclusividad, calma y servicio frente al mar.
     </footer>
 
-    <!-- script de traducciones -->
-    
+   
+   
+
     
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
@@ -905,6 +937,30 @@ if ($usuarioAutenticado) {
                 });
             });
 
+             
+    const openBtn = document.getElementById('openModalBtn');
+    const closeBtn = document.getElementById('closeModalBtn');
+    const actionCloseBtn = document.getElementById('actionCloseBtn');
+    const modal = document.getElementById('modalOverlay');
+
+    const toggleModal = () => {
+      modal.classList.toggle('hidden');
+      modal.classList.toggle('flex');
+    };
+
+    // Abrir al hacer clic en el botón
+    openBtn.addEventListener('click', toggleModal);
+
+    // Cerrar al hacer clic en la X o en el botón inferior
+    closeBtn.addEventListener('click', toggleModal);
+    actionCloseBtn.addEventListener('click', toggleModal);
+
+    // Cerrar si hace clic fuera del contenido de la ventana
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) toggleModal();
+    });
+  
+
             // initialize: ensure 'Todas' is active
             const active = document.querySelector('.room-filter[data-filter="all"]');
             if (active) active.classList.add('bg-white/6','text-white');
@@ -914,6 +970,8 @@ if ($usuarioAutenticado) {
    <script>
     // 1. Helper selector de IDs
     const $ = (id) => document.getElementById(id);
+
+
 
     // 2. Estado global
     const isUserAuthenticated = <?php echo $usuarioAutenticado ? 'true' : 'false'; ?>;
@@ -1517,8 +1575,10 @@ async function processReservationPayment() {
         if ($('activityForm')) $('activityForm').addEventListener('submit', submitActivityForm);
     });
 </script>
+ <?php require_once 'includes/banner_cookies.php'; ?>
 <!-- Modal y lógica de inactividad -->
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
     <script src="assets/js/inactividad.js"></script>
+    
 <?php endif; ?>
