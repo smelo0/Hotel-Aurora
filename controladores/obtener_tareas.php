@@ -2,7 +2,7 @@
 // controladores/obtener_tareas.php
 // Reparacion: Endpoint unificado para que empleado y administrador lean la misma cola desde MySQL.
 
-session_start();
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 header('Content-Type: application/json; charset=utf-8');
 

@@ -428,3 +428,91 @@ body {
         width: min(340px, calc(100vw - 48px));
     }
 }
+.inactivity-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(9, 20, 32, 0.7);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+}
+
+/* Reusa la estética .glass-card del sitio: vidrio esmerilado + dorado */
+.inactivity-modal-content {
+    padding: 35px 30px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+}
+
+.inactivity-modal-content h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.6rem;
+    color: var(--gold);
+}
+
+.inactivity-modal-content p {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    margin: 0 0 20px 0;
+}
+
+.inactivity-modal-content strong {
+    color: var(--text-primary);
+}
+
+/* Reloj circular alineado al lenguaje visual dorado del sitio */
+.clock-wrap {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 25px;
+}
+
+.clock-ring {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg); /* empieza arriba, como un reloj */
+}
+
+.clock-ring__track {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.14);
+    stroke-width: 8;
+}
+
+.clock-ring__progress {
+    fill: none;
+    stroke: url(#clockGradient);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 326.7; /* 2 * PI * r(52) */
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1s linear;
+}
+
+.clock-ring__label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.btn-keep-alive {
+    border: none;
+    padding: 12px 28px;
+    font-size: 1rem;
+    cursor: pointer;
+}

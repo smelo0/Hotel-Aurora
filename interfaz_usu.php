@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 header('Content-Type: text/html; charset=utf-8');
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/sesion_seguridad.php';
 
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
@@ -279,9 +277,7 @@ if ($usuarioAutenticado) {
     }
 }
 
-?><?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once __DIR__ . "/includes/timeOut.php"; ?>
-<?php endif; ?>
+?>
 
 <!DOCTYPE html>
 <html lang="es">
@@ -1521,3 +1517,8 @@ async function processReservationPayment() {
         if ($('activityForm')) $('activityForm').addEventListener('submit', submitActivityForm);
     });
 </script>
+<!-- Modal y lógica de inactividad -->
+<?php if (!empty($_SESSION['user_auth'])): ?>
+    <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
+    <script src="assets/js/inactividad.js"></script>
+<?php endif; ?>

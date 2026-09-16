@@ -4,7 +4,7 @@
 <?php
 declare(strict_types=1);
 
-session_start();
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
 require_once '../configuracion/conexion.php';
 

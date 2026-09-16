@@ -1,6 +1,6 @@
 <?php
 // 1. Iniciar la sesión para poder acceder a ella
-session_start();
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
 // 2. Limpiar todas las variables de sesión
 $_SESSION = array();
