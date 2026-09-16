@@ -2,7 +2,7 @@
 // controladores/completar_tarea.php
 // Reparacion: Este endpoint ahora responde JSON y permite que la UI confirme exito antes de quitar la tarea.
 
-session_start();
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 
 function responder_completar_tarea($payload, $codigo_http = 200) {

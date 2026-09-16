@@ -1,7 +1,7 @@
 ﻿<?php
 // ARCHIVO: interfaz/admin/index_ad.php
 
-session_start();
+require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 header('Content-Type: text/html; charset=utf-8');
 
 if (

@@ -72,3 +72,42 @@
 
     startIdleTimer();
 })();
+
+window.mostrarCampoClave = function() {
+    document.getElementById('btnSeguirSesion').style.display = 'none';
+    document.getElementById('verificacionClave').style.display = 'block';
+};
+
+window.verificarClaveDesbloqueo = async function() {
+    const clave = document.getElementById('claveDesbloqueo').value;
+    const errorEl = document.getElementById('errorClave');
+
+    if (!clave) {
+        errorEl.textContent = 'Ingresa tu contraseña.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    try {
+        const response = await fetch('controladores/verificar_clave.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'clave=' + encodeURIComponent(clave)
+        });
+        const data = await response.json();
+
+        if (data.valido) {
+            document.getElementById('claveDesbloqueo').value = '';
+            errorEl.style.display = 'none';
+            document.getElementById('btnSeguirSesion').style.display = 'block';
+            document.getElementById('verificacionClave').style.display = 'none';
+            window.resetInactivityTimer(); // ya existe en tu código
+        } else {
+            errorEl.textContent = 'Contraseña incorrecta.';
+            errorEl.style.display = 'block';
+        }
+    } catch (e) {
+        errorEl.textContent = 'Error al verificar. Intenta de nuevo.';
+        errorEl.style.display = 'block';
+    }
+};

@@ -17,7 +17,13 @@
             </svg>
             <span id="countdownSecs" class="clock-ring__label">10</span>
         </div>
-    
-        <button type="button" class="btn-keep-alive hero-button primary-button" onclick="resetInactivityTimer()">Seguir en sesión</button>
+
+        <button type="button" class="btn-keep-alive hero-button primary-button" id="btnSeguirSesion" onclick="mostrarCampoClave()">Seguir en sesión</button>
+
+        <div id="verificacionClave" style="display:none; margin-top: 15px;">
+            <input type="password" id="claveDesbloqueo" placeholder="Confirma tu contraseña" class="w-full rounded-xl border-slate-300 p-3 text-sm">
+            <p id="errorClave" style="display:none; color:#f87171; font-size:13px; margin-top:6px;"></p>
+            <button type="button" class="hero-button primary-button mt-3 w-full" onclick="verificarClaveDesbloqueo()">Desbloquear</button>
+        </div>
     </div>
 </div>

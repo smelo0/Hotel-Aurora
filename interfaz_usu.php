@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 header('Content-Type: text/html; charset=utf-8');
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/sesion_seguridad.php';
 
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
