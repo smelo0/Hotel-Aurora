@@ -7,14 +7,15 @@ header('Content-Type: application/json');
 exigir_permiso($conexion, 'operaciones.ver');
 
 // Conexi�n: Se agrega join con reserva/usuario para pintar hu�sped y fechas reales en paneles.
-    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab
+    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
+            r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res,
+            u.nom_usu as huesped_nombre
         FROM habitacion h
-        WHERE h.est_hab NOT IN ('Mantenimiento', 'Sucia')
-        ORDER BY h.num_hab ASC LIMIT 20";
-        LEFT JOIN reservas r ON r.cod_res = d.cod_res_det
+        LEFT JOIN reservas r ON h.cod_hab = r.cod_hab
             AND r.est_res IN ('Pendiente', 'Confirmada', 'En Casa')
         LEFT JOIN usuario u ON u.id_usu = r.id_usu_res
-        ORDER BY h.num_hab ASC, r.cod_res DESC";
+        WHERE h.est_hab NOT IN ('Mantenimiento', 'Sucia')
+        ORDER BY h.num_hab ASC, r.cod_res DESC LIMIT 20";
 
 $resultado = $conexion->query($sql);
 $habitaciones = [];
