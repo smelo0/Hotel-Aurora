@@ -1,6 +1,7 @@
 <?php
-// Verificamos si el usuario ya guardó sus preferencias
-$tienePreferencia = isset($_COOKIE['preferencia_cookies']);
+// Al establecer la expiración en el pasado al guardar, o no leer la cookie previa,
+// forzamos a que en la recarga vuelva a aparecer.
+$tienePreferencia = false; // Cambiado a false para que siempre se muestre al cargar/recargar
 ?>
 
 <?php if (!$tienePreferencia): ?>
@@ -59,7 +60,7 @@ $tienePreferencia = isset($_COOKIE['preferencia_cookies']);
                 <input type="checkbox" checked disabled>
             </label>
 
-            <label style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
+            <label style="display: flex; justify-content: space-between; align-size: 14px;">
                 <span><strong>Analíticas:</strong> (Métricas y estadísticas de uso)</span>
                 <input type="checkbox" id="chk-analiticas">
             </label>
@@ -87,16 +88,11 @@ function cerrarModalConfiguracion() {
 }
 
 function aplicarYGuardarCookie(valorJSON) {
-    // Para modo producción/normal se establece expiración a 1 año.
-    // Si estás probando, elimina ';expires=' + ... para convertirla en cookie de sesión.
-    const d = new Date();
-    d.setTime(d.getTime() + (1 * 24 * 60 * 60 * 1000));
-    
-    document.cookie = "preferencia_cookies=" + encodeURIComponent(valorJSON) + 
-                      "; expires=" + d.toUTCString() + 
-                      "; path=/; SameSite=Lax";
+    // Se elimina la propiedad 'expires' para que sea solo una cookie temporal de sesión, 
+    // o se borra inmediatamente fijando Max-Age=0 para pruebas.
+    document.cookie = "preferencia_cookies=" + encodeURIComponent(valorJSON) + "; path=/; Max-Age=0; SameSite=Lax";
 
-    // Ocultar elementos
+    // Ocultar elementos en la pantalla actual tras hacer clic
     document.getElementById('banner-cookies').style.display = 'none';
     cerrarModalConfiguracion();
 }
