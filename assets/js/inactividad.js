@@ -4,7 +4,7 @@
     
     // Tiempos ajustados al sprint: 2 min de inactividad + 3 min de cuenta regresiva = 5 min total
     const IDLE_TIME_LIMIT = 120; // 2 minutos (Soft Lock)
-    const COUNTDOWN_LIMIT = 180; // 3 minutos de reloj circular (Hard Lock)
+    const COUNTDOWN_LIMIT = 60; // 3 minutos de reloj circular (Hard Lock)
     let secondsRemaining = COUNTDOWN_LIMIT;
 
     const modal = document.getElementById('inactivityModal');
@@ -41,7 +41,7 @@
 
             if (secondsRemaining <= 0) {
                 clearInterval(countdownTimer);
-                window.location.href = 'controladores/logout.php?panel=user';
+                window.location.href = '/Hotel-Aurora/controladores/logout.php?panel=user';
             }
         }, 1000);
     }

@@ -25,11 +25,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // --- 2. Hard Lock: 5 minutos de inactividad real ---
-define('HARD_LOCK_SECONDS', 300);
+define('HARD_LOCK_SECONDS', 180);
 
 $haySesionActiva = !empty($_SESSION['user_auth']) || !empty($_SESSION['emp_auth']);
 
-if ($haySesionActiva) {
+if ($haySesionActiva && !defined('SKIP_HARD_LOCK_CHECK')) {
     if (isset($_SESSION['ultimo_acceso'])) {
         $tiempoInactivo = time() - $_SESSION['ultimo_acceso'];
 

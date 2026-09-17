@@ -56,5 +56,9 @@ require_once 'componentes/head.php';
     const FIRMA_USUARIO_ACTIVO = "<?php echo htmlspecialchars($firma_actor_panel, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
     <script src="js/panel.js?v=22"></script>
+<?php if (!empty($_SESSION['emp_auth'])): ?>
+    <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
+    <script src="../../assets/js/inactividad.js"></script>
+<?php endif; ?>
 </body>
 </html>
