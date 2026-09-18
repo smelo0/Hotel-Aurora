@@ -1520,5 +1520,5 @@ async function processReservationPayment() {
 <!-- Modal y lógica de inactividad -->
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
-    <script src="assets/js/inactividad.js"></script>
+    <script src="assets/js/inactividad.js?v=2"></script>
 <?php endif; ?>

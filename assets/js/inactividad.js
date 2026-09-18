@@ -89,7 +89,7 @@ window.verificarClaveDesbloqueo = async function() {
     }
 
     try {
-        const response = await fetch('controladores/verificar_clave.php', {
+        const response = await fetch('/Hotel-Aurora/controladores/verificar_clave.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'clave=' + encodeURIComponent(clave)

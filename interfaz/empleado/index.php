@@ -58,7 +58,7 @@ require_once 'componentes/head.php';
     <script src="js/panel.js?v=22"></script>
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js"></script>
+    <script src="../../assets/js/inactividad.js?v=2"></script>
 <?php endif; ?>
 </body>
 </html>
