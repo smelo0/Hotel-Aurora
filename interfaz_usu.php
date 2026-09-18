@@ -455,69 +455,72 @@ if ($usuarioAutenticado) {
                         <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
                     </div>
                 </div>
+            
 
+            <!-- carrusel de habitaciones -->
+            
              <div class="mt-8 relative">
                 <button id="roomsPrev" aria-label="Anterior" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 left-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
                     <span class="material-symbols-outlined">chevron_left</span>
                 </button>
 
-                <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-auto pb-4 snap-x px-4 md:px-0">
+                <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-hidden pb-4 snap-x px-4 md:px-0">
                     <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
-        <?php
-        $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
-        $features = roomFeatures((string) $room['tipo_hab']);
-        $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
-        if (str_contains($tipoLower, 'suite')) {
-            $roomType = 'suite';
-        } elseif (str_contains($tipoLower, 'doble')) {
-            $roomType = 'doble';
-        } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
-            $roomType = 'sencilla';
-        } else {
-            $roomType = 'otra';
-        }
-        ?>
-        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo $roomType; ?>">
-            <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-            <div class="p-6">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e((string) $room['tipo_hab']); ?></p>
-                        <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
-                    </div>
-                    <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
-                        Reserva online
-                    </span>
-                </div>
-
-                <p class="muted-light mt-4 min-h-[72px] text-sm leading-7">
-                    <?php echo e((string) $room['obs_hab']); ?>
-                </p>
-
-                <div class="mt-5 flex flex-wrap gap-2">
-                    <?php foreach ($features as $feature): ?>
-                        <span class="soft-chip rounded-full px-3 py-2 text-xs font-bold"><?php echo e($feature); ?></span>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="mt-6 flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
-                        <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format((float) $room['pre_hab'], 0, ',', '.'); ?></p>
-                    </div>
-                    <button
-                        type="button"
-                        class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
-                        data-room-select
-                        data-room-id="<?php echo (int) $room['cod_hab']; ?>"
-                        data-room-name="<?php echo e($roomName); ?>"
-                        data-room-price="<?php echo (float) $room['pre_hab']; ?>"
-                    >
-                        Reservar
-                    </button>
-                </div>
-            </div>
-        </article>
+                    <?php
+                    $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
+                    $features = roomFeatures((string) $room['tipo_hab']);
+                    $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
+                    if (str_contains($tipoLower, 'suite')) {
+                        $roomType = 'suite';
+                    } elseif (str_contains($tipoLower, 'doble')) {
+                        $roomType = 'doble';
+                    } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
+                        $roomType = 'sencilla';
+                    } else {
+                        $roomType = 'otra';
+                    }
+                    ?>
+                    <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo $roomType; ?>">
+                        <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                        <div class="p-6">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e((string) $room['tipo_hab']); ?></p>
+                                    <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
+                                </div>
+                                <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
+                                    Reserva online
+                                </span>
+                            </div>
+                                
+                            <p class="muted-light mt-4 min-h-[72px] text-sm leading-7">
+                                <?php echo e((string) $room['obs_hab']); ?>
+                            </p>
+                                
+                            <div class="mt-5 flex flex-wrap gap-2">
+                                <?php foreach ($features as $feature): ?>
+                                    <span class="soft-chip rounded-full px-3 py-2 text-xs font-bold"><?php echo e($feature); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                                
+                            <div class="mt-6 flex items-center justify-between gap-4">
+                                <div>
+                                    <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
+                                    <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format((float) $room['pre_hab'], 0, ',', '.'); ?></p>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
+                                    data-room-select
+                                    data-room-id="<?php echo (int) $room['cod_hab']; ?>"
+                                    data-room-name="<?php echo e($roomName); ?>"
+                                    data-room-price="<?php echo (float) $room['pre_hab']; ?>"
+                                >
+                                    Reservar
+                                </button>
+                            </div>
+                        </div>
+                    </article>
     <?php endforeach; ?>
                 </div>
 
