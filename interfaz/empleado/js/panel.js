@@ -327,7 +327,10 @@ function crearDetalleHuespedEmpleado(h) {
 async function actualizarInterfaz(habitacionesLocales = null) {
     try {
         // Corrección: Si recibimos habitaciones locales, renderizamos desde state; si no, consultamos MySQL una sola vez.
-        const DATA_HOTEL = habitacionesLocales || await (await fetch('../../controladores/obtener_habitaciones.php')).json();
+        const DATA_HOTEL = habitacionesLocales || await (await fetch('../../controladores/obtener_habitaciones.php', {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        })).json();
         habitacionesEmpleadoState = DATA_HOTEL;
 
         const ocupadas = DATA_HOTEL.filter(h => h.estado === 'Ocupada').length;
@@ -391,7 +394,9 @@ async function actualizarInterfaz(habitacionesLocales = null) {
         const gridHousekeeping = document.getElementById('gridHousekeeping');
         if(gridHousekeeping) {
             gridHousekeeping.innerHTML = '';
-            DATA_HOTEL.forEach(h => {
+            DATA_HOTEL
+                .filter(h => h.estado === 'Sucia' || h.estado === 'Mantenimiento')
+                .forEach(h => {
                 const estadoUI = clasesEstadoHousekeeping(h.estado);
                 const motivoMantenimiento = obtenerMotivoMantenimiento(h.observacion);
                 const textoMotivo = motivoMantenimiento || 'Motivo no registrado.';
@@ -427,7 +432,7 @@ async function actualizarInterfaz(habitacionesLocales = null) {
                         ${popoverMantenimiento}
                     </article>
                 `);
-            });
+                });
         }
 
         const gridHue = document.getElementById('gridHuespedes');
@@ -741,7 +746,8 @@ if(formHabitacion) {
         try {
             const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: { 'Accept': 'application/json' }
             });
             const resultado = await respuesta.json();
             

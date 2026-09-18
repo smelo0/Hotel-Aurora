@@ -126,7 +126,7 @@ $_SESSION['user_auth'] = [
 ];
 
 // Redirigir al panel principal
-header('Location: ../landingPage.php');
+header('Location: ../interfaz_usu.php');
 exit();
 
 ?>

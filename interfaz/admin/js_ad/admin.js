@@ -217,8 +217,14 @@ async function renderHousekeeping() {
     if (!grid) return;
 
     try {
-        const respuesta = await fetch('../../controladores/obtener_habitaciones.php', { cache: 'no-store' });
+        const respuesta = await fetch('../../controladores/obtener_habitaciones.php', {
+            cache: 'no-store',
+            headers: { Accept: 'application/json' }
+        });
         const habitaciones = await respuesta.json();
+        if (!respuesta.ok || !Array.isArray(habitaciones)) {
+            throw new Error(habitaciones.mensaje || 'No se pudieron cargar las habitaciones');
+        }
 
         habitacionesHousekeeping = new Map();
         grid.innerHTML = '';
