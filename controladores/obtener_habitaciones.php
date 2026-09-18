@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 header('Content-Type: application/json');
-exigir_permiso($conexion, 'operaciones.ver');
+// exigir_permiso($conexion, 'operaciones.ver');
 
 // Relaciona habitaciones y reservas mediante la tabla detalle.
     $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,

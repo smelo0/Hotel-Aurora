@@ -5,19 +5,24 @@ function usuario_tiene_permiso(mysqli $conexion, string $codigo_permiso, ?int $c
         return false;
     }
 
+    // El cambio está aquí: p.clave_permiso = ? en lugar de p.cod_permiso = ?
     $stmt = $conexion->prepare(
-        'SELECT 1 FROM rol_permiso rp INNER JOIN permiso p ON p.cod_permiso = rp.cod_permiso WHERE rp.cod_rol = ? AND p.cod_permiso = ? LIMIT 1'
+        'SELECT 1 FROM rol_permiso rp INNER JOIN permiso p ON p.cod_permiso = rp.cod_permiso WHERE rp.cod_rol = ? AND p.clave_permiso = ? LIMIT 1'
     );
+    
     if (!$stmt) {
         return false;
     }
+    
     $stmt->bind_param('is', $codigo_rol, $codigo_permiso);
     $stmt->execute();
     $stmt->store_result();
     $tiene_permiso = $stmt->num_rows === 1;
     $stmt->close();
+    
     return $tiene_permiso;
 }
+
 
 function exigir_permiso(mysqli $conexion, string $codigo_permiso): void {
     if (usuario_tiene_permiso($conexion, $codigo_permiso)) {
