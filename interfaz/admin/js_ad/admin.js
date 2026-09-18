@@ -87,21 +87,50 @@ function inicializarTogglesAdmin() {
 // NAVEGACION Y UTILIDADES
 // =======================================================
 function navegar(sec, btn) {
+    console.log("1. Clic detectado. Intentando abrir:", sec);
+
     const permisoSeccion = {
         dashboard: 'dashboard.ver',
         reservas: 'reservas.ver',
         roles: 'roles.ver',
-        operaciones: 'operaciones.ver',
+        operaciones: 'habitaciones.ver', // O 'limpieza.ver', dependiendo del permiso principal
         finanzas: 'finanzas.ver',
-        configuracion: 'configuracion.ver'
+        configuracion: 'seguridad.gestionar' // Nombre correcto según tu tabla
     }[sec];
-    if (permisoSeccion && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
-    document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
-    const seccion = document.getElementById('sec-' + sec);
-    if (seccion) seccion.classList.remove('hidden');
+
+    // Verificar si PERMISOS_USUARIO existe
+    if (typeof PERMISOS_USUARIO === 'undefined') {
+        console.error("❌ ERROR: La variable PERMISOS_USUARIO no está definida.");
+        return;
+    }
+
+    // Verificar si tiene el permiso
+    if (permisoSeccion && !PERMISOS_USUARIO.includes(permisoSeccion)) {
+        console.warn("⚠️ Bloqueado: El usuario no tiene el permiso:", permisoSeccion);
+        return;
+    }
+
+    console.log("2. Permisos correctos. Ocultando paneles actuales...");
+    const paneles = document.querySelectorAll('.seccion-contenido');
+    if(paneles.length === 0) console.warn("⚠️ No se encontraron elementos con la clase '.seccion-contenido' en el HTML.");
+    
+    paneles.forEach(s => s.classList.add('hidden'));
+
+    const idBuscado = 'sec-' + sec;
+    const seccion = document.getElementById(idBuscado);
+    
+    if (seccion) {
+        console.log("3. ÉXITO: Panel encontrado. Mostrando:", idBuscado);
+        seccion.classList.remove('hidden');
+    } else {
+        console.error("❌ ERROR: No se encontró ningún elemento en el HTML con el id='" + idBuscado + "'");
+    }
+
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active-nav', 'hover:bg-slate-50'));
     if (btn) btn.classList.add('active-nav');
 }
+
+
 
 function filtrarReservas() {
     const buscador = document.getElementById('buscadorReservas');
