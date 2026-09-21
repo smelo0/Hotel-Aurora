@@ -1,64 +1,62 @@
 ﻿<?php
-// interfaz/empleado/index.php
-
-require_once __DIR__ . '/../../includes/sesion_seguridad.php';
-header('Content-Type: text/html; charset=utf-8');
-
-if (
-    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
-    !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [3, 4, 5], true)
-) {
-    header("Location: ../loggins/inndex_usu.php");
+session_start();
+if (!isset($_SESSION['emp_auth'])) {
+    header("Location: ../../login.php");
     exit();
 }
-
-$nombre_empleado = $_SESSION['emp_auth']['nombre_usuario']; 
-$firma_actor_panel = hash_hmac(
-    'sha256',
-    ((int) $_SESSION['emp_auth']['id_usuario']) . '|' . ((int) $_SESSION['emp_auth']['rol_usuario']),
-    'software_hotel_actor_panel_v1'
-);
-
-require_once 'componentes/head.php';
 ?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <?php include __DIR__ . '/componentes/head.php'; ?>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 flex h-screen overflow-hidden">
 
-<body class="bg-surface font-body text-heading antialiased flex min-h-screen overflow-hidden">
+    <!-- Sidebar lateral -->
+    <?php include __DIR__ . '/componentes/sidebar.php'; ?>
 
-    <?php 
-    require_once 'componentes/modal_habitacion.php';
-    require_once 'componentes/modal_tarea.php'; 
-    require_once 'componentes/sidebar.php'; 
-    ?>
+    <!-- Contenedor central -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        
+        <!-- Topbar -->
+        <?php include __DIR__ . '/componentes/topbar.php'; ?>
 
-    <main class="ml-64 flex-1 h-screen overflow-y-auto no-scrollbar">
-        <?php require_once 'componentes/topbar.php'; ?>
+        <!-- Área de contenidos -->
+        <main class="flex-1 overflow-y-auto p-6 md:p-8 relative">
+            
+            <section id="sec-dashboard" class="seccion-contenido space-y-8">
+                <?php include __DIR__ . '/secciones/inicio.php'; ?>
+            </section>
 
-        <div class="p-10 space-y-10">
-            <?php
-            require_once 'secciones/inicio.php';
-            require_once 'secciones/habitaciones.php';
-            require_once 'secciones/limpieza.php';
-            require_once 'secciones/huespedes.php';
-            ?>
-        </div>
-    </main>
+            <section id="sec-habitaciones" class="seccion-contenido space-y-8 hidden">
+                <?php include __DIR__ . '/secciones/habitaciones.php'; ?>
+            </section>
 
-    <?php require_once 'componentes/aside_tareas.php'; ?>
+            <section id="sec-limpieza" class="seccion-contenido space-y-8 hidden">
+                <?php include __DIR__ . '/secciones/limpieza.php'; ?>
+            </section>
 
-    <?php
-    $ayudaSistemaRol = 'empleado';
-    require_once '../../includes/system_help.php';
-    ?>
+            <section id="sec-huespedes" class="seccion-contenido space-y-8 hidden">
+                <?php include __DIR__ . '/secciones/huespedes.php'; ?>
+            </section>
 
+        </main>
+    </div>
+
+    <!-- Panel lateral derecho de tareas -->
+    <?php include __DIR__ . '/componentes/aside_tareas.php'; ?>
+
+    <!-- Modales -->
+    <?php include __DIR__ . '/componentes/modal_tarea.php'; ?>
+    <?php include __DIR__ . '/componentes/modal_habitacion.php'; ?>
+
+    <!-- Variables globales -->
     <script>
-    const ROL_USUARIO = <?php echo (int) $_SESSION['emp_auth']['rol_usuario']; ?>;
-    const ID_USUARIO_ACTIVO = <?php echo (int) $_SESSION['emp_auth']['id_usuario']; ?>;
-    const FIRMA_USUARIO_ACTIVO = "<?php echo htmlspecialchars($firma_actor_panel, ENT_QUOTES, 'UTF-8'); ?>";
+        const ID_USUARIO_ACTIVO = <?php echo json_encode($_SESSION['emp_auth']['id'] ?? 0); ?>;
+        const ROL_USUARIO = <?php echo json_encode($_SESSION['emp_auth']['rol'] ?? 3); ?>;
+        const FIRMA_USUARIO_ACTIVO = <?php echo json_encode($_SESSION['emp_auth']['nombre_usuario'] ?? 'Empleado'); ?>;
     </script>
-    <script src="js/panel.js?v=22"></script>
-<?php if (!empty($_SESSION['emp_auth'])): ?>
-    <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js"></script>
-<?php endif; ?>
+
+    <script src="js/panel.js"></script>
 </body>
 </html>

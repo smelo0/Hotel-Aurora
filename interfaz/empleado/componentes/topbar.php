@@ -11,7 +11,7 @@
     </div>
 
     <div class="login-layouts">
-        <?php include __DIR__ . "../../../includes/translate.php";?>
+        <?php include __DIR__ . '/../../../includes/translate.php';?>
     </div>
 
     <!-- Modificación: Se eliminó el botón "Salir del Turno" del header para unificar el cierre de sesión en el sidebar. -->
@@ -20,4 +20,5 @@
             <img class="w-full h-full rounded-full object-cover shadow-sm" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=100" alt="Perfil empleado" />
         </div>
     </div>
+    
 </header>

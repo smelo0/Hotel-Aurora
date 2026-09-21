@@ -87,10 +87,9 @@ function cerrarModalConfiguracion() {
 }
 
 function aplicarYGuardarCookie(valorJSON) {
-    // Para modo producción/normal se establece expiración a 1 año.
-    // Si estás probando, elimina ';expires=' + ... para convertirla en cookie de sesión.
+    // Configuración para producción: expira en 30 dias
     const d = new Date();
-    d.setTime(d.getTime() + (1 * 24 * 60 * 60 * 1000));
+    d.setTime(d.getTime() + (30 * 24 * 60 * 60 * 1000));
     
     document.cookie = "preferencia_cookies=" + encodeURIComponent(valorJSON) + 
                       "; expires=" + d.toUTCString() + 

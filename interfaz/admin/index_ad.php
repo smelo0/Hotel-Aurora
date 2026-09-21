@@ -8,7 +8,7 @@ if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
     !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2], true)
 ) {
-    header("Location: ../loggins/landingPage.php");
+    header("Location: interfaz/admin/interfaz_usu.php");
     exit();
 }
 
