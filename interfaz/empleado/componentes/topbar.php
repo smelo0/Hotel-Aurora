@@ -1,4 +1,4 @@
-<header class="flex-none w-full flex items-center justify-between gap-6 px-6 h-20 bg-[#f8fbfb]/95 backdrop-blur-md sticky top-0 z-30 border-b border-primary/10 shadow-sm">
+<header class="empleado-topbar flex-none w-full flex items-center justify-between gap-6 px-6 h-20 sticky top-0 z-30">
     <div>
         <h2 class="font-headline font-black text-primary text-xl tracking-tight">
             Hola, <?php echo htmlspecialchars($_SESSION['emp_auth']['nombre_usuario']); ?>

@@ -3,14 +3,16 @@
    ========================================================================== */
 :root {
   /* Nueva Paleta Elegante Verde Esmeralda / Dorado / Blanco / Negro */
-  --color-primary: #0B462B;         /* Verde Esmeralda Dominante */
-  --color-primary-rgb: 11, 70, 43;
-  --color-gold: #C5A059;            /* Dorado de acento */
-  --color-dark: #111111;            /* Negro */
-  --color-bg-light: #F4F6F5;
+  --color-primary: #03271b;         /* Verde esmeralda dominante oficial */
+  --color-primary-rgb: 3, 39, 27;
+  --color-emerald-secondary: #034e2b;
+  --color-gold: #d7b06a;            /* Dorado de identidad */
+  --color-gold-hover: #f0d39a;
+  --color-dark: #111111;             /* Negro para contraste */
+  --color-bg-light: #ffffff;
 
   /* Estados Hoteleros Mantenidos */
-  --state-disponible: #0B462B;      /* Verde Esmeralda para disponible */
+  --state-disponible: #034e2b;      /* Verde esmeralda secundario para disponible */
   --state-mantenimiento: #ef4444;
   --state-limpio: #06b6d4;
   --state-ocupada: #f97316;
@@ -44,7 +46,7 @@
   left: 0; 
   width: 4px; 
   height: 100%; 
-  background: var(--color-primary); 
+  background: var(--color-gold);
   border-radius: 0 4px 4px 0;
 }
 
@@ -70,7 +72,7 @@
 .metric-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 40px -10px rgba(var(--color-primary-rgb), 0.18);
-  background: linear-gradient(to bottom right, var(--color-bg-light), #eef6f6);
+  background: linear-gradient(to bottom right, #ffffff, #f4f8f6);
 }
 .metric-card:hover .icon-box {
   transform: scale(1.1) rotate(5deg);
@@ -78,6 +80,64 @@
   color: #ffffff;
 }
 .icon-box { transition: all 0.4s ease; }
+
+/* Identidad visual: esmeralda estructural y dorado reservado para la marca. */
+.empleado-sidebar h1 {
+  color: #ffffff !important;
+  position: relative;
+}
+
+.empleado-sidebar h1::after {
+  content: '';
+  display: block;
+  width: 2.25rem;
+  height: 2px;
+  margin-top: 0.35rem;
+  background: var(--color-gold);
+}
+
+.empleado-sidebar .nav-item .material-symbols-outlined {
+  color: #9aaec3;
+}
+
+.empleado-sidebar .active-nav .material-symbols-outlined,
+.empleado-sidebar .active-nav span:last-child {
+  color: var(--color-primary) !important;
+}
+
+.empleado-sidebar .active-nav::after {
+  background: var(--color-gold);
+}
+
+.empleado-sidebar .nav-item:hover .material-symbols-outlined {
+  color: var(--color-gold);
+}
+
+.empleado-sidebar [onclick="abrirModal()"] {
+  background: var(--color-primary) !important;
+  border: 1px solid var(--color-gold);
+}
+
+.empleado-sidebar [onclick="abrirModal()"] .material-symbols-outlined {
+  color: var(--color-gold-hover);
+}
+
+header {
+  border-bottom-color: rgba(215, 176, 106, 0.35) !important;
+}
+
+header h2 {
+  color: var(--color-primary) !important;
+}
+
+header #tituloCabecera,
+header .text-primary\/20 {
+  color: var(--color-gold) !important;
+}
+
+header .border-primary\/30 {
+  border-color: var(--color-gold) !important;
+}
 
 /* ==========================================================================
    COMPONENTES: ARQUITECTURA UNIFICADA DE TARJETAS (HABITACIÓN & HOUSEKEEPING)
@@ -263,5 +323,185 @@ aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relat
   main {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+  }
+}
+
+/* Composicion cromatica principal del panel: esmeralda profundo, blanco y dorado. */
+.empleado-body {
+  background: #e7efeb;
+}
+
+.empleado-sidebar {
+  background: #03271b;
+  border-right: 1px solid rgba(215, 176, 106, 0.18);
+  box-shadow: 8px 0 30px rgba(3, 39, 27, 0.16);
+}
+
+.empleado-sidebar .nav-item {
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+.empleado-sidebar .nav-item:hover,
+.empleado-sidebar .nav-item:hover span:last-child {
+  color: #f0d39a !important;
+}
+
+.empleado-sidebar .nav-item .material-symbols-outlined {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.empleado-sidebar .active-nav,
+.empleado-sidebar .active-nav span:last-child,
+.empleado-sidebar .active-nav .material-symbols-outlined {
+  color: #ffffff !important;
+}
+
+.empleado-sidebar .active-nav {
+  background: rgba(3, 78, 43, 0.72);
+}
+
+.empleado-sidebar .active-nav::after {
+  background: var(--color-gold);
+}
+
+.empleado-sidebar > nav > div {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.empleado-sidebar [onclick="abrirModal()"] {
+  color: #03271b !important;
+  background: var(--color-gold) !important;
+  border-color: var(--color-gold-hover);
+}
+
+.empleado-sidebar [onclick="abrirModal()"] .material-symbols-outlined {
+  color: #03271b;
+}
+
+.empleado-sidebar [onclick="abrirModalLogoutEmpleado(event)"] {
+  color: #f0d39a !important;
+}
+
+.empleado-topbar {
+  color: #ffffff;
+  background: #034e2b;
+  border-bottom: 1px solid rgba(215, 176, 106, 0.35);
+  box-shadow: 0 8px 24px rgba(3, 39, 27, 0.12);
+}
+
+.empleado-topbar h2,
+.empleado-topbar #tituloCabecera,
+.empleado-topbar #fechaHoy,
+.empleado-topbar .text-primary\/20 {
+  color: #ffffff !important;
+}
+
+.empleado-topbar #fechaHoy,
+.empleado-topbar #tituloCabecera,
+.empleado-topbar .text-primary\/20 {
+  color: #f0d39a !important;
+}
+
+.empleado-topbar .border-primary\/30 {
+  border-color: var(--color-gold) !important;
+}
+
+.empleado-task-panel {
+  background: #f4f6f5;
+  border-left: 1px solid rgba(3, 39, 27, 0.12);
+  box-shadow: -8px 0 30px rgba(3, 39, 27, 0.08);
+}
+
+.empleado-task-panel #cabeceraColaTareas {
+  border-bottom-color: rgba(3, 39, 27, 0.18) !important;
+}
+
+.empleado-task-panel #botonColaTareas,
+.empleado-task-panel #flechaCerrarColaTareas {
+  color: var(--color-primary) !important;
+}
+
+/* Ajustes finales de identidad y contraste del panel operativo. */
+.empleado-sidebar {
+  background: #03271b !important;
+}
+
+.empleado-topbar {
+  background: #034e2b !important;
+}
+
+.empleado-task-panel {
+  background: #f8f4eb !important;
+}
+
+.empleado-task-panel #cabeceraColaTareas {
+  background: #034e2b;
+  border-bottom-color: rgba(215, 176, 106, 0.45) !important;
+  border-radius: 0.5rem;
+  padding: 0.55rem;
+}
+
+.empleado-task-panel #cabeceraColaTareas,
+.empleado-task-panel #cabeceraColaTareas .material-symbols-outlined,
+.empleado-task-panel #tituloColaTareas,
+.empleado-task-panel #flechaCerrarColaTareas {
+  color: #ffffff !important;
+}
+
+.empleado-task-panel #contenedorTareas {
+  background: #f8f4eb;
+  border-radius: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.empleado-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.empleado-brand-logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  border-radius: 9999px;
+  border: 1px solid var(--color-gold);
+  background: #03271b;
+}
+
+.empleado-brand h1 {
+  width: calc(100% - 2.6rem);
+}
+
+.empleado-brand p {
+  width: 100%;
+  margin-left: 2.6rem;
+  margin-top: -0.45rem;
+}
+
+.empleado-sidebar [onclick="abrirModal()"] {
+  color: #03271b !important;
+  background: var(--color-gold) !important;
+  border: 1px solid var(--color-gold-hover) !important;
+}
+
+.empleado-sidebar [onclick="abrirModalLogoutEmpleado(event)"],
+.empleado-sidebar [onclick="abrirModalLogoutEmpleado(event)"] span {
+  color: #dc2626 !important;
+}
+
+.empleado-sidebar [onclick="abrirModalLogoutEmpleado(event)"]:hover {
+  background: #fef2f2 !important;
+}
+
+@media (max-width: 900px) {
+  .empleado-brand-logo {
+    margin: 0 auto;
+  }
+
+  .empleado-brand h1,
+  .empleado-brand p {
+    display: none;
   }
 }

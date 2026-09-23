@@ -13,7 +13,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 <head>
     <?php include __DIR__ . '/componentes/head.php'; ?>
 </head>
-<body class="bg-[#f8fafc] text-slate-800 flex h-screen overflow-hidden">
+<body class="empleado-body text-slate-800 flex h-screen overflow-hidden">
 
     <!-- Sidebar lateral -->
     <?php include __DIR__ . '/componentes/sidebar.php'; ?>

@@ -23,12 +23,12 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#0B462B",     /* Verde Esmeralda Principal (Resaltante) */
-                        "primary-hover": "#07301D",
-                        "gold": "#C5A059",        /* Dorado Accent */
-                        "gold-light": "#E5C889",
+                        "primary": "#03271B",     /* Verde esmeralda dominante oficial */
+                        "primary-hover": "#021C13",
+                        "gold": "#D7B06A",        /* Dorado de identidad */
+                        "gold-light": "#F0D39A",
                         "dark": "#111111",        /* Negro Profundo */
-                        "surface": "#F4F6F5",     /* Fondo claro balanceado */
+                        "surface": "#FFFFFF",     /* Superficie blanca oficial */
                         "card-bg": "#FFFFFF"      /* Blanco Puro */
                     },
                     borderRadius: { "lg": "1rem", "xl": "2rem", "full": "9999px" },
@@ -42,5 +42,5 @@
     <link rel="stylesheet" href="css/estilos.css">
     
     <!-- Favicon SVG Funcional con Isotipo en Dorado/Verde -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%230B462B'/><text x='50%' y='55%' font-size='60' text-anchor='middle' dominant-baseline='middle' fill='%23C5A059' font-family='sans-serif' font-weight='bold'>A</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%2303271B'/><text x='50%' y='55%' font-size='60' text-anchor='middle' dominant-baseline='middle' fill='%23D7B06A' font-family='sans-serif' font-weight='bold'>A</text></svg>">
 </head>
