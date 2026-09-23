@@ -31,7 +31,13 @@
         <!-- Modificación: Se aplicó el mismo estilo de item de navegación del panel empleado. -->
         <button data-permiso="configuracion.ver" onclick="navegar('configuracion', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">security</span><span class="text-sm font-bold">Seguridad</span>
+
         </button>
+
+       <button data-permiso="experiencias.ver" onclick="navegar('experiencias', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+    <span class="material-symbols-outlined">auto_awesome</span>
+    <span class="text-sm font-bold">Experiencias</span>
+</button>
 
         <!-- Modificación: Se ajustó el bloque de cierre de sesión al espaciado limpio del panel empleado. -->
         <div class="px-6 mt-auto pb-8 pt-10 border-t border-slate-100 space-y-3">

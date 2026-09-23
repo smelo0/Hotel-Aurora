@@ -1,23 +1,22 @@
 <?php
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'hotel');
+// 1. Importas tu conexión existente
+// Usa esto:
+require_once __DIR__ . '/../../../configuracion/conexion.php';
 
-if ($conexion->connect_error) {
-    die("Error de conexión: " . $conexion->connect_error);
-}
+// 2. Consultas las opciones registradas por el administrador
+$sql = "SELECT * FROM experiencias ORDER BY id DESC";
 
-// Consultar todas las experiencias registradas por el administrador
-$resultado =$conexion->query("SELECT * FROM experiencias ORDER BY id DESC");
+/** @var mysqli $conexion */$resultado = mysqli_query($conexion,$sql);
 
-// Organizar las opciones por categoría
+// 3. Organizas las opciones por categoría
 $experiencias_admin = [
     'planes' => [],
     'actividades' => [],
     'gastronomia' => []
 ];
 
-if ($resultado &&$resultado->num_rows > 0) {
-    while ($row =$resultado->fetch_assoc()) {
+if ($resultado && mysqli_num_rows($resultado) > 0) {
+    while ($row = mysqli_fetch_assoc($resultado)) {
         $experiencias_admin[$row['categoria']][] = [
             'id' => $row['id'],
             'nombre' => $row['nombre'],
@@ -124,6 +123,8 @@ if ($resultado &&$resultado->num_rows > 0) {
         </div>
     </div>
 </div>
+
+
 
 <script>
 const infoCategorias = {

@@ -1708,6 +1708,6 @@ async function processReservationPayment() {
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
     <script src="assets/js/inactividad.js"></script>
-    <?php include 'experiencias.php'; ?>
+    <?php include '../../experiencias.php'; ?>
     
 <?php endif; ?>
