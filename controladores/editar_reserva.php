@@ -2,9 +2,17 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/permiso.php';
+
+// Incluimos Composer y la clase Logger
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 exigir_permiso($conexion, 'reservas.editar');
+
+// Obtenemos el ID del usuario actual de la sesión para auditoría
+$idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $conexion->begin_transaction();
@@ -16,6 +24,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $notas = $_POST['notas'] ?? '';
 
         if (empty($cod_res)) {
+            Logger::registrarLog('WARN', 'Intento de editar reserva sin especificar ID', [
+                'id_usuario' => $idUsuarioLog
+            ]);
             throw new Exception('id_requerido');
         }
 
@@ -45,10 +56,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $reserva_actualizada = $res_actualizada->fetch_assoc();
 
         if (!$reserva_actualizada) {
+            Logger::registrarLog('WARN', 'Intento de editar una reserva que no existe en base de datos', [
+                'id_usuario' => $idUsuarioLog,
+                'cod_res' => $cod_res
+            ]);
             throw new Exception('reserva_no_encontrada');
         }
 
         $conexion->commit();
+
+        // LOG DE ÉXITO: Reserva modificada correctamente con su contexto operativo
+        Logger::registrarLog('INFO', 'Reserva actualizada con éxito', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_res' => $cod_res,
+            'nuevo_estado' => $estado,
+            'habitacion_asignada' => $hab_final
+        ]);
+
         echo json_encode([
             'status' => 'exito',
             'mensaje' => 'Reserva actualizada correctamente',
@@ -65,11 +89,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     } catch (Exception $e) {
         $conexion->rollback();
+
+        // LOG DE ERROR: Si falla la transacción o hay excepciones de negocio/SQL
+        Logger::registrarLog('ERROR', 'Fallo al actualizar la reserva en base de datos', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_res' => $_POST['cod_res'] ?? null,
+            'error_excepcion' => $e->getMessage(),
+            'error_db' => $conexion->error
+        ]);
+
         http_response_code(400);
         echo json_encode(['status' => 'error', 'mensaje' => 'No se pudo actualizar la reserva']);
         exit();
     }
 }
+
+Logger::registrarLog('WARN', 'Intento de acceso por método no permitido al módulo de editar reservas', [
+    'id_usuario' => $idUsuarioLog,
+    'metodo' => $_SERVER['REQUEST_METHOD']
+]);
 
 http_response_code(405);
 echo json_encode(['status' => 'error', 'mensaje' => 'Metodo no permitido']);

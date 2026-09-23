@@ -1,3 +1,10 @@
+Este archivo (crear_reserva.php) es el núcleo financiero y operativo más importante de tu sistema hotelero. Maneja la validación de disponibilidad de habitaciones, cruce de fechas, creación de nuevos usuarios o asociación de clientes frecuentes, transacciones atómicas de base de datos y la verificación de pagos (incluyendo la pasarela Wompi y reCAPTCHA).
+
+Dado que aquí se procesan transacciones económicas y ocupación, los registros de log son indispensables para auditorías de pagos y control de errores.
+
+Aquí tienes tu código optimizado e integrado con la clase Logger:
+
+PHP
 <?php
 declare(strict_types=1);
 
@@ -7,9 +14,19 @@ require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
 
+// Incluimos Composer y la clase Logger
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
+
+// Obtenemos el ID del usuario actual de la sesión para auditoría
+$usuarioSesionLog = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
+$idUsuarioLog = (int) ($usuarioSesionLog['id_usuario'] ?? 0);
+
 if (!isset($_SESSION['user_auth']) && !isset($_SESSION['emp_auth'])) {
+    Logger::registrarLog('WARN', 'Intento no autorizado de crear reserva sin sesión activa');
     jsonResponse(401, ['status' => 'error', 'mensaje' => 'Debes iniciar sesión para reservar.']);
 }
 
@@ -69,6 +86,10 @@ function normalizarMetodoPago(string $metodo): string
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+    Logger::registrarLog('WARN', 'Intento de acceso por método no permitido al crear reserva', [
+        'id_usuario' => $idUsuarioLog,
+        'metodo' => $_SERVER['REQUEST_METHOD']
+    ]);
     jsonResponse(405, ['status' => 'error', 'mensaje' => 'Método no permitido.']);
 }
 
@@ -90,34 +111,24 @@ $porcentajePago = in_array($porcentajePago, [50, 100], true) ? $porcentajePago :
 
 $secretkey = trim((string) (getenv('RECAPTCHA_SECRET_KEY') ?: ''));
 $recapchatoken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
-  
+ 
 if ($recapchatoken === '' && $secretkey !== '') {
+    Logger::registrarLog('WARN', 'Intento de reserva omitiendo el reCAPTCHA', ['id_usuario' => $idUsuarioLog]);
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Por favor, completa el reCAPTCHA para continuar.']);
 }
- 
-$secretkey = $secretkey;
-//agregar la verificación del reCAPTCHA 
-//forma grafica de verificar el reCAPTCHA
-///                            
-
-
-
-
-
-
-
-
 
 if ($secretkey !== '' && $recapchatoken !== '') {
     $verifyurl = 'https://www.google.com/recaptcha/api/siteverify';
-    $verifyresponse = file_get_contents($verifyurl . '?secret=' . urlencode($secretkey));
+    $verifyresponse = file_get_contents($verifyurl . '?secret=' . urlencode($secretkey) . '&response=' . urlencode($recapchatoken));
 
     if ($verifyresponse === false) {
+        Logger::registrarLog('ERROR', 'Fallo de red al verificar reCAPTCHA en reservas', ['id_usuario' => $idUsuarioLog]);
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'Error al verificar reCAPTCHA.']);
     }
 
     $responseData = json_decode($verifyresponse, true);
     if (!isset($responseData['success']) || $responseData['success'] !== true) {
+        Logger::registrarLog('WARN', 'Validación de reCAPTCHA fallida o token inválido en reservas', ['id_usuario' => $idUsuarioLog]);
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'reCAPTCHA no verificado.']);
     }
 }
@@ -126,6 +137,10 @@ $checkinDate = parseDateOnly($fechaIn);
 $checkoutDate = parseDateOnly($fechaOut);
 
 if ($idHabitacion <= 0 || !$checkinDate || !$checkoutDate) {
+    Logger::registrarLog('WARN', 'Intento de reserva con datos de fecha o habitación inválidos', [
+        'id_usuario' => $idUsuarioLog,
+        'id_habitacion' => $idHabitacion
+    ]);
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Los datos de la reserva no son válidos.']);
 }
 
@@ -285,6 +300,17 @@ try {
     // Si todo salió bien, guardamos permanentemente
     $conexion->commit();
 
+    // LOG DE ÉXITO: Reserva creada con éxito y detalles de pago
+    Logger::registrarLog('INFO', 'Nueva reserva creada exitosamente en el sistema', [
+        'id_usuario_operador' => $idUsuarioLog,
+        'id_usuario_huesped' => $idUsuarioFinal,
+        'cod_reserva' => $idReservaNueva,
+        'cod_habitacion' => $idHabitacion,
+        'metodo_pago' => $metodoPago,
+        'monto' => $montoFinal,
+        'estado_reserva' => $estadoInicial
+    ]);
+
     jsonResponse(200, [
         'status' => 'exito',
         'mensaje' => 'Reserva creada correctamente.',
@@ -340,6 +366,14 @@ try {
         };
         $statusCode = 422;
     }
+
+    // LOG DE ERROR: Fallo transaccional o validación fallida al crear reserva
+    Logger::registrarLog('ERROR', 'Fallo al intentar procesar la creación de reserva', [
+        'id_usuario' => $idUsuarioLog,
+        'id_habitacion' => $idHabitacion ?? null,
+        'razon_excepcion' => $reason,
+        'error_db' => $conexion->error ?? null
+    ]);
 
     jsonResponse($statusCode, [
         'status' => 'error',

@@ -6,7 +6,7 @@ namespace App;
 class Logger {
     public static function registrarLog($nivel, $mensaje, $contexto = []) {
         // 1. Creamos la clasificacion por semanas
-        $semanaActual = date('Y') . 'W' . date('D');
+        $semanaActual = date('Y') . '-W' . date('W');
 
         // 2. Definir la ruta del archivo de log
         $archivo = __DIR__ . '/../logs/app-' . $semanaActual . '.log';

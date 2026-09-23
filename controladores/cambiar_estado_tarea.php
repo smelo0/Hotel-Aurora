@@ -2,6 +2,13 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 
+// Incluimos Composer y la clase Logger
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
+// Obtenemos el ID del usuario actual de la sesión para auditoría
+$idUsuarioLog = $_SESSION['user_auth']['id_usuario'] ?? $_SESSION['emp_auth']['id_usuario'] ?? 0;
+
 function responder_tarea_json($payload, $codigo_http = 200) {
     http_response_code($codigo_http);
     header('Content-Type: application/json');
@@ -23,6 +30,11 @@ function redirigir_panel_admin_tarea() {
 }
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    Logger::registrarLog('WARN', 'Intento de acceso por método no permitido al actualizar tarea', [
+        'id_usuario' => $idUsuarioLog,
+        'metodo' => $_SERVER['REQUEST_METHOD']
+    ]);
+
     if (!es_peticion_ajax_tarea()) {
         redirigir_panel_admin_tarea();
     }
@@ -38,6 +50,12 @@ $nuevo_estado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '
 $estados_permitidos = ['Pendiente', 'Completada', 'Cancelada'];
 
 if ($id_tarea <= 0 || !in_array($nuevo_estado, $estados_permitidos, true)) {
+    Logger::registrarLog('WARN', 'Intento de actualizar tarea con datos inválidos', [
+        'id_usuario' => $idUsuarioLog,
+        'cod_tar' => $id_tarea,
+        'nuevo_estado' => $nuevo_estado
+    ]);
+
     if (!es_peticion_ajax_tarea()) {
         redirigir_panel_admin_tarea();
     }
@@ -49,7 +67,7 @@ if ($id_tarea <= 0 || !in_array($nuevo_estado, $estados_permitidos, true)) {
 }
 
 try {
-    $conexion->begin_transaction(); // Modificación: Rutina transaccional para actualizar estado de tarea.
+    $conexion->begin_transaction();
 
     $sql = "UPDATE tarea SET est_tar = ? WHERE cod_tar = ?";
     $stmt = $conexion->prepare($sql);
@@ -57,16 +75,29 @@ try {
     $stmt->execute();
 
     if ($stmt->affected_rows < 1) {
-        $conexion->rollback(); // Modificación: Rutina transaccional para actualizar estado de tarea.
+        $conexion->rollback();
+        
+        Logger::registrarLog('WARN', 'Intento de actualizar tarea inexistente o sin cambios', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_tar' => $id_tarea
+        ]);
+
         responder_tarea_json([
             "status" => "error",
             "mensaje" => "La tarea no existe o ya fue procesada"
         ], 404);
     }
 
-    $conexion->commit(); // Modificación: Rutina transaccional para actualizar estado de tarea.
     $stmt->close();
+    $conexion->commit();
     $conexion->close();
+
+    // LOG DE ÉXITO: Tarea actualizada correctamente con su contexto
+    Logger::registrarLog('INFO', 'Estado de tarea actualizado con éxito', [
+        'id_usuario' => $idUsuarioLog,
+        'cod_tar' => $id_tarea,
+        'nuevo_estado' => $nuevo_estado
+    ]);
 
     if (!es_peticion_ajax_tarea()) {
         redirigir_panel_admin_tarea();
@@ -79,7 +110,14 @@ try {
         "estado" => $nuevo_estado
     ]);
 } catch (Throwable $error) {
-    $conexion->rollback(); // Modificación: Rutina transaccional para actualizar estado de tarea.
+    $conexion->rollback();
+
+    // LOG DE ERROR: Captura cualquier excepción de base de datos o sistema
+    Logger::registrarLog('ERROR', 'Excepción crítica al actualizar estado de tarea', [
+        'id_usuario' => $idUsuarioLog,
+        'cod_tar' => $id_tarea,
+        'error_mensaje' => $error->getMessage()
+    ]);
 
     if (es_peticion_ajax_tarea()) {
         responder_tarea_json([

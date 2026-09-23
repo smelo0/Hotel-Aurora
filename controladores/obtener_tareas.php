@@ -4,6 +4,11 @@
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
+
+// Incluimos Composer y el Logger solo para manejo de errores de base de datos
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 header('Content-Type: application/json; charset=utf-8');
 
 function limpiar_nombre_creador_api_tareas($nombre, $rol) {
@@ -54,6 +59,11 @@ try {
     echo json_encode($tareas);
     $conexion->close();
 } catch (Throwable $error) {
+    // LOG DE ERROR: Si falla la lectura o la conexión a la base de datos
+    Logger::registrarLog('ERROR', 'Fallo al obtener la cola de tareas pendientes', [
+        'error_mensaje' => $error->getMessage()
+    ]);
+
     // Transaccion: Manejo de errores try/catch para que fetch reciba JSON y no HTML roto.
     http_response_code(500);
     echo json_encode([

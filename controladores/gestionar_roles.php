@@ -1,9 +1,23 @@
+Este archivo es el gestor de roles y permisos del sistema (un controlador administrativo sumamente sensible y avanzado que maneja listas, guardados transaccionales, reasignación de permisos y protecciones para evitar borrar roles del sistema o con usuarios activos).
+
+Dado que modificar roles o permisos afecta directamente la seguridad de todo el hotel, los logs aquí son vitales para auditorías de privilegios.
+
+Aquí tienes tu código integrado con la clase Logger:
+
+PHP
 <?php
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 
+// Incluimos Composer y la clase Logger
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 header('Content-Type: application/json; charset=utf-8');
+
+// Obtenemos el ID del usuario actual de la sesión para auditoría
+$idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
 function responder_roles($status, $mensaje, $datos = []) {
     http_response_code($status);
@@ -12,6 +26,9 @@ function responder_roles($status, $mensaje, $datos = []) {
 }
 
 if (!usuario_tiene_permiso($conexion, 'roles.ver')) {
+    Logger::registrarLog('WARN', 'Intento no autorizado de consultar roles y permisos', [
+        'id_usuario' => $idUsuarioLog
+    ]);
     responder_roles(403, 'No tienes permiso para consultar los roles');
 }
 
@@ -50,10 +67,17 @@ if ($metodo === 'GET' && $accion === 'listar') {
 }
 
 if ($metodo !== 'POST') {
+    Logger::registrarLog('WARN', 'Intento de acceso por método no permitido al gestor de roles', [
+        'id_usuario' => $idUsuarioLog,
+        'metodo' => $metodo
+    ]);
     responder_roles(405, 'Método no permitido');
 }
 
 if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
+    Logger::registrarLog('WARN', 'Intento no autorizado de gestionar roles (crear/editar/eliminar)', [
+        'id_usuario' => $idUsuarioLog
+    ]);
     responder_roles(403, 'No tienes permiso para gestionar roles');
 }
 
@@ -64,15 +88,24 @@ if ($accion === 'guardar') {
     $permisos = $_POST['permisos'] ?? [];
 
     if ($nombre === '' || mb_strlen($nombre) > 200 || mb_strlen($detalle) > 200 || !is_array($permisos)) {
+        Logger::registrarLog('WARN', 'Intento de guardar rol con datos inválidos o vacíos', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo
+        ]);
         responder_roles(422, 'Completa un nombre válido y una descripción de máximo 200 caracteres');
     }
 
     if (!usuario_tiene_permiso($conexion, 'roles.asignar_permisos') && count($permisos) > 0) {
+        Logger::registrarLog('WARN', 'Intento de asignar permisos sin autorización', [
+            'id_usuario' => $idUsuarioLog
+        ]);
         responder_roles(403, 'No tienes permiso para asignar permisos');
     }
 
     $conexion->begin_transaction();
     try {
+        $esNuevoRol = !$codigo;
+
         if ($codigo) {
             $stmt = $conexion->prepare('UPDATE rol SET des_rol = ?, detalle_rol = ? WHERE cod_rol = ?');
             $stmt->bind_param('ssi', $nombre, $detalle, $codigo);
@@ -103,9 +136,26 @@ if ($accion === 'guardar') {
         }
 
         $conexion->commit();
+
+        // LOG DE ÉXITO: Creación o actualización de rol/permisos
+        Logger::registrarLog('INFO', $esNuevoRol ? 'Nuevo rol creado en el sistema' : 'Rol y permisos actualizados con éxito', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => (int) $codigo,
+            'nombre_rol' => $nombre,
+            'total_permisos_asignados' => count($permisos)
+        ]);
+
         responder_roles(200, 'Rol guardado correctamente', ['cod_rol' => (int) $codigo]);
     } catch (Throwable $error) {
         $conexion->rollback();
+
+        // LOG DE ERROR: Fallo transaccional al guardar rol
+        Logger::registrarLog('ERROR', 'Fallo transaccional al intentar guardar un rol', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo ?? null,
+            'error_mensaje' => $error->getMessage()
+        ]);
+
         responder_roles(500, 'No se pudo guardar el rol');
     }
 }
@@ -113,6 +163,10 @@ if ($accion === 'guardar') {
 if ($accion === 'eliminar') {
     $codigo = filter_var($_POST['cod_rol'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (!$codigo || $codigo <= 6) {
+        Logger::registrarLog('WARN', 'Intento bloqueado de eliminar un rol protegido del sistema', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo
+        ]);
         responder_roles(422, 'Los roles del sistema no se pueden eliminar');
     }
 
@@ -125,13 +179,38 @@ if ($accion === 'eliminar') {
     $stmt_usuarios->close();
 
     if ($usuarios > 0) {
+        Logger::registrarLog('WARN', 'Intento de eliminar rol que todavía tiene usuarios asignados', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo,
+            'usuarios_afectados' => $usuarios
+        ]);
         responder_roles(409, 'No se puede eliminar un rol que tiene usuarios asignados');
     }
 
     $stmt = $conexion->prepare('DELETE FROM rol WHERE cod_rol = ?');
     $stmt->bind_param('i', $codigo);
     $stmt->execute();
-    responder_roles($stmt->affected_rows === 1 ? 200 : 404, $stmt->affected_rows === 1 ? 'Rol eliminado correctamente' : 'Rol no encontrado');
+    
+    $eliminadoExitoso = ($stmt->affected_rows === 1);
+
+    if ($eliminadoExitoso) {
+        Logger::registrarLog('INFO', 'Rol eliminado permanentemente del sistema', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol_eliminado' => $codigo
+        ]);
+    } else {
+        Logger::registrarLog('WARN', 'Intento de eliminar rol inexistente', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo
+        ]);
+    }
+
+    responder_roles($eliminadoExitoso ? 200 : 404, $eliminadoExitoso ? 'Rol eliminado correctamente' : 'Rol no encontrado');
 }
+
+Logger::registrarLog('WARN', 'Intento de ejecutar acción desconocida en el gestor de roles', [
+    'id_usuario' => $idUsuarioLog,
+    'accion' => $accion
+]);
 
 responder_roles(400, 'Acción no válida');

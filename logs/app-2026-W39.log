@@ -1,0 +1,17 @@
+{"timestamp":"2026-09-23 23:16:32","level":"INFO","message":"Prueba manual del sistema de logs","context":{"usuario_prueba":"Santiago","estado":"Verificando funcionamiento"},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:18:56","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:20:04","level":"INFO","message":"Nuevo usuario registrado exitosamente con consentimiento de datos","context":{"id_usuario":35,"correo":"ola@ola.com","consentimiento_ip":"127.0.0.1"},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:20:44","level":"INFO","message":"El usuario ha iniciado sesion como cliente","context":{"id_usuario":35,"rol_usuario":6},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:21:06","level":"INFO","message":"El usuario ha cerrado sesión correctamente","context":{"id_usuario":35},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:21:39","level":"INFO","message":"El usuario ha iniciado sesion como cliente","context":{"id_usuario":35,"rol_usuario":6},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:22:19","level":"INFO","message":"El usuario ha cerrado sesión correctamente","context":{"id_usuario":35},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:22:53","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:22:59","level":"INFO","message":"Reserva eliminada permanentemente del sistema","context":{"id_usuario":1,"cod_res_eliminada":44},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:23:11","level":"INFO","message":"Reserva actualizada con éxito","context":{"id_usuario":1,"cod_res":43,"nuevo_estado":"Pendiente","habitacion_asignada":"34"},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:24:52","level":"INFO","message":"Nueva tarea creada exitosamente","context":{"id_usuario_operador":1,"id_creador_tarea":1,"cod_tar":29,"categoria":"GENERAL"},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:24:58","level":"INFO","message":"Tarea completada exitosamente","context":{"id_usuario":1,"id_tarea":26},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:31:13","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:32:06","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:33:02","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:34:23","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-23 23:35:03","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}

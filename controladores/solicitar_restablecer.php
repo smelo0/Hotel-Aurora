@@ -5,10 +5,12 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require_once __DIR__ . '/../configuracion/conexion.php';
-// Autoload (PHPMailer via Composer) if available
+
+// Incluimos Composer (que carga autoload y la clase Logger)
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 }
+use App\Logger;
 
 function redirectBack(string $query = '')
 {
@@ -24,6 +26,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 $email = trim((string) ($_POST['email'] ?? ''));
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    Logger::registrarLog('WARN', 'Intento de recuperación de contraseña con correo inválido o vacío', ['email' => $email]);
     redirectBack('error=invalid_email');
 }
 
@@ -44,11 +47,17 @@ $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hora
 
 $stmt = $conexion->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)');
 if (!$stmt) {
+    Logger::registrarLog('ERROR', 'Fallo al preparar consulta SQL para inserción de token de recuperación', [
+        'error_db' => $conexion->error
+    ]);
     redirectBack('error=bd');
 }
 $stmt->bind_param('sss', $email, $token, $expires);
 if (!$stmt->execute()) {
     $stmt->close();
+    Logger::registrarLog('ERROR', 'Fallo al ejecutar inserción de token de recuperación en base de datos', [
+        'error_db' => $stmt->error
+    ]);
     redirectBack('error=bd');
 }
 $stmt->close();
@@ -95,8 +104,18 @@ if (class_exists(PHPMailer::class)) {
 
         $mail->send();
         $sent = true;
+
+        // LOG DE ÉXITO: Correo de recuperación enviado correctamente por SMTP
+        Logger::registrarLog('INFO', 'Correo de restablecimiento de contraseña enviado exitosamente via SMTP', [
+            'email' => $email
+        ]);
     } catch (Exception $e) {
         $sent = false;
+        // LOG DE ERROR: Fallo al enviar el correo mediante PHPMailer/SMTP
+        Logger::registrarLog('ERROR', 'Fallo al enviar correo de recuperación mediante PHPMailer', [
+            'email' => $email,
+            'error_mailer' => $e->getMessage()
+        ]);
     }
 }
 
@@ -106,6 +125,7 @@ if (!$sent) {
     $mailDebug = in_array(strtolower($mailDebugEnv), ['1', 'true', 'on'], true);
 
     if ($mailDebug) {
+        $debugModeUsed = true;
         $storageDir = __DIR__ . '/../storage';
         if (!is_dir($storageDir)) {
             @mkdir($storageDir, 0755, true);
@@ -114,6 +134,10 @@ if (!$sent) {
         $logLine = date('c') . ' | ' . $email . ' | ' . $resetUrl . PHP_EOL;
         @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
         $sent = true;
+
+        Logger::registrarLog('INFO', 'Enlace de restablecimiento generado en modo DEBUG (respaldo en archivo)', [
+            'email' => $email
+        ]);
     }
 }
 
