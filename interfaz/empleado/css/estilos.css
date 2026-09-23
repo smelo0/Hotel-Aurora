@@ -68,7 +68,7 @@
   transition: all 0.4s var(--transition-smooth);
 }
 .metric-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-4px);
   box-shadow: 0 20px 40px -10px rgba(var(--color-primary-rgb), 0.18);
   background: linear-gradient(to bottom right, var(--color-bg-light), #eef6f6);
 }
@@ -85,14 +85,14 @@
 .habitacion-card,
 .housekeeping-card {
   isolation: isolate;
-  min-height: 174px;
+  min-height: 156px;
   background-color: var(--color-bg-light);
   transition: all 0.4s var(--transition-smooth);
 }
 
 .habitacion-card:hover,
 .housekeeping-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-4px);
   box-shadow: 0 20px 40px -10px rgba(var(--color-primary-rgb), 0.18);
 }
 
@@ -180,4 +180,88 @@ aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relat
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+@media (max-width: 900px) {
+  .empleado-sidebar {
+    width: 5rem;
+    padding-top: 1.5rem;
+  }
+
+  .empleado-sidebar > div:first-child {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .empleado-sidebar > div:first-child h1 {
+    font-size: 0.7rem;
+    line-height: 1.1;
+  }
+
+  .empleado-sidebar > div:first-child p,
+  .empleado-sidebar .nav-item span:last-child,
+  .empleado-sidebar nav > div span:last-child {
+    display: none;
+  }
+
+  .empleado-sidebar .nav-item {
+    justify-content: center;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .empleado-sidebar nav > div {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .empleado-main {
+    margin-left: 5rem;
+  }
+
+  [data-empleado-task-panel="true"] {
+    width: 3.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .empleado-main {
+    margin-left: 4rem;
+  }
+
+  .empleado-sidebar {
+    width: 4rem;
+  }
+
+  .empleado-sidebar .nav-item .material-symbols-outlined {
+    font-size: 1.25rem;
+  }
+
+  header {
+    gap: 0.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  header h2 {
+    font-size: 0.95rem;
+  }
+
+  header .login-layouts {
+    transform: scale(0.85);
+    transform-origin: center right;
+  }
+
+  header img {
+    display: none;
+  }
+
+  main {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
 }

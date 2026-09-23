@@ -1,5 +1,5 @@
 <!-- // Corrección: Se sincronizó el layout y la posición de los botones con el diseño del Panel de Administrador según referencia visual. -->
-<aside class="fixed left-0 top-0 h-full py-8 bg-[#f7fafa] w-64 flex flex-col z-40 border-r border-primary/15 shadow-[8px_0_30px_rgba(44,94,94,0.06)]">
+<aside class="empleado-sidebar fixed left-0 top-0 h-full py-8 bg-[#f7fafa] w-64 flex flex-col z-40 border-r border-primary/15 shadow-[8px_0_30px_rgba(44,94,94,0.06)]">
     <div class="mb-12 px-8">
         <h1 class="text-xl font-black tracking-tighter text-primary">HOTEL AURORA</h1>
         <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Administración</p>

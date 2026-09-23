@@ -307,6 +307,7 @@ async function marcarTareaComoHecha(id, boton) {
     boton.innerHTML = 'Cargando...';
     const datos = new FormData();
     datos.append('id_tarea', id);
+    datos.append('csrf_token', CSRF_TOKEN);
     try {
         const respuesta = await fetch('../../controladores/completar_tarea.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
         const resultado = await respuesta.json();
@@ -449,6 +450,7 @@ function enlazarEventosEmpleado() {
         datos.append('titulo', document.getElementById('tituloTarea').value.trim());
         datos.append('categoria', document.getElementById('categoriaTarea').value);
         datos.append('descripcion', document.getElementById('descTarea').value.trim());
+        datos.append('csrf_token', CSRF_TOKEN);
         datos.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
         datos.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
         datos.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');
@@ -478,6 +480,7 @@ function enlazarEventosEmpleado() {
         datos.append('estado', document.getElementById('estadoHabitacionModal').value);
         datos.append('prioridad_mantenimiento', document.getElementById('prioridadMantenimientoModal').value);
         datos.append('descripcion_mantenimiento', document.getElementById('descripcionMantenimientoModal').value.trim());
+        datos.append('csrf_token', CSRF_TOKEN);
         const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
         const resultado = await respuesta.json();
         if (!respuesta.ok || resultado.status !== 'exito') { alert(resultado.mensaje || 'No se pudo actualizar la habitación.'); return; }

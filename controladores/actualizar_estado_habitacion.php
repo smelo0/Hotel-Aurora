@@ -5,6 +5,7 @@ require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 header('Content-Type: application/json');
 exigir_permiso($conexion, 'operaciones.editar');
+exigir_csrf();
 
 // Verificamos que lleguen los datos correctos
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['id_hab']) && isset($_POST['estado'])) {

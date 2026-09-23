@@ -1,5 +1,6 @@
 <!-- Componente: Panel Lateral Colapsable de Cola de Tareas -->
 <aside id="panelTareasDerecho" 
+    data-empleado-task-panel="true"
        class="w-16 bg-surface border-l border-primary/10 px-3 transition-all duration-300 ease-out h-screen flex flex-col shadow-[-8px_0_30px_rgba(11,70,43,0.05)] relative z-20"
        aria-label="Panel lateral de tareas">
     

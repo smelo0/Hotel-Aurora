@@ -42,6 +42,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     redirigir_panel('error', 'correo_invalido');
 }
 
+exigir_csrf();
+
 $correoNuevo = trim((string) ($_POST['nuevo_correo'] ?? ''));
 if ($correoNuevo === '' || !filter_var($correoNuevo, FILTER_VALIDATE_EMAIL)) {
     redirigir_panel('error', 'correo_invalido');
