@@ -8,6 +8,7 @@
   --color-gold: #C5A059;            /* Dorado de acento */
   --color-dark: #111111;            /* Negro */
   --color-bg-light: #F4F6F5;
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Estados Hoteleros Mantenidos */
   --state-disponible: #0B462B;      /* Verde Esmeralda para disponible */
@@ -24,13 +25,6 @@
 
 /* Ocultar barra de desplazamiento */
 .no-scrollbar::-webkit-scrollbar { display: none; }
-
-/* Contenedores principales */
-.panel-container {
-  background: var(--color-bg-light);
-  border: 1px solid rgba(var(--color-primary-rgb), 0.13);
-  box-shadow: 0 14px 35px -24px rgba(var(--color-primary-rgb), 0.35);
-}
 
 /* Navegación activa */
 .active-nav { 
@@ -65,7 +59,7 @@
 .metric-card {
   border: 1px solid rgba(var(--color-primary-rgb), 0.07);
   border-top: 4px solid var(--color-primary); 
-  transition: all 0.4s var(--transition-smooth);
+  transition: transform 0.4s var(--transition-smooth), box-shadow 0.4s var(--transition-smooth);
 }
 .metric-card:hover {
   transform: translateY(-8px);
@@ -77,7 +71,7 @@
   background-color: var(--color-primary);
   color: #ffffff;
 }
-.icon-box { transition: all 0.4s ease; }
+.icon-box { transition: transform 0.4s ease, background-color 0.4s ease, color 0.4s ease; }
 
 /* ==========================================================================
    COMPONENTES: ARQUITECTURA UNIFICADA DE TARJETAS (HABITACIÓN & HOUSEKEEPING)
@@ -87,7 +81,7 @@
   isolation: isolate;
   min-height: 174px;
   background-color: var(--color-bg-light);
-  transition: all 0.4s var(--transition-smooth);
+  transition: transform 0.4s var(--transition-smooth), box-shadow 0.4s var(--transition-smooth);
 }
 
 .habitacion-card:hover,
@@ -156,9 +150,6 @@
   transition: transform 0.32s ease, opacity 0.32s ease; 
 }
 
-aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
-.aside-oculto { transform: translateX(100%); }
-
 .maintenance-popover {
   position: absolute;
   left: 18px;
@@ -180,4 +171,29 @@ aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relat
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+/* Accesibilidad: respeta la preferencia del sistema de reducir animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .metric-card:hover,
+  .habitacion-card:hover,
+  .housekeeping-card:hover { transform: none; }
+}
+
+/* Ícono de la tarjeta de housekeeping (usado en panel.js, faltaba su estilo) */
+.housekeeping-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--color-primary-rgb), 0.08);
+  color: var(--color-primary);
+  flex-shrink: 0;
 }

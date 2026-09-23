@@ -129,6 +129,9 @@ body {
     font-weight: 800;
 }
 
+
+
+
 .guest-popover {
     position: absolute;
     top: calc(100% - 6px);

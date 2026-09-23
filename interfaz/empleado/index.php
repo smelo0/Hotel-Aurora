@@ -1,7 +1,7 @@
 ﻿<?php
 session_start();
 if (!isset($_SESSION['emp_auth'])) {
-    header("Location: ../../login.php");
+    header("Location: ../../index_usu.php");
     exit();
 }
 ?>

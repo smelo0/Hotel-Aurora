@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/sesion_seguridad.php';
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
 
+
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 function jsonResponse(int $statusCode, array $payload): never
@@ -532,74 +533,200 @@ if ($usuarioAutenticado) {
             </div>
         </section>
 
-        <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
-            <div class="grid gap-6 lg:grid-cols-3">
-                <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900" alt="Spa y bienestar" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Diversion y entretenimiento</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Planes especiales</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente.</p>
-                    </div>
-                </article>
+   <?php
+// Opciones administradas agrupadas por categoría (esto proviene de tu base de datos)
+$experiencias_admin = [
+    'planes' => [
+        'titulo' => 'Planes Especiales',
+        'subtitulo' => 'Rituales y experiencias de relajación programadas por la administración:',
+        'opciones' => [
+            ['id' => 101, 'nombre' => 'Circuito Spa Hidromasaje', 'descripcion' => '60 minutos de circuito de hidroterapia con aromaterapia.'],
+            ['id' => 102, 'nombre' => 'Ritual de Masaje en Pareja', 'descripcion' => 'Masaje relajante corporal completo con aceites esenciales.'],
+            ['id' => 103, 'nombre' => 'Pasadía Detox Premium', 'descripcion' => 'Acceso a todas las zonas húmedas, zumos naturales y mascarilla facial.']
+        ]
+    ],
+    'actividades' => [
+        'titulo' => 'Actividades',
+        'subtitulo' => 'Aventuras y eventos programados por el equipo:',
+        'opciones' => [
+            ['id' => 201, 'nombre' => 'Caminata Ecológica Guiada', 'descripcion' => 'Recorrido por senderos naturales al amanecer con guía profesional.'],
+            ['id' => 202, 'nombre' => 'Taller de Cocina Costera', 'descripcion' => 'Aprende a preparar los mejores platillos marinos con nuestros chefs.'],
+            ['id' => 203, 'nombre' => 'Noche de Fogata & Música', 'descripcion' => 'Música en vivo frente al mar con bebida de bienvenida incluida.']
+        ]
+    ],
+    'gastronomia' => [
+        'titulo' => 'Gastronomía',
+        'subtitulo' => 'Menús especiales y degustaciones exclusivas:',
+        'opciones' => [
+            ['id' => 301, 'nombre' => 'Cena Maridaje de 5 Tiempos', 'descripcion' => 'Selección de platillos de autor acompañados de vinos seleccionados.'],
+            ['id' => 302, 'nombre' => 'Degustación de Coctelería Costera', 'descripcion' => 'Muestra de 4 cócteles de la casa con piqueos del mar.'],
+            ['id' => 303, 'nombre' => 'Almuerzo Buffet del Mar', 'descripcion' => 'Acceso libre a la barra de mariscos y pescados del día.']
+        ]
+    ]
+];
+?>
 
-                
-
-                 <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sales de tu estado de comford</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Actividades</h3>
-                        <button id="openModalBtn" class="btn-primary mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-none transition duration-200">
-    Aqui
-  </button>
-
-  <!-- Ventana Modal / Desplegable (oculta por defecto con 'hidden') -->
-  <div id="modalOverlay" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <!-- Contenido de la ventana -->
-    <div class="bg-white p-6 rounded-none shadow-xl max-w-md w-full relative mx-4">
-      
-      <!-- Botón para cerrar (X) -->
-      <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-xl">
-        &times;
-      </button>
-
-      <h3 class="text-xl font-bold text-gray-800 mb-2">Ventana Desplegada</h3>
-      <p class="text-gray-600 mb-4">
-        Bienvenido a 
-      </p>
-
-      <div class="flex justify-end">
-        <button id="actionCloseBtn" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-none text-sm">
-          Cerrar
-        </button>
-                    </div>
-                </article>
-
-                                 <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sabores exclusivos</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Gastronomia</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.</p>
-                    </div>
-                </article>
-
-
-
-            
-            </div>
-        </section>
-
-        <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
-            <div class="glass-section grid gap-8 rounded-[34px] px-6 py-8 md:px-8 lg:grid-cols-[1fr_0.95fr]">
-                <div>
-                    <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Agenda tu estancia</p>
-                    <h2 class="section-title font-display mt-3 text-4xl text-white">Solicita una experiencia antes de llegar.</h2>
-                    <p class="muted-light mt-4 max-w-2xl text-base leading-8">
-                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación.
-                    </p>
+<section id="experiencias" class="mx-auto mt-10 max-w-7xl px-4 reveal">
+    <div class="grid gap-6 lg:grid-cols-3">
+        
+        <!-- Tarjeta 1: Planes Especiales -->
+        <article class="room-card overflow-hidden bg-gray-900 rounded-none shadow-xl border border-gray-800 flex flex-col justify-between">
+            <div>
+                <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900" alt="Spa y bienestar" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                <div class="p-6">
+                    <p class="section-kicker text-xs font-black uppercase tracking-[0.18em] text-gray-400">Diversión y entretenimiento</p>
+                    <h3 class="card-title mt-3 text-2xl font-black text-white">Planes especiales</h3>
+                    <p class="muted-light mt-3 text-sm leading-7 text-gray-300">Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente.</p>
                 </div>
+            </div>
+            <div class="p-6 pt-0">
+                <button type="button" onclick="abrirModal('planes')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-none transition duration-200 uppercase tracking-wider text-xs">
+                    Ver Opciones
+                </button>
+            </div>
+        </article>
+
+        <!-- Tarjeta 2: Actividades -->
+        <article class="room-card overflow-hidden bg-gray-900 rounded-none shadow-xl border border-gray-800 flex flex-col justify-between">
+            <div>
+                <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=85&w=900" alt="Actividades" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                <div class="p-6">
+                    <p class="section-kicker text-xs font-black uppercase tracking-[0.18em] text-gray-400">Sale de tu zona de confort</p>
+                    <h3 class="card-title mt-3 text-2xl font-black text-white">Actividades</h3>
+                    <p class="muted-light mt-3 text-sm leading-7 text-gray-300">Explora las experiencias programadas y elige tus opciones preferidas.</p>
+                </div>
+            </div>
+            <div class="p-6 pt-0">
+                <button type="button" onclick="abrirModal('actividades')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-none transition duration-200 uppercase tracking-wider text-xs">
+                    Ver Opciones
+                </button>
+            </div>
+        </article>
+
+        <!-- Tarjeta 3: Gastronomía -->
+        <article class="room-card overflow-hidden bg-gray-900 rounded-none shadow-xl border border-gray-800 flex flex-col justify-between">
+            <div>
+                <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                <div class="p-6">
+                    <p class="section-kicker text-xs font-black uppercase tracking-[0.18em] text-gray-400">Sabores exclusivos</p>
+                    <h3 class="card-title mt-3 text-2xl font-black text-white">Gastronomía</h3>
+                    <p class="muted-light mt-3 text-sm leading-7 text-gray-300">Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.</p>
+                </div>
+            </div>
+            <div class="p-6 pt-0">
+                <button type="button" onclick="abrirModal('gastronomia')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-none transition duration-200 uppercase tracking-wider text-xs">
+                    Ver Opciones
+                </button>
+            </div>
+        </article>
+
+    </div>
+</section>
+
+<!-- Ventana Modal Única y Dinámica -->
+<div id="modalOverlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-gray-900 border border-gray-800 p-6 shadow-2xl max-w-lg w-full relative text-white">
+        
+        <!-- Botón para cerrar (X) -->
+        <button id="closeModalBtn" type="button" class="absolute top-4 right-4 text-gray-400 hover:text-white font-bold text-2xl transition">
+            &times;
+        </button>
+
+        <h3 id="modalTitulo" class="text-xl font-black uppercase tracking-wider border-b border-gray-800 pb-3 mb-2 text-white">
+            <!-- Título dinámico -->
+        </h3>
+        
+        <p id="modalSubtitulo" class="text-gray-400 text-xs mb-4">
+            <!-- Subtítulo dinámico -->
+        </p>
+
+        <!-- Modales Dinámicos creados con PHP para cada categoría -->
+        <?php foreach ($experiencias_admin as $categoria =>$datos): ?>
+            <div id="categoria-<?= $categoria; ?>" class="categoria-contenido hidden space-y-3 max-h-72 overflow-y-auto pr-1">
+                <?php foreach ($datos['opciones'] as$opcion): ?>
+                    <div class="p-4 bg-gray-800/80 border border-gray-700/60 flex flex-col justify-between gap-3 hover:border-blue-500 transition">
+                        <div>
+                            <h4 class="font-bold text-base text-blue-400"><?= htmlspecialchars($opcion['nombre']); ?></h4>
+                            <p class="text-xs text-gray-300 mt-1 leading-relaxed"><?= htmlspecialchars($opcion['descripcion']); ?></p>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="button" onclick="seleccionarOpcion(<?= $opcion['id']; ?>, '<?= htmlspecialchars($opcion['nombre']); ?>')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition">
+                                Reservar / Seleccionar
+                            </button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endforeach; ?>
+
+        <div class="flex justify-end mt-5 border-t border-gray-800 pt-3">
+            <button id="actionCloseBtn" type="button" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-5 py-2 text-xs font-semibold uppercase transition">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para Manejar el Modal Dinámico -->
+<script>
+// Títulos y subtítulos para la cabecera del modal según la categoría
+const infoCategorias = {
+    'planes': {
+        titulo: 'Planes Especiales Disponibles',
+        subtitulo: 'Selecciona la experiencia o paquete que deseas reservar:'
+    },
+    'actividades': {
+        titulo: 'Actividades Propuestas',
+        subtitulo: 'Selecciona la actividad que deseas realizar durante tu estadía:'
+    },
+    'gastronomia': {
+        titulo: 'Experiencias Gastronómicas',
+        subtitulo: 'Reserva tu menú especial o degustación para la velada:'
+    }
+};
+
+const modalOverlay = document.getElementById('modalOverlay');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const actionCloseBtn = document.getElementById('actionCloseBtn');
+
+function abrirModal(categoria) {
+    // 1. Cambiar textos del modal
+    document.getElementById('modalTitulo').textContent = infoCategorias[categoria].titulo;
+    document.getElementById('modalSubtitulo').textContent = infoCategorias[categoria].subtitulo;
+
+    // 2. Ocultar todos los contenedores de opciones
+    document.querySelectorAll('.categoria-contenido').forEach(el => el.classList.add('hidden'));
+
+    // 3. Mostrar solo las opciones de la categoría seleccionada
+    const categoriaActiva = document.getElementById(`categoria-${categoria}`);
+    if (categoriaActiva) {
+        categoriaActiva.classList.remove('hidden');
+    }
+
+    // 4. Mostrar el modal
+    modalOverlay.classList.remove('hidden');
+    modalOverlay.classList.add('flex');
+}
+
+function cerrarModal() {
+    modalOverlay.classList.add('hidden');
+    modalOverlay.classList.remove('flex');
+}
+
+closeModalBtn.addEventListener('click', cerrarModal);
+actionCloseBtn.addEventListener('click', cerrarModal);
+
+modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) cerrarModal();
+});
+
+function seleccionarOpcion(id, nombre) {
+    alert(`Has seleccionado: ${nombre} (ID: ${id})`);
+    // Aquí conectas con tu sistema de reservas o carrito en PHP
+}
+</script>
+
+
 
                 <form id="activityForm" class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                     <div class="grid gap-4 md:grid-cols-2">
@@ -1005,6 +1132,7 @@ if ($usuarioAutenticado) {
             maximumFractionDigits: 0
         }).format(Number(value || 0));
     }
+    
 
     function setControlState(element, enabled) {
         if (!element) return;
@@ -1580,5 +1708,6 @@ async function processReservationPayment() {
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
     <script src="assets/js/inactividad.js"></script>
+    <?php include 'experiencias.php'; ?>
     
 <?php endif; ?>

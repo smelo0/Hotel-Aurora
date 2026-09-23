@@ -1,16 +1,319 @@
+// vistas/empleado/js/panel.js
+
+// Estado local de habitaciones para repintar la interfaz en tiempo real sin recargar la página.
+let habitacionesEmpleadoState = [];
+let intervaloTareasEmpleado = null;
+let tareasEmpleadoState = [];
+const tareasEmpleadoIds = new Set();
+const canalTareasEmpleado = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('software_hotel_tareas') : null;
+const canalReservasEmpleado = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('software_hotel_reservas') : null;
+
+// Inicialización cuando el DOM está completamente cargado
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Mostrar fecha actual formateada
+    if (document.getElementById('fechaHoy')) {
+        document.getElementById('fechaHoy').innerText = new Intl.DateTimeFormat('es-ES', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long' 
+        }).format(new Date());
+    }
+    
+    // 2. Traer Habitaciones, contadores y huéspedes
+    await actualizarInterfaz();
+    
+    // 3. Traer las Tareas Reales e iniciar sincronización
+    await cargarTareasEmpleado();
+    iniciarSincronizacionTareasEmpleado();
+
+    // 4. Escuchadores de eventos para la Cola de Tareas
+    document.querySelector('[data-action="abrir-cola"]')?.addEventListener('click', abrirColaTareas);
+    document.querySelector('[data-action="cerrar-cola"]')?.addEventListener('click', cerrarColaTareas);
+
+    // 5. Cerrar el modal con el botón de acción
+    document.querySelector('[data-action="cerrar-modal-hab"]')?.addEventListener('click', cerrarModalHabitacion);
+
+    // Escuchar el cambio de estado para mostrar/ocultar prioridad y descripción
+    document.getElementById('estadoHabitacionModal')?.addEventListener('change', toggleDescripcionMantenimiento);
+
+    // Escuchar cambios en la prioridad
+    document.getElementById('prioridadMantenimientoModal')?.addEventListener('change', actualizarPrioridadMantenimiento);
+
+    // Escuchar la escritura en la descripción
+    document.getElementById('descripcionMantenimientoModal')?.addEventListener('input', toggleDescripcionMantenimiento);
+});
+
+// Función para cargar la cola de tareas desde MySQL
+async function cargarTareasEmpleado() {
+    try {
+        const respuesta = await fetch('../../controladores/obtener_tareas.php', {
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        });
+        const tareasReales = await respuesta.json();
+        const contenedorTareas = document.getElementById('contenedorTareas');
+
+        if (contenedorTareas) {
+            if (!respuesta.ok || !Array.isArray(tareasReales)) {
+                throw new Error('No se pudo cargar la cola de tareas');
+            }
+
+            contenedorTareas.innerHTML = '';
+            tareasEmpleadoIds.clear();
+            tareasEmpleadoState = [];
+            tareasReales.forEach(t => insertarTareaEmpleadoDesdeServidor(t));
+            
+            actualizarContadorTareas();
+        }
+    } catch (error) {
+        console.error("Error al cargar las tareas:", error);
+    }
+}
+
+// Escuchar eventos entre pestañas / ventanas
+window.addEventListener('storage', event => {
+    if (event.key === 'tareas_actualizadas') {
+        cargarTareasEmpleado();
+        reiniciarSincronizacionTareasEmpleado();
+    }
+
+    if (event.key === 'tarea_nueva_payload' && event.newValue) {
+        try {
+            insertarTareaEmpleadoDesdeServidor(JSON.parse(event.newValue));
+        } catch (error) {
+            console.error('Error al recibir tarea en tiempo real:', error);
+        }
+    }
+
+    if (event.key === 'reservas_actualizadas' || event.key === 'habitaciones_actualizadas') {
+        actualizarInterfaz();
+    }
+});
+
+if (canalTareasEmpleado) {
+    canalTareasEmpleado.addEventListener('message', event => {
+        if (event.data && event.data.tipo === 'tarea_creada') {
+            insertarTareaEmpleadoDesdeServidor(event.data.tarea);
+        }
+    });
+}
+
+if (canalReservasEmpleado) {
+    canalReservasEmpleado.addEventListener('message', event => {
+        if (event.data && event.data.tipo === 'reserva_actualizada') {
+            actualizarInterfaz();
+        }
+    });
+}
+
+function iniciarSincronizacionTareasEmpleado() {
+    if (intervaloTareasEmpleado) return;
+    intervaloTareasEmpleado = setInterval(cargarTareasEmpleado, 3000);
+}
+
+function reiniciarSincronizacionTareasEmpleado() {
+    if (intervaloTareasEmpleado) {
+        clearInterval(intervaloTareasEmpleado);
+        intervaloTareasEmpleado = null;
+    }
+    iniciarSincronizacionTareasEmpleado();
+}
+
+function insertarTareaEmpleadoDesdeServidor(tarea) {
+    if (!tarea || !tarea.id) return;
+
+    const id = String(tarea.id);
+    if (tareasEmpleadoIds.has(id) || document.getElementById(`tarea-${id}`)) return;
+
+    tareasEmpleadoIds.add(id);
+    tareasEmpleadoState.unshift(tarea);
+    añadirTareaHTML(
+        tarea.id,
+        tarea.titulo,
+        tarea.categoria || tarea.cat,
+        tarea.descripcion || tarea.desc,
+        tarea.creador_formateado
+    );
+}
+
+function escaparHTML(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[caracter]));
+}
+
+function obtenerMotivoMantenimiento(observacion) {
+    return String(observacion || '')
+        .replace(/^Prioridad:\s*[^\n\r]*(\r?\n)?/i, '')
+        .trim();
+}
+
+function clasesEstadoHousekeeping(estado) {
+    const estadoNormalizado = estado === 'Limpio' ? 'Disponible' : estado;
+
+    if (estadoNormalizado === 'Mantenimiento') {
+        return {
+            tarjeta: 'housekeeping-card--mantenimiento',
+            etiqueta: 'bg-red-50 text-red-600 border border-red-100',
+            icono: 'build',
+            titulo: 'Mantenimiento'
+        };
+    }
+
+    if (estadoNormalizado === 'Sucia') {
+        return {
+            tarjeta: 'housekeeping-card--sucia',
+            etiqueta: 'bg-amber-50 text-amber-700 border border-amber-100',
+            icono: 'cleaning_services',
+            titulo: 'Sucia'
+        };
+    }
+
+    if (estadoNormalizado === 'Ocupada') {
+        return {
+            tarjeta: 'housekeeping-card--ocupada',
+            etiqueta: 'bg-red-50 text-red-600 border border-red-100',
+            icono: 'bed',
+            titulo: 'Ocupada'
+        };
+    }
+
+    return {
+        tarjeta: 'housekeeping-card--disponible',
+        etiqueta: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+        icono: 'check_circle',
+        titulo: estado === 'Limpio' ? 'Limpio' : 'Disponible'
+    };
+}
+
+function toggleMotivoMantenimiento(idHabitacion) {
+    const tarjetaActiva = document.getElementById(`housekeeping-${idHabitacion}`);
+    if (!tarjetaActiva) return;
+
+    document.querySelectorAll('.housekeeping-card.motivo-visible').forEach(tarjeta => {
+        if (tarjeta !== tarjetaActiva) tarjeta.classList.remove('motivo-visible');
+    });
+
+    tarjetaActiva.classList.toggle('motivo-visible');
+}
+
+function obtenerUIEstadoHabitacion(estado) {
+    if (estado === 'Mantenimiento') {
+        return {
+            etiqueta: 'bg-red-50 text-red-600 border border-red-100',
+            tarjeta: 'habitacion-card--mantenimiento'
+        };
+    }
+
+    if (estado === 'Limpio') {
+        return {
+            etiqueta: 'bg-cyan-50 text-cyan-700 border border-cyan-100',
+            tarjeta: 'habitacion-card--limpio'
+        };
+    }
+
+    if (estado === 'Ocupada') {
+        return {
+            etiqueta: 'bg-orange-50 text-orange-600 border border-orange-100',
+            tarjeta: 'habitacion-card--ocupada'
+        };
+    }
+
+    if (estado === 'Sucia') {
+        return {
+            etiqueta: 'bg-stone-100 text-stone-700 border border-stone-200',
+            tarjeta: 'habitacion-card--sucia'
+        };
+    }
+
+    return {
+        etiqueta: 'bg-green-50 text-green-700 border border-green-100',
+        tarjeta: 'habitacion-card--disponible'
+    };
+}
+
+function formatearFechaHotel(fecha) {
+    const valor = String(fecha || '').trim();
+    if (!valor || valor === '-') return '';
+    const date = new Date(valor.replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('es-CO', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }).format(date).replace('.', '');
+}
+
+function obtenerBadgeReservaEmpleado(estado) {
+    const estadoLimpio = String(estado || 'Ocupada').trim();
+    if (estadoLimpio === 'Pendiente') return 'bg-amber-50 text-amber-700 border border-amber-100';
+    if (estadoLimpio === 'Confirmada') return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+    if (estadoLimpio === 'En Casa' || estadoLimpio === 'Ocupada') return 'bg-blue-50 text-blue-700 border border-blue-100';
+    if (estadoLimpio === 'Cancelada') return 'bg-red-50 text-red-700 border border-red-100';
+    return 'bg-slate-100 text-slate-600 border border-slate-200';
+}
+
+function crearBloqueReservaHabitacion(h) {
+    if (!h.huesped_nombre) {
+        return '<p class="text-[13px] font-black text-heading mb-5">Disponible para reserva</p>';
+    }
+
+    const fechaEntrada = formatearFechaHotel(h.fec_ent_res);
+    const fechaSalida = formatearFechaHotel(h.fec_sal_res);
+    const fechas = fechaEntrada && fechaSalida ? `${fechaEntrada} - ${fechaSalida}` : '';
+    const estadoReserva = h.est_res || h.estado || 'Ocupada';
+
+    return `
+        <div class="space-y-2 mb-5">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-primary">person</span>
+                <span class="text-[14px] font-black text-heading leading-tight">${escaparHTML(h.huesped_nombre)}</span>
+            </div>
+            ${fechas ? `
+                <div class="flex items-center gap-2 text-[#64748b]">
+                    <span class="material-symbols-outlined text-[15px]">calendar_month</span>
+                    <span class="text-[11px] font-bold">${escaparHTML(fechas)}</span>
+                </div>
+            ` : ''}
+            <span class="inline-flex w-fit px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estadoReserva)}">${escaparHTML(estadoReserva)}</span>
+        </div>
+    `;
+}
+
+function crearDetalleHuespedEmpleado(h) {
+    const fechaEntrada = formatearFechaHotel(h.fec_ent_res);
+    const fechaSalida = formatearFechaHotel(h.fec_sal_res);
+    const fechas = fechaEntrada && fechaSalida ? `
+        <span class="inline-flex items-center gap-1 text-slate-500">
+            <span class="material-symbols-outlined text-[14px]">calendar_month</span>
+            ${escaparHTML(fechaEntrada)} - ${escaparHTML(fechaSalida)}
+        </span>
+    ` : '';
+    const estadoReserva = h.est_res || h.estado || 'Ocupada';
+
+    return `
+        <div class="space-y-2">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-slate-500">
+                <span>${escaparHTML(h.tipo)}</span>
+                ${fechas}
+            </div>
+            <span class="inline-flex w-fit px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estadoReserva)}">${escaparHTML(estadoReserva)}</span>
+        </div>
+    `;
+}
+
+// ACTUALIZAR INTERFAZ: Llena las secciones con datos de MySQL
 async function actualizarInterfaz(habitacionesLocales = null) {
     try {
         let DATA_HOTEL = habitacionesLocales;
 
         if (!DATA_HOTEL) {
-            // Se calcula la ruta base independientemente del nivel de carpetas
-            const urlControlador = window.location.pathname.substring(0, window.location.pathname.indexOf('/interfaz/')) + '/controladores/obtener_habitaciones.php';
-            
-            const res = await fetch(urlControlador, { cache: 'no-store' });
-            if (!res.ok) {
-                console.error("Error al obtener habitaciones. Status HTTP:", res.status);
-                throw new Error('Respuesta HTTP no válida');
-            }
+            const res = await fetch('../../controladores/obtener_habitaciones.php', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Respuesta HTTP no válida');
             DATA_HOTEL = await res.json();
         }
 
@@ -54,7 +357,7 @@ async function actualizarInterfaz(habitacionesLocales = null) {
                        </div>`;
 
                 gridHab.insertAdjacentHTML('beforeend', `
-                    <div class="metric-card habitacion-card ${colorTarjeta} p-6 rounded-xl flex flex-col justify-between h-auto shadow-md border relative group bg-white">
+                    <div class="metric-card habitacion-card ${colorTarjeta} p-6 rounded-xl flex flex-col justify-between h-auto shadow-md border relative group">
                         <div class="flex justify-between items-start mb-4">
                             <span class="text-[28px] font-black text-primary">${escaparHTML(h.numero)}</span>
                             <div class="flex flex-col items-end">
@@ -90,7 +393,7 @@ async function actualizarInterfaz(habitacionesLocales = null) {
                 ` : '';
 
                 gridHousekeeping.insertAdjacentHTML('beforeend', `
-                    <article id="housekeeping-${h.id}" ${eventoMantenimiento} class="metric-card habitacion-card housekeeping-card ${estadoUI.tarjeta} ${cursorMantenimiento} p-6 rounded-xl shadow-md border relative overflow-visible bg-white">
+                    <article id="housekeeping-${h.id}" ${eventoMantenimiento} class="metric-card habitacion-card housekeeping-card ${estadoUI.tarjeta} ${cursorMantenimiento} p-6 rounded-xl shadow-md border relative overflow-visible">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Habitación</p>
@@ -136,6 +439,391 @@ async function actualizarInterfaz(habitacionesLocales = null) {
         }
 
     } catch (error) {
-        console.error("Error crítico al cargar la interfaz:", error);
+        console.error("Error al cargar la interfaz:", error);
+    }
+}
+
+// Navegación de Pestañas
+function navegar(sec, btn) {
+    document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
+    const seccionObjetivo = document.getElementById('sec-' + sec);
+    if (seccionObjetivo) {
+        seccionObjetivo.classList.remove('hidden');
+    }
+    
+    const tituloCabecera = document.getElementById('tituloCabecera');
+    if (tituloCabecera) {
+        tituloCabecera.innerText = sec === 'dashboard' ? 'Panel Hoy' : { 'habitaciones': 'Habitaciones', 'limpieza': 'Limpieza', 'huespedes': 'Huéspedes' }[sec] || 'Vista Operativa';
+    }
+
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active-nav'));
+    if (btn) btn.classList.add('active-nav');
+}
+
+function redirigirDesdeDash(sec) {
+    const btn = document.querySelector(`.nav-item[onclick*="${sec}"]`);
+    if (btn) navegar(sec, btn);
+}
+
+// Modal de Tareas
+function abrirModal() { 
+    const m = document.getElementById('modalTarea');
+    if (m) m.className = "fixed inset-0 bg-primary/20 z-[100] flex items-center justify-center modal-visible transition-all duration-500"; 
+}
+
+function cerrarModal() { 
+    const m = document.getElementById('modalTarea');
+    if (m) m.className = "fixed inset-0 bg-primary/20 z-[100] flex items-center justify-center modal-oculto transition-all duration-500"; 
+}
+
+// Formulario de Tareas
+const formTarea = document.getElementById('formTarea');
+if (formTarea) {
+    formTarea.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const botonSubmit = this.querySelector('button[type="submit"]');
+        const textoOriginalSubmit = botonSubmit ? botonSubmit.innerHTML : '';
+
+        const titulo = document.getElementById('tituloTarea').value;
+        const categoria = document.getElementById('categoriaTarea').value;
+        const descripcion = document.getElementById('descTarea').value;
+
+        const formData = new FormData();
+        formData.append('titulo', titulo);
+        formData.append('categoria', categoria);
+        formData.append('descripcion', descripcion);
+        formData.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
+        formData.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
+        formData.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');
+        formData.append('panel_origen', 'empleado');
+
+        try {
+            if (botonSubmit) {
+                botonSubmit.disabled = true;
+                botonSubmit.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">sync</span> Guardando...';
+            }
+
+            const respuesta = await fetch('../../controladores/guardar_tarea.php', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+
+            const resultado = await respuesta.json();
+
+            if (!respuesta.ok || resultado.status !== 'exito') {
+                alert(resultado.mensaje || 'No se pudo guardar la tarea.');
+                return;
+            }
+
+            const nuevoId = resultado.id_tarea ? resultado.id_tarea : Date.now();
+
+            añadirTareaHTML(nuevoId, titulo, categoria, descripcion, resultado.tarea ? resultado.tarea.creador_formateado : '');
+            this.reset();
+            cerrarModal();
+            actualizarContadorTareas();
+            localStorage.setItem('tareas_actualizadas', Date.now().toString());
+        } catch (error) {
+            console.error("Error crítico de base de datos:", error);
+            alert("Error crítico de base de datos. No se pudo guardar la tarea.");
+        } finally {
+            if (botonSubmit) {
+                botonSubmit.disabled = false;
+                botonSubmit.innerHTML = textoOriginalSubmit;
+            }
+        }
+    });
+}
+
+function añadirTareaHTML(id, titulo, cat, desc, creadorFormateado = '') {
+    tareasEmpleadoIds.add(String(id));
+    const categoria = String(cat || 'GENERAL').toUpperCase();
+    const bColor = categoria === 'URGENTE' ? 'border-red-400 bg-red-50/70' : categoria === 'LIMPIEZA' ? 'border-amber-400 bg-amber-50/70' : 'border-primary bg-[#fbfdfd]';
+    const tColor = categoria === 'URGENTE' ? 'text-red-500 bg-red-100' : categoria === 'LIMPIEZA' ? 'text-amber-700 bg-amber-100' : 'text-primary bg-accent';
+    const iconoTarea = categoria === 'URGENTE' ? '▲' : categoria === 'LIMPIEZA' ? '◆' : '●';
+    
+    const html = `
+        <div id="tarea-${escaparHTML(id)}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${bColor} shadow-md group relative transition-all duration-300 ease-out">
+            <p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${tColor}"><span>${iconoTarea}</span>${escaparHTML(categoria)}</p>
+            <h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4>
+            <p class="text-[10px] text-slate-400 mt-2">${escaparHTML(desc)}</p>
+            <p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p>
+            <button onclick="marcarTareaComoHecha(${Number(id)}, this)" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button>
+        </div>`;
+    
+    const contenedor = document.getElementById('contenedorTareas');
+    if (contenedor) {
+        contenedor.insertAdjacentHTML('afterbegin', html);
+        initDragAndDrop();
+        actualizarContadorTareas();
+    }
+}
+
+async function marcarTareaComoHecha(id, botonHTML) {
+    const tarea = botonHTML.closest('.task-item');
+    const textoOriginal = botonHTML.innerHTML;
+
+    botonHTML.disabled = true;
+    botonHTML.classList.add('opacity-60', 'cursor-not-allowed');
+    botonHTML.innerHTML = 'Cargando...';
+
+    const formData = new FormData();
+    formData.append('id_tarea', id);
+
+    try {
+        const respuesta = await fetch('../../controladores/completar_tarea.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' }
+        });
+        const resultado = await respuesta.json();
+
+        if (!respuesta.ok || resultado.status !== 'exito') {
+            throw new Error(resultado.mensaje || 'No se pudo completar la tarea');
+        }
+
+        if (tarea) {
+            tarea.classList.add('tarea-exit');
+            setTimeout(() => {
+                tarea.remove();
+                actualizarContadorTareas();
+            }, 320);
+        }
+
+        localStorage.setItem('tareas_actualizadas', Date.now().toString());
+    } catch (error) {
+        console.error("Error al completar la tarea:", error);
+        botonHTML.disabled = false;
+        botonHTML.classList.remove('opacity-60', 'cursor-not-allowed');
+        botonHTML.innerHTML = textoOriginal;
+        alert(error.message || "No se pudo completar la tarea.");
+    }
+}
+
+function initDragAndDrop() {
+    const container = document.getElementById('contenedorTareas');
+    if (!container) return;
+
+    const tasks = container.querySelectorAll('.task-item');
+    tasks.forEach(task => {
+        task.addEventListener('dragstart', () => task.classList.add('dragging'));
+        task.addEventListener('dragend', () => task.classList.remove('dragging'));
+    });
+
+    if (container.dataset.dragInicializado === '1') return;
+    container.dataset.dragInicializado = '1';
+
+    container.addEventListener('dragover', e => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(container, e.clientY);
+        const draggable = container.querySelector('.dragging');
+        if (!draggable) return;
+        if (afterElement == null) container.appendChild(draggable);
+        else container.insertBefore(draggable, afterElement);
+    });
+}
+
+function getDragAfterElement(container, y) {
+    const elements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+    return elements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+        else return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// Modal de Habitaciones
+function abrirGestionHabitacion(id, numero, estadoActual) {
+    document.getElementById('idHabitacionModal').value = id;
+    document.getElementById('tituloModalHab').innerText = `Habitación ${numero}`;
+    document.getElementById('estadoHabitacionModal').value = estadoActual;
+    document.getElementById('prioridadMantenimientoModal').value = 'No urgente';
+    document.getElementById('descripcionMantenimientoModal').value = '';
+    actualizarPrioridadMantenimiento();
+    toggleDescripcionMantenimiento();
+    
+    const modal = document.getElementById('modalHabitacion');
+    const contenidoModal = document.getElementById('contenidoModalHabitacion');
+    if (modal && contenidoModal) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100');
+        contenidoModal.classList.remove('scale-95', 'translate-y-3');
+        contenidoModal.classList.add('scale-100', 'translate-y-0');
+    }
+}
+
+function cerrarModalHabitacion() {
+    const modal = document.getElementById('modalHabitacion');
+    const contenidoModal = document.getElementById('contenidoModalHabitacion');
+    if (modal && contenidoModal) {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.classList.remove('opacity-100');
+        contenidoModal.classList.add('scale-95', 'translate-y-3');
+        contenidoModal.classList.remove('scale-100', 'translate-y-0');
+    }
+}
+
+function toggleDescripcionMantenimiento() {
+    const estado = document.getElementById('estadoHabitacionModal')?.value;
+    const areaPrioridad = document.getElementById('areaPrioridadMantenimiento');
+    const areaDescripcion = document.getElementById('areaDescripcionMantenimiento');
+    const descripcion = document.getElementById('descripcionMantenimientoModal');
+    const botonGuardar = document.getElementById('guardarCambiosHabitacion');
+
+    if (!areaPrioridad || !areaDescripcion || !descripcion || !botonGuardar) return;
+
+    if (estado === 'Mantenimiento') {
+        areaPrioridad.classList.remove('hidden');
+        areaDescripcion.classList.remove('hidden');
+        descripcion.setAttribute('required', 'required');
+        botonGuardar.disabled = descripcion.value.trim() === '';
+    } else {
+        areaPrioridad.classList.add('hidden');
+        areaDescripcion.classList.add('hidden');
+        descripcion.removeAttribute('required');
+        descripcion.value = '';
+        botonGuardar.disabled = false;
+    }
+
+    if (botonGuardar.disabled) {
+        botonGuardar.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        botonGuardar.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function actualizarPrioridadMantenimiento() {
+    const prioridad = document.getElementById('prioridadMantenimientoModal');
+    if (!prioridad) return;
+
+    prioridad.classList.remove('border-red-500', 'text-red-600', 'border-orange-500', 'text-orange-600', 'border-green-500', 'text-green-600');
+
+    if (prioridad.value === 'Urgente') {
+        prioridad.classList.add('border-red-500', 'text-red-600');
+    } else if (prioridad.value === 'Importante') {
+        prioridad.classList.add('border-orange-500', 'text-orange-600');
+    } else {
+        prioridad.classList.add('border-green-500', 'text-green-600');
+    }
+}
+
+// Envío del formulario de habitaciones
+const formHabitacion = document.getElementById('formGestionHabitacion');
+if (formHabitacion) {
+    formHabitacion.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const id = document.getElementById('idHabitacionModal').value;
+        const estado = document.getElementById('estadoHabitacionModal').value;
+        const prioridad_mantenimiento = document.getElementById('prioridadMantenimientoModal').value;
+        const descripcion_mantenimiento = document.getElementById('descripcionMantenimientoModal').value;
+
+        if (estado === 'Mantenimiento' && descripcion_mantenimiento.trim() === '') {
+            document.getElementById('descripcionMantenimientoModal').reportValidity();
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('id_hab', id);
+        formData.append('estado', estado);
+        formData.append('prioridad_mantenimiento', prioridad_mantenimiento);
+        formData.append('descripcion_mantenimiento', descripcion_mantenimiento);
+        
+        try {
+            const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', {
+                method: 'POST',
+                body: formData
+            });
+            const resultado = await respuesta.json();
+            
+            if (resultado.status === 'exito') {
+                cerrarModalHabitacion();
+                const observacionActualizada = estado === 'Mantenimiento'
+                    ? `Prioridad: ${prioridad_mantenimiento}\n${descripcion_mantenimiento}`
+                    : '';
+
+                habitacionesEmpleadoState = habitacionesEmpleadoState.map(habitacion => {
+                    if (String(habitacion.id) !== String(id)) return habitacion;
+
+                    return {
+                        ...habitacion,
+                        estado,
+                        observacion: observacionActualizada
+                    };
+                });
+
+                actualizarInterfaz(habitacionesEmpleadoState);
+                localStorage.setItem('habitaciones_actualizadas', Date.now().toString());
+            }
+        } catch (error) {
+            console.error("Error en la conexión:", error);
+        }
+    });
+}
+
+function actualizarContadorTareas() {
+    const contenedor = document.getElementById('contenedorTareas');
+    const badge = document.getElementById('badgeNotificaciones');
+    
+    if (contenedor && badge) {
+        const cantidadTareas = contenedor.querySelectorAll('.task-item').length;
+        
+        if (cantidadTareas > 0) {
+            badge.innerText = cantidadTareas;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+}
+
+function abrirColaTareas() {
+    const panel = document.getElementById('panelTareasDerecho');
+    const titulo = document.getElementById('tituloColaTareas');
+    const flechaCerrar = document.getElementById('flechaCerrarColaTareas');
+    const contenedor = document.getElementById('contenedorTareas');
+    const cabecera = document.getElementById('cabeceraColaTareas');
+    if (!panel || !titulo || !flechaCerrar || !contenedor || !cabecera) return;
+
+    if (!panel.classList.contains('w-16')) return;
+
+    panel.classList.remove('w-16', 'px-3');
+    panel.classList.add('w-80', 'p-6');
+    cabecera.classList.remove('flex-col', 'gap-0');
+    cabecera.classList.add('justify-between');
+    titulo.classList.remove('opacity-0', 'w-0', 'overflow-hidden');
+    flechaCerrar.classList.remove('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
+    contenedor.classList.remove('opacity-0', 'pointer-events-none');
+    contenedor.classList.add('opacity-100');
+}
+
+function cerrarColaTareas(event) {
+    if (event) event.stopPropagation();
+
+    const panel = document.getElementById('panelTareasDerecho');
+    const titulo = document.getElementById('tituloColaTareas');
+    const flechaCerrar = document.getElementById('flechaCerrarColaTareas');
+    const contenedor = document.getElementById('contenedorTareas');
+    const cabecera = document.getElementById('cabeceraColaTareas');
+    if (!panel || !titulo || !flechaCerrar || !contenedor || !cabecera) return;
+
+    panel.classList.remove('w-80', 'p-6');
+    panel.classList.add('w-16', 'px-3');
+    cabecera.classList.add('flex-col', 'gap-0');
+    cabecera.classList.remove('justify-between');
+    titulo.classList.add('opacity-0', 'w-0', 'overflow-hidden');
+    flechaCerrar.classList.add('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
+    contenedor.classList.add('opacity-0', 'pointer-events-none');
+    contenedor.classList.remove('opacity-100');
+}
+
+function toggleColaTareas(event) {
+    const panel = document.getElementById('panelTareasDerecho');
+    if (panel && panel.classList.contains('w-16')) {
+        abrirColaTareas();
+    } else {
+        cerrarColaTareas(event);
     }
 }
