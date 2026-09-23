@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
 require_once '../configuracion/conexion.php';
@@ -153,6 +156,9 @@ switch ($rolActual) {
             'nombre_usuario' => (string) $nombreUsuario,
             'rol_usuario' => $rolActual,
         ];
+        Logger::registrarLog('INFO', 'El usuario ha iniciado sesion', [
+            'id_usuario' => $_SESSION['user_auth']['id_usuario'],
+        ]);
         header('Location: ../interfaz_usu.php');
         exit();
 
