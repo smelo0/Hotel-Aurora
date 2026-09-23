@@ -171,6 +171,6 @@ Logger::registrarLog('INFO', 'Inicio de sesión exitoso mediante Google', [
 ]);
 
 // Redirigir al panel principal
-header('Location: ../landingPage.php');
+header('Location: ../interfaz_usu.php');
 exit();
 ?>
