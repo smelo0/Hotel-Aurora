@@ -5,31 +5,42 @@ namespace App;
 
 class Logger {
     public static function registrarLog($nivel, $mensaje, $contexto = []) {
-        // 1. Creamos la clasificacion por semanas
+
+        date_default_timezone_set('America/Bogota');
         $semanaActual = date('Y') . '-W' . date('W');
+        $dirLogs = __DIR__ . '/../logs';
+        $archivo = $dirLogs . '/app-' . $semanaActual . '.log';
 
-        // 2. Definir la ruta del archivo de log
-        $archivo = __DIR__ . '/../logs/app-' . $semanaActual . '.log';
+        try {
+            if (!file_exists($dirLogs)) {
+                mkdir($dirLogs, 0755, true);
+            }
 
-        // Asegurarse de que la carpeta 'logs' exista
-        if (!file_exists(__DIR__ . '/../logs')) {
-            // el permiso 0777 hay que cambiarlo a 0755 en caso de desplegarlo en servidor
-            mkdir(__DIR__ . '/../logs', 0777, true);
+            // Obtención robusta de la IP
+            $ip = 'CLI';
+            if (isset($_SERVER['REMOTE_ADDR'])) {
+                $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
+                if (str_contains($ip, ',')) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+            }
+
+            $datosLog = [
+                'timestamp' => date('Y-m-d H:i:s'),
+                'level'     => strtoupper($nivel),
+                'message'   => $mensaje,
+                'context'   => $contexto,
+                'ip'        => $ip
+            ];
+
+            $linea = json_encode($datosLog, JSON_UNESCAPED_UNICODE) . PHP_EOL;
+
+            // FILE_APPEND con LOCK_EX para seguridad en concurrencia
+            @file_put_contents($archivo, $linea, FILE_APPEND | LOCK_EX);
+            
+        } catch (\Throwable $e) {
+            // Fallback opcional por si el log falla (ej. escribir en el error_log del servidor)
+            error_log("Error al registrar log: " . $e->getMessage());
         }
-
-        // 3. Crear una estructura limpia (Formato JSON por línea)
-        $datosLog = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'level'     => strtoupper($nivel),
-            'message'   => $mensaje,
-            'context'   => $contexto,
-            'ip'        => $_SERVER['REMOTE_ADDR'] ?? 'CLI'
-        ];
-
-        // Convertir a JSON y agregar un salto de línea
-        $linea = json_encode($datosLog, JSON_UNESCAPED_UNICODE) . PHP_EOL;
-
-        // 4. Escribir en el archivo de forma segura (FILE_APPEND evita sobrescribir)
-        file_put_contents($archivo, $linea, FILE_APPEND);
     }
 }

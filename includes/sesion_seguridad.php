@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
 /**
  * sesion_seguridad.php
  * Debe incluirse SIEMPRE al inicio absoluto de cada vista/controlador protegido,
@@ -25,7 +27,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // --- 2. Hard Lock: 5 minutos de inactividad real ---
-define('HARD_LOCK_SECONDS', 180);
+define('HARD_LOCK_SECONDS', 300);
 
 $haySesionActiva = !empty($_SESSION['user_auth']) || !empty($_SESSION['emp_auth']);
 
@@ -35,7 +37,16 @@ if ($haySesionActiva && !defined('SKIP_HARD_LOCK_CHECK')) {
 
         if ($tiempoInactivo > HARD_LOCK_SECONDS) {
             $_SESSION = [];
+            // agarramos credenciales
+            $id_usuario = $_SESSION['user_auth']['id_usuario'] ?? $_SESSION['emp_auth']['id_usuario'] ?? 'Desconocido';
+            $rol_usuario = $_SESSION['user_auth']['rol_usuario'] ?? $_SESSION['emp_auth']['rol_usuario'] ?? 'Desconocido';
 
+            Logger::registrarLog('WARNING', 'Cierre de sesión por inactividad (Timeout)', [
+                    'id_usuario' => $id_usuario,
+                    'rol_usuario'   => $rol_usuario,
+                    'inactivo_segundos' => $tiempoInactivo
+                ]);
+            
             if (ini_get('session.use_cookies')) {
                 $params = session_get_cookie_params();
                 setcookie(
