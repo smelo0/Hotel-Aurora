@@ -82,3 +82,10 @@
 {"timestamp":"2026-09-24 10:32:31","level":"INFO","message":"Reserva eliminada permanentemente del sistema","context":{"id_usuario":1,"cod_res_eliminada":43},"ip":"::1"}
 {"timestamp":"2026-09-24 10:32:35","level":"INFO","message":"Reserva actualizada con éxito","context":{"id_usuario":1,"cod_res":42,"nuevo_estado":"Confirmada","habitacion_asignada":"36"},"ip":"::1"}
 {"timestamp":"2026-09-24 10:33:17","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":1,"rol_usuario":1},"ip":"::1"}
+{"timestamp":"2026-09-24 10:44:25","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":1,"rol_usuario":1},"ip":"::1"}
+{"timestamp":"2026-09-24 10:44:29","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":1,"rol_usuario":1},"ip":"::1"}
+{"timestamp":"2026-09-24 10:44:51","level":"INFO","message":"El usuario ha iniciado sesion como empleado","context":{"id_usuario":3,"rol_usuario":4},"ip":"::1"}
+{"timestamp":"2026-09-24 10:45:03","level":"INFO","message":"Nueva tarea creada exitosamente","context":{"id_usuario_operador":3,"id_usuario":3,"rol_usuario":4,"id_creador_tarea":3,"cod_tar":30,"categoria":"GENERAL"},"ip":"::1"}
+{"timestamp":"2026-09-24 10:45:18","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":3,"rol_usuario":4},"ip":"::1"}
+{"timestamp":"2026-09-24 10:54:25","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":1,"rol_usuario":1},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-24 11:03:02","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":1,"rol_usuario":1},"ip":"127.0.0.1"}
