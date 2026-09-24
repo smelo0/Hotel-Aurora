@@ -50,6 +50,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     redirigir_panel('error', 'correo_invalido');
 }
 
+exigir_csrf();
+
 $correoNuevo = trim((string) ($_POST['nuevo_correo'] ?? ''));
 if ($correoNuevo === '' || !filter_var($correoNuevo, FILTER_VALIDATE_EMAIL)) {
     // LOG: Advertencia si intentan enviar un formato de correo inválido

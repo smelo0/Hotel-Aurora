@@ -11,11 +11,20 @@ use App\Logger;
 header('Content-Type: application/json');
 exigir_permiso($conexion, 'operaciones.ver');
 
+<<<<<<< HEAD
 // Consulta SQL corregida para soportar los joins con detalle, reservas y usuarios
 $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
                u.nom_usu AS huesped_nombre, r.fec_ent_res, r.fec_sal_res, r.est_res
         FROM habitacion h
         LEFT JOIN detalle d ON h.cod_hab = d.cod_hab_det
+=======
+// Relaciona habitaciones y reservas mediante la tabla detalle.
+    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
+            r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res,
+            u.nom_usu as huesped_nombre
+        FROM habitacion h
+        LEFT JOIN detalle d ON d.cod_hab_det = h.cod_hab
+>>>>>>> 9f82535379b98e80dd9d12c70dbdc58b09bb24e5
         LEFT JOIN reservas r ON r.cod_res = d.cod_res_det
             AND r.est_res IN ('Pendiente', 'Confirmada', 'En Casa')
         LEFT JOIN usuario u ON u.id_usu = r.id_usu_res

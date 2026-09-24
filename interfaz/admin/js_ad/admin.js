@@ -440,6 +440,7 @@ async function marcarTareaComoHechaAdmin(id, botonHTML) {
 
     const formData = new FormData();
     formData.append('id_tarea', id);
+    formData.append('csrf_token', CSRF_TOKEN);
 
     try {
         const respuesta = await fetch('../../controladores/completar_tarea.php', {
@@ -644,6 +645,7 @@ if (formTarea) {
         formData.append('titulo', titulo);
         formData.append('categoria', categoria);
         formData.append('descripcion', descripcion);
+        formData.append('csrf_token', CSRF_TOKEN);
         formData.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
         formData.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
         formData.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');

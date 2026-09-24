@@ -11,6 +11,8 @@ declare(strict_types=1);
  *  2. Hard Lock: destruir la sesión si pasan más de 5 minutos de inactividad real.
  */
 
+// DETALLE IMPORTANTE: No se profundiza en as cookies, ni en el limite de tiempo por sesion activa.
+
 // --- 1. Cookies seguras (debe ir ANTES de session_start) ---
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
@@ -57,4 +59,30 @@ if ($haySesionActiva && !defined('SKIP_HARD_LOCK_CHECK')) {
 
     // Actualiza la marca de tiempo en cada carga de página protegida
     $_SESSION['ultimo_acceso'] = time();
+}
+
+if (!function_exists('csrf_token')) {
+    function csrf_token(): string
+    {
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        return $_SESSION['csrf_token'];
+    }
+}
+
+if (!function_exists('exigir_csrf')) {
+    function exigir_csrf(): void
+    {
+        $token = (string) ($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        $esperado = (string) ($_SESSION['csrf_token'] ?? '');
+
+        if ($esperado === '' || $token === '' || !hash_equals($esperado, $token)) {
+            http_response_code(419);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'mensaje' => 'Solicitud no válida']);
+            exit;
+        }
+    }
 }

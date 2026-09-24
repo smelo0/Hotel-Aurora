@@ -60,6 +60,8 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+exigir_csrf();
+
 $titulo = trim($_POST['titulo'] ?? '');
 $categoria = trim($_POST['categoria'] ?? '');
 $descripcion = trim($_POST['descripcion'] ?? '');

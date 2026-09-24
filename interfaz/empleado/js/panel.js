@@ -139,3 +139,366 @@ async function actualizarInterfaz(habitacionesLocales = null) {
         console.error("Error crítico al cargar la interfaz:", error);
     }
 }
+
+function navegar(sec, btn) {
+    document.querySelectorAll('.seccion-contenido').forEach(seccion => {
+        seccion.classList.add('hidden');
+    });
+
+    const seccion = document.getElementById('sec-' + sec);
+    if (seccion) {
+        seccion.classList.remove('hidden');
+    }
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active-nav');
+    });
+
+    if (btn) {
+        btn.classList.add('active-nav');
+    }
+}
+
+function abrirModal() {
+    const modal = document.getElementById('modalTarea');
+    if (modal) {
+        modal.classList.remove('modal-oculto');
+        modal.classList.add('modal-visible');
+    }
+}
+
+function cerrarModal() {
+    const modal = document.getElementById('modalTarea');
+    if (modal) {
+        modal.classList.remove('modal-visible');
+        modal.classList.add('modal-oculto');
+    }
+}
+
+let habitacionesEmpleadoState = [];
+let intervaloTareasEmpleado = null;
+const tareasEmpleadoIds = new Set();
+
+function escaparHTML(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[caracter]));
+}
+
+function redirigirDesdeDash(sec) {
+    const boton = document.querySelector(`.nav-item[onclick*="${sec}"]`);
+    if (boton) navegar(sec, boton);
+}
+
+function obtenerMotivoMantenimiento(observacion) {
+    return String(observacion || '').replace(/^Prioridad:\s*[^\n\r]*(\r?\n)?/i, '').trim();
+}
+
+function clasesEstadoHousekeeping(estado) {
+    if (estado === 'Mantenimiento') {
+        return { tarjeta: 'housekeeping-card--mantenimiento', etiqueta: 'bg-red-50 text-red-600 border border-red-100', icono: 'build', titulo: 'Mantenimiento' };
+    }
+    if (estado === 'Sucia') {
+        return { tarjeta: 'housekeeping-card--sucia', etiqueta: 'bg-amber-50 text-amber-700 border border-amber-100', icono: 'cleaning_services', titulo: 'Sucia' };
+    }
+    if (estado === 'Ocupada') {
+        return { tarjeta: 'housekeeping-card--ocupada', etiqueta: 'bg-red-50 text-red-600 border border-red-100', icono: 'bed', titulo: 'Ocupada' };
+    }
+    return { tarjeta: 'housekeeping-card--disponible', etiqueta: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icono: 'check_circle', titulo: estado === 'Limpio' ? 'Limpio' : 'Disponible' };
+}
+
+function toggleMotivoMantenimiento(idHabitacion) {
+    const tarjeta = document.getElementById(`housekeeping-${idHabitacion}`);
+    if (!tarjeta) return;
+    document.querySelectorAll('.housekeeping-card.motivo-visible').forEach(otra => {
+        if (otra !== tarjeta) otra.classList.remove('motivo-visible');
+    });
+    tarjeta.classList.toggle('motivo-visible');
+}
+
+function obtenerUIEstadoHabitacion(estado) {
+    const estilos = {
+        Mantenimiento: ['bg-red-50 text-red-600 border border-red-100', 'habitacion-card--mantenimiento'],
+        Limpio: ['bg-cyan-50 text-cyan-700 border border-cyan-100', 'habitacion-card--limpio'],
+        Ocupada: ['bg-orange-50 text-orange-600 border border-orange-100', 'habitacion-card--ocupada'],
+        Sucia: ['bg-stone-100 text-stone-700 border border-stone-200', 'habitacion-card--sucia']
+    };
+    const [etiqueta, tarjeta] = estilos[estado] || ['bg-green-50 text-green-700 border border-green-100', 'habitacion-card--disponible'];
+    return { etiqueta, tarjeta };
+}
+
+function formatearFechaHotel(fecha) {
+    const valor = String(fecha || '').trim();
+    if (!valor || valor === '-') return '';
+    const fechaFormateada = new Date(valor.replace(' ', 'T'));
+    if (Number.isNaN(fechaFormateada.getTime())) return '';
+    return new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }).format(fechaFormateada).replace('.', '');
+}
+
+function obtenerBadgeReservaEmpleado(estado) {
+    const clases = {
+        Pendiente: 'bg-amber-50 text-amber-700 border border-amber-100',
+        Confirmada: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+        'En Casa': 'bg-blue-50 text-blue-700 border border-blue-100',
+        Ocupada: 'bg-blue-50 text-blue-700 border border-blue-100',
+        Cancelada: 'bg-red-50 text-red-700 border border-red-100'
+    };
+    return clases[String(estado || 'Ocupada').trim()] || 'bg-slate-100 text-slate-600 border border-slate-200';
+}
+
+function crearBloqueReservaHabitacion(habitacion) {
+    if (!habitacion.huesped_nombre) return '<p class="text-[13px] font-black text-heading mb-5">Disponible para reserva</p>';
+    const entrada = formatearFechaHotel(habitacion.fec_ent_res);
+    const salida = formatearFechaHotel(habitacion.fec_sal_res);
+    const fechas = entrada && salida ? `${entrada} - ${salida}` : '';
+    const estado = habitacion.est_res || habitacion.estado || 'Ocupada';
+    return `<div class="space-y-2 mb-5"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary">person</span><span class="text-[14px] font-black text-heading leading-tight">${escaparHTML(habitacion.huesped_nombre)}</span></div>${fechas ? `<div class="flex items-center gap-2 text-[#64748b]"><span class="material-symbols-outlined text-[15px]">calendar_month</span><span class="text-[11px] font-bold">${escaparHTML(fechas)}</span></div>` : ''}<span class="inline-flex w-fit px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estado)}">${escaparHTML(estado)}</span></div>`;
+}
+
+function crearDetalleHuespedEmpleado(habitacion) {
+    const entrada = formatearFechaHotel(habitacion.fec_ent_res);
+    const salida = formatearFechaHotel(habitacion.fec_sal_res);
+    const fechas = entrada && salida ? `<span class="inline-flex items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-[14px]">calendar_month</span>${escaparHTML(entrada)} - ${escaparHTML(salida)}</span>` : '';
+    const estado = habitacion.est_res || habitacion.estado || 'Ocupada';
+    return `<div class="space-y-2"><div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-slate-500"><span>${escaparHTML(habitacion.tipo)}</span>${fechas}</div><span class="inline-flex w-fit px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estado)}">${escaparHTML(estado)}</span></div>`;
+}
+
+async function cargarTareasEmpleado() {
+    const contenedor = document.getElementById('contenedorTareas');
+    if (!contenedor) return;
+    try {
+        const respuesta = await fetch('../../controladores/obtener_tareas.php', { cache: 'no-store', headers: { Accept: 'application/json' } });
+        const tareas = await respuesta.json();
+        if (!respuesta.ok || !Array.isArray(tareas)) throw new Error('No se pudo cargar la cola de tareas');
+        contenedor.innerHTML = '';
+        tareasEmpleadoIds.clear();
+        tareas.forEach(tarea => insertarTareaEmpleadoDesdeServidor(tarea));
+        actualizarContadorTareas();
+    } catch (error) {
+        console.error('Error al cargar las tareas:', error);
+    }
+}
+
+function insertarTareaEmpleadoDesdeServidor(tarea) {
+    if (!tarea || !tarea.id || tareasEmpleadoIds.has(String(tarea.id))) return;
+    tareasEmpleadoIds.add(String(tarea.id));
+    anadirTareaHTML(tarea.id, tarea.titulo, tarea.categoria || tarea.cat, tarea.descripcion || tarea.desc, tarea.creador_formateado);
+}
+
+function anadirTareaHTML(id, titulo, categoria, descripcion, creadorFormateado = '') {
+    const contenedor = document.getElementById('contenedorTareas');
+    if (!contenedor) return;
+    const categoriaNormalizada = String(categoria || 'GENERAL').toUpperCase();
+    const borde = categoriaNormalizada === 'URGENTE' ? 'border-red-400 bg-red-50/70' : categoriaNormalizada === 'LIMPIEZA' ? 'border-amber-400 bg-amber-50/70' : 'border-primary bg-[#fbfdfd]';
+    const texto = categoriaNormalizada === 'URGENTE' ? 'text-red-500 bg-red-100' : categoriaNormalizada === 'LIMPIEZA' ? 'text-amber-700 bg-amber-100' : 'text-primary bg-accent';
+    const icono = categoriaNormalizada === 'URGENTE' ? '▲' : categoriaNormalizada === 'LIMPIEZA' ? '◆' : '●';
+    contenedor.insertAdjacentHTML('afterbegin', `<div id="tarea-${escaparHTML(id)}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${borde} shadow-md group relative transition-all duration-300 ease-out"><p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${texto}"><span>${icono}</span>${escaparHTML(categoriaNormalizada)}</p><h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4><p class="text-[10px] text-slate-400 mt-2">${escaparHTML(descripcion)}</p><p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p><button onclick="marcarTareaComoHecha(${Number(id)}, this)" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button></div>`);
+    initDragAndDrop();
+}
+
+async function marcarTareaComoHecha(id, boton) {
+    const tarea = boton.closest('.task-item');
+    const textoOriginal = boton.innerHTML;
+    boton.disabled = true;
+    boton.innerHTML = 'Cargando...';
+    const datos = new FormData();
+    datos.append('id_tarea', id);
+    datos.append('csrf_token', CSRF_TOKEN);
+    try {
+        const respuesta = await fetch('../../controladores/completar_tarea.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
+        const resultado = await respuesta.json();
+        if (!respuesta.ok || resultado.status !== 'exito') throw new Error(resultado.mensaje || 'No se pudo completar la tarea');
+        if (tarea) tarea.remove();
+        actualizarContadorTareas();
+        localStorage.setItem('tareas_actualizadas', Date.now().toString());
+    } catch (error) {
+        boton.disabled = false;
+        boton.innerHTML = textoOriginal;
+        alert(error.message || 'No se pudo completar la tarea.');
+    }
+}
+
+function initDragAndDrop() {
+    const contenedor = document.getElementById('contenedorTareas');
+    if (!contenedor || contenedor.dataset.dragInicializado === '1') return;
+    contenedor.dataset.dragInicializado = '1';
+    contenedor.addEventListener('dragover', evento => {
+        evento.preventDefault();
+        const arrastrado = contenedor.querySelector('.dragging');
+        if (!arrastrado) return;
+        const siguiente = [...contenedor.querySelectorAll('.task-item:not(.dragging)')].find(elemento => evento.clientY <= elemento.getBoundingClientRect().top + elemento.offsetHeight / 2);
+        siguiente ? contenedor.insertBefore(arrastrado, siguiente) : contenedor.appendChild(arrastrado);
+    });
+    contenedor.addEventListener('dragstart', evento => evento.target.classList.add('dragging'));
+    contenedor.addEventListener('dragend', evento => evento.target.classList.remove('dragging'));
+}
+
+function actualizarContadorTareas() {
+    const contenedor = document.getElementById('contenedorTareas');
+    const badge = document.getElementById('badgeNotificaciones');
+    if (!contenedor || !badge) return;
+    const total = contenedor.querySelectorAll('.task-item').length;
+    badge.textContent = total;
+    badge.classList.toggle('hidden', total === 0);
+}
+
+function abrirColaTareas() {
+    const panel = document.getElementById('panelTareasDerecho');
+    const cabecera = document.getElementById('cabeceraColaTareas');
+    const titulo = document.getElementById('tituloColaTareas');
+    const flecha = document.getElementById('flechaCerrarColaTareas');
+    const contenedor = document.getElementById('contenedorTareas');
+    if (!panel || !cabecera || !titulo || !flecha || !contenedor) return;
+    panel.classList.remove('w-16', 'px-3');
+    panel.classList.add('w-80', 'p-6');
+    cabecera.classList.remove('flex-col', 'gap-0');
+    cabecera.classList.add('justify-between');
+    titulo.classList.remove('opacity-0', 'w-0', 'overflow-hidden');
+    flecha.classList.remove('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
+    contenedor.classList.remove('opacity-0', 'pointer-events-none');
+    contenedor.classList.add('opacity-100');
+}
+
+function cerrarColaTareas(event) {
+    if (event) event.stopPropagation();
+    const panel = document.getElementById('panelTareasDerecho');
+    const cabecera = document.getElementById('cabeceraColaTareas');
+    const titulo = document.getElementById('tituloColaTareas');
+    const flecha = document.getElementById('flechaCerrarColaTareas');
+    const contenedor = document.getElementById('contenedorTareas');
+    if (!panel || !cabecera || !titulo || !flecha || !contenedor) return;
+    panel.classList.remove('w-80', 'p-6');
+    panel.classList.add('w-16', 'px-3');
+    cabecera.classList.add('flex-col', 'gap-0');
+    cabecera.classList.remove('justify-between');
+    titulo.classList.add('opacity-0', 'w-0', 'overflow-hidden');
+    flecha.classList.add('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
+    contenedor.classList.add('opacity-0', 'pointer-events-none');
+    contenedor.classList.remove('opacity-100');
+}
+
+function abrirGestionHabitacion(id, numero, estadoActual) {
+    document.getElementById('idHabitacionModal').value = id;
+    document.getElementById('tituloModalHab').innerText = `Habitación ${numero}`;
+    document.getElementById('estadoHabitacionModal').value = estadoActual;
+    document.getElementById('prioridadMantenimientoModal').value = 'No urgente';
+    document.getElementById('descripcionMantenimientoModal').value = '';
+    actualizarPrioridadMantenimiento();
+    toggleDescripcionMantenimiento();
+    const modal = document.getElementById('modalHabitacion');
+    const contenido = document.getElementById('contenidoModalHabitacion');
+    if (!modal || !contenido) return;
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    modal.classList.add('opacity-100');
+    contenido.classList.remove('scale-95', 'translate-y-3');
+    contenido.classList.add('scale-100', 'translate-y-0');
+}
+
+function cerrarModalHabitacion() {
+    const modal = document.getElementById('modalHabitacion');
+    const contenido = document.getElementById('contenidoModalHabitacion');
+    if (!modal || !contenido) return;
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    modal.classList.remove('opacity-100');
+    contenido.classList.add('scale-95', 'translate-y-3');
+    contenido.classList.remove('scale-100', 'translate-y-0');
+}
+
+function actualizarPrioridadMantenimiento() {
+    const prioridad = document.getElementById('prioridadMantenimientoModal');
+    if (!prioridad) return;
+    prioridad.classList.remove('border-red-500', 'text-red-600', 'border-orange-500', 'text-orange-600', 'border-green-500', 'text-green-600');
+    const clases = prioridad.value === 'Urgente' ? ['border-red-500', 'text-red-600'] : prioridad.value === 'Importante' ? ['border-orange-500', 'text-orange-600'] : ['border-green-500', 'text-green-600'];
+    prioridad.classList.add(...clases);
+}
+
+function toggleDescripcionMantenimiento() {
+    const estado = document.getElementById('estadoHabitacionModal');
+    const prioridad = document.getElementById('areaPrioridadMantenimiento');
+    const areaDescripcion = document.getElementById('areaDescripcionMantenimiento');
+    const descripcion = document.getElementById('descripcionMantenimientoModal');
+    const boton = document.getElementById('guardarCambiosHabitacion');
+    if (!estado || !prioridad || !areaDescripcion || !descripcion || !boton) return;
+    const requiereDescripcion = estado.value === 'Mantenimiento';
+    prioridad.classList.toggle('hidden', !requiereDescripcion);
+    areaDescripcion.classList.toggle('hidden', !requiereDescripcion);
+    descripcion.toggleAttribute('required', requiereDescripcion);
+    if (!requiereDescripcion) descripcion.value = '';
+    boton.disabled = requiereDescripcion && descripcion.value.trim() === '';
+    boton.classList.toggle('opacity-50', boton.disabled);
+    boton.classList.toggle('cursor-not-allowed', boton.disabled);
+}
+
+function enlazarEventosEmpleado() {
+    document.querySelector('[data-action="abrir-cola"]')?.addEventListener('click', abrirColaTareas);
+    document.querySelector('[data-action="cerrar-cola"]')?.addEventListener('click', cerrarColaTareas);
+    document.querySelector('[data-action="cerrar-modal-hab"]')?.addEventListener('click', cerrarModalHabitacion);
+    document.getElementById('estadoHabitacionModal')?.addEventListener('change', toggleDescripcionMantenimiento);
+    document.getElementById('prioridadMantenimientoModal')?.addEventListener('change', actualizarPrioridadMantenimiento);
+    document.getElementById('descripcionMantenimientoModal')?.addEventListener('input', toggleDescripcionMantenimiento);
+
+    const formTarea = document.getElementById('formTarea');
+    formTarea?.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        const boton = formTarea.querySelector('button[type="submit"]');
+        const textoOriginal = boton?.innerHTML || '';
+        const datos = new FormData();
+        datos.append('titulo', document.getElementById('tituloTarea').value.trim());
+        datos.append('categoria', document.getElementById('categoriaTarea').value);
+        datos.append('descripcion', document.getElementById('descTarea').value.trim());
+        datos.append('csrf_token', CSRF_TOKEN);
+        datos.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
+        datos.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
+        datos.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');
+        datos.append('panel_origen', 'empleado');
+        try {
+            if (boton) { boton.disabled = true; boton.innerHTML = 'Guardando...'; }
+            const respuesta = await fetch('../../controladores/guardar_tarea.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
+            const resultado = await respuesta.json();
+            if (!respuesta.ok || resultado.status !== 'exito') throw new Error(resultado.mensaje || 'No se pudo guardar la tarea');
+            anadirTareaHTML(resultado.id_tarea, datos.get('titulo'), datos.get('categoria'), datos.get('descripcion'), resultado.tarea?.creador_formateado);
+            formTarea.reset();
+            cerrarModal();
+            actualizarContadorTareas();
+            localStorage.setItem('tareas_actualizadas', Date.now().toString());
+        } catch (error) {
+            alert(error.message || 'No se pudo guardar la tarea.');
+        } finally {
+            if (boton) { boton.disabled = false; boton.innerHTML = textoOriginal; }
+        }
+    });
+
+    const formHabitacion = document.getElementById('formGestionHabitacion');
+    formHabitacion?.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        const datos = new FormData();
+        datos.append('id_hab', document.getElementById('idHabitacionModal').value);
+        datos.append('estado', document.getElementById('estadoHabitacionModal').value);
+        datos.append('prioridad_mantenimiento', document.getElementById('prioridadMantenimientoModal').value);
+        datos.append('descripcion_mantenimiento', document.getElementById('descripcionMantenimientoModal').value.trim());
+        datos.append('csrf_token', CSRF_TOKEN);
+        const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
+        const resultado = await respuesta.json();
+        if (!respuesta.ok || resultado.status !== 'exito') { alert(resultado.mensaje || 'No se pudo actualizar la habitación.'); return; }
+        cerrarModalHabitacion();
+        actualizarInterfaz();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const fecha = document.getElementById('fechaHoy');
+    if (fecha) fecha.innerText = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+    enlazarEventosEmpleado();
+    await actualizarInterfaz();
+    await cargarTareasEmpleado();
+    intervaloTareasEmpleado = setInterval(cargarTareasEmpleado, 3000);
+});
+
+window.addEventListener('storage', evento => {
+    if (evento.key === 'tareas_actualizadas') cargarTareasEmpleado();
+    if (evento.key === 'reservas_actualizadas' || evento.key === 'habitaciones_actualizadas') actualizarInterfaz();
+});

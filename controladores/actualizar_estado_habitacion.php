@@ -11,6 +11,7 @@ use App\Logger;
 
 header('Content-Type: application/json');
 exigir_permiso($conexion, 'operaciones.editar');
+exigir_csrf();
 
 // Obtenemos el ID del usuario que está realizando la acción (para auditoría en el log)
 $idUsuarioLog = $_SESSION['user_auth']['id_usuario'] ?? $_SESSION['emp_auth']['id_usuario'] ?? 0;
