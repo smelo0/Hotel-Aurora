@@ -19,3 +19,38 @@
 {"timestamp":"2026-09-23 23:37:06","level":"INFO","message":"Inicio de sesión exitoso mediante Google","context":{"id_usuario":36,"nuevo_registro":true},"ip":"::1"}
 {"timestamp":"2026-09-23 23:39:34","level":"INFO","message":"Inicio de sesión exitoso mediante Google","context":{"id_usuario":36,"nuevo_registro":false},"ip":"::1"}
 {"timestamp":"2026-09-23 23:41:25","level":"INFO","message":"Inicio de sesión exitoso mediante Google","context":{"id_usuario":36,"nuevo_registro":false},"ip":"::1"}
+{"timestamp":"2026-09-24 13:38:13","level":"INFO","message":"El usuario ha iniciado sesion como empleado","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 13:43:35","level":"INFO","message":"El usuario ha iniciado sesion como empleado","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 13:44:36","level":"INFO","message":"El usuario ha iniciado sesion como empleado","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 13:45:47","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 14:26:13","level":"INFO","message":"El usuario ha iniciado sesion como empleado","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 07:29:30","level":"INFO","message":"El usuario ha iniciado sesion como cliente","context":{"id_usuario":34,"rol_usuario":6},"ip":"::1"}
+{"timestamp":"2026-09-24 07:46:27","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 07:48:20","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 07:50:28","level":"INFO","message":"Cierre de sesión manual","context":{"user_id":"Desconocido","email":"Desconocido","rol":"Invitado"},"ip":"::1"}
+{"timestamp":"2026-09-24 07:50:46","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 07:56:39","level":"WARNING","message":"Cierre de sesión por inactividad (Timeout)","context":{"user_id":"Desconocido","email":"Desconocido","inactivo_segundos":278},"ip":"::1"}
+{"timestamp":"2026-09-24 07:56:39","level":"INFO","message":"Cierre de sesión manual","context":{"user_id":"Desconocido","email":"Desconocido","rol":"Invitado"},"ip":"::1"}
+{"timestamp":"2026-09-24 07:56:49","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:04:07","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:05:41","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:14:40","level":"WARNING","message":"Cierre de sesión por inactividad (Timeout)","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido","inactivo_segundos":537},"ip":"::1"}
+{"timestamp":"2026-09-24 08:14:40","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido"},"ip":"::1"}
+{"timestamp":"2026-09-24 08:14:55","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:21:18","level":"WARNING","message":"Cierre de sesión por inactividad (Timeout)","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido","inactivo_segundos":381},"ip":"::1"}
+{"timestamp":"2026-09-24 08:22:07","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:22:21","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:23:42","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:24:09","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"127.0.0.1"}
+{"timestamp":"2026-09-24 08:26:43","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:28:36","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:35:58","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":1,"rol_usuario":1},"ip":"::1"}
+{"timestamp":"2026-09-24 08:49:16","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:52:04","level":"WARNING","message":"Cierre de sesión por inactividad (Timeout)","context":{"id_usuario":1,"rol_usuario":1,"inactivo_segundos":34},"ip":"::1"}
+{"timestamp":"2026-09-24 08:52:04","level":"WARNING","message":"Cierre de sesión por inactividad (Timeout)","context":{"id_usuario":1,"rol_usuario":1,"inactivo_segundos":34},"ip":"::1"}
+{"timestamp":"2026-09-24 08:52:04","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido"},"ip":"::1"}
+{"timestamp":"2026-09-24 08:52:04","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido"},"ip":"::1"}
+{"timestamp":"2026-09-24 08:54:13","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":"Desconocido","rol_usuario":"Desconocido"},"ip":"::1"}
+{"timestamp":"2026-09-24 08:54:36","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
+{"timestamp":"2026-09-24 08:55:27","level":"INFO","message":"Cierre de sesión manual","context":{"id_usuario":1,"rol_usuario":1},"ip":"::1"}
+{"timestamp":"2026-09-24 08:57:15","level":"INFO","message":"El usuario ha iniciado sesion como administrador","context":{"id_usuario":null,"rol_usuario":null},"ip":"::1"}
