@@ -120,6 +120,7 @@ if ($permisos_usuario === []) {
         const PERMISOS_USUARIO = <?php echo json_encode($permisos_usuario, JSON_UNESCAPED_UNICODE); ?>;
         const ID_USUARIO_ACTIVO = <?php echo isset($_SESSION['emp_auth']['id_usuario']) ? (int) $_SESSION['emp_auth']['id_usuario'] : 0; ?>;
         const FIRMA_USUARIO_ACTIVO = "<?php echo htmlspecialchars($firma_actor_panel, ENT_QUOTES, 'UTF-8'); ?>";
+        const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
     </script>
 
     <script src="js_ad/admin.js?v=6"></script>

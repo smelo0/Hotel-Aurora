@@ -43,6 +43,8 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     ], 405);
 }
 
+exigir_csrf();
+
 $id_tarea = isset($_POST['id_tarea']) ? (int) $_POST['id_tarea'] : 0;
 
 if ($id_tarea <= 0) {

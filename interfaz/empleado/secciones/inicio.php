@@ -1,49 +1,49 @@
 <section id="sec-dashboard" class="seccion-contenido hidden">
-    <div class="grid grid-cols-3 gap-6">
-        <div onclick="redirigirDesdeDash('habitaciones')" class="metric-card bg-[#fbfdfd] p-8 rounded-xl flex flex-col justify-between h-44 cursor-pointer shadow-md">
-            <div class="icon-box w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-primary">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div onclick="redirigirDesdeDash('habitaciones')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">
+            <div class="icon-box w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-primary">
                 <span class="material-symbols-outlined">bed</span>
             </div>
             <div>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ocupadas</p>
-                <h3 id="dash-ocupadas" class="text-5xl font-black text-heading tracking-tighter">0</h3>
+                <h3 id="dash-ocupadas" class="text-4xl font-black text-heading tracking-tighter">0</h3>
             </div>
         </div>
-        <div onclick="redirigirDesdeDash('limpieza')" class="metric-card bg-[#fbfdfd] p-8 rounded-xl flex flex-col justify-between h-44 cursor-pointer shadow-md">
-            <div class="icon-box w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-primary">
+        <div onclick="redirigirDesdeDash('limpieza')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">
+            <div class="icon-box w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-primary">
                 <span class="material-symbols-outlined">mop</span>
             </div>
             <div>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Por Limpiar</p>
-                <h3 id="dash-limpieza" class="text-5xl font-black text-heading tracking-tighter">0</h3>
+                <h3 id="dash-limpieza" class="text-4xl font-black text-heading tracking-tighter">0</h3>
             </div>
         </div>
-        <div onclick="redirigirDesdeDash('huespedes')" class="metric-card bg-[#fbfdfd] p-8 rounded-xl flex flex-col justify-between h-44 cursor-pointer shadow-md">
-            <div class="icon-box w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-primary">
+        <div onclick="redirigirDesdeDash('huespedes')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">
+            <div class="icon-box w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-primary">
                 <span class="material-symbols-outlined">group</span>
             </div>
             <div>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Huéspedes</p>
-                <h3 id="dash-huespedes" class="text-5xl font-black text-heading tracking-tighter">0</h3>
+                <h3 id="dash-huespedes" class="text-4xl font-black text-heading tracking-tighter">0</h3>
             </div>
         </div>
     </div>
 
-    <div class="bg-primary text-white p-10 rounded-xl shadow-2xl relative overflow-hidden mt-8">
-        <div class="relative z-10 flex flex-col lg:flex-row justify-between gap-12">
+    <div class="bg-primary text-white p-7 rounded-xl shadow-2xl relative overflow-hidden mt-6">
+        <div class="relative z-10 flex flex-col lg:flex-row justify-between gap-8">
             
             <div class="flex-1">
-                <div class="flex items-center gap-3 mb-6">
+                <div class="flex items-center gap-3 mb-4">
                     <span class="w-2.5 h-2.5 rounded-full bg-white pulse-white"></span>
                     <h4 class="text-xs font-black uppercase tracking-[0.2em] opacity-80">Monitor Actividad Live</h4>
                 </div>
-                <div class="bg-black/20 p-6 rounded-xl border border-white/10 font-mono text-[11px] space-y-3">
+                <div class="bg-black/20 p-5 rounded-xl border border-white/10 font-mono text-[10px] space-y-3">
                     <div class="flex gap-4"><span class="text-accent font-bold">[08:12]</span> <span>Check-out procesado: Habitación 302</span></div>
                     <div class="flex gap-4 opacity-80"><span class="text-accent font-bold">[08:05]</span> <span>Limpieza finalizada: Habitación 408 (Marta G.)</span></div>
                     </div>
             </div>
             
-            <div class="w-full lg:w-72 bg-white/5 p-8 rounded-xl backdrop-blur-md border border-white/10 flex flex-col justify-center">
+            <div class="w-full lg:w-64 bg-white/5 p-6 rounded-xl backdrop-blur-md border border-white/10 flex flex-col justify-center">
                 <p class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-6 border-b border-white/10 pb-2">Estado de Turno</p>
                 <div class="space-y-5">
                     <div class="space-y-1.5">
@@ -56,7 +56,7 @@
         <span class="material-symbols-outlined absolute -right-10 -bottom-10 text-[15rem] opacity-5">sensors</span>
     </div>
 
-    <div class="mt-8 bg-white rounded-xl p-8 border border-primary/10 shadow-sm max-w-2xl">
+    <div class="mt-6 bg-white rounded-xl p-6 border border-primary/10 shadow-sm max-w-2xl">
         <div class="flex items-center justify-between gap-3 mb-5">
             <div>
                 <h4 class="font-black text-heading">Cuenta de acceso</h4>
@@ -76,6 +76,7 @@
         <?php endif; ?>
 
         <form method="POST" action="../../controladores/actualizar_correo.php" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Correo actual</label>
                 <input type="text" value="<?php echo htmlspecialchars($correoActual, ENT_QUOTES, 'UTF-8'); ?>" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700" disabled>
