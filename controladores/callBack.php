@@ -167,6 +167,7 @@ $_SESSION['user_auth'] = [
 // Log de inicio de sesión exitoso por Google (si no era nuevo, o como bienvenida general)
 Logger::registrarLog('INFO', 'Inicio de sesión exitoso mediante Google', [
     'id_usuario' => $idUsuario,
+    'rol_usuario' => $_SESSION['user_auth']['rol_usuario'],
     'nuevo_registro' => $esNuevoUsuario
 ]);
 

@@ -137,8 +137,8 @@ switch ($rolActual) {
             'rol_usuario' => $rolActual,
         ];
         Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como administrador', [
-            'id_usuario' => $_SESSION['user_auth']['id_usuario'],
-            'rol_usuario' => $_SESSION['user_auth']['rol_usuario']
+            'id_usuario' => $_SESSION['emp_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['emp_auth']['rol_usuario']
         ]);
         header('Location: ../interfaz/admin/index_ad.php');
         exit();
@@ -152,8 +152,8 @@ switch ($rolActual) {
             'rol_usuario' => $rolActual,
         ];
         Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como empleado', [
-            'id_usuario' => $_SESSION['user_auth']['id_usuario'],
-            'rol_usuario' => $_SESSION['user_auth']['rol_usuario']
+            'id_usuario' => $_SESSION['emp_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['emp_auth']['rol_usuario']
         ]);
         header('Location: ../interfaz/empleado/index.php');
         exit();
