@@ -12,6 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 // Obtenemos el ID del empleado actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? 0;
+$rolUsuarioLog = $_SESSION['emp_auth']['rol_usuario'] ?? null;
 
 function obtener_nombre_rol_tarea($codigo_rol) {
     // Corrección: Formato de nombre y rol ajustado a [Nombre] - [Rol].
@@ -144,6 +145,8 @@ try {
     // LOG DE ÉXITO: Tarea guardada correctamente con los datos del creador
     Logger::registrarLog('INFO', 'Nueva tarea creada exitosamente', [
         'id_usuario_operador' => $idUsuarioLog,
+        'id_usuario' => $idUsuarioLog,
+        'rol_usuario' => $rolUsuarioLog,
         'id_creador_tarea' => $id_creador_tarea,
         'cod_tar' => $id_tarea,
         'categoria' => $categoria
