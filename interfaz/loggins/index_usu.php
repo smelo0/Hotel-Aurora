@@ -149,7 +149,7 @@ $dotenv->load();
                 <label class="consent-label"style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
                     <input type="checkbox" name="data_consent" value="1" required style=" width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
                     Acepto el tratamiento de mis datos personales.  
-                   <a href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma_pdf.php?i=49981">Ley 1581 de 2012-Tratamiento de datos personales.</a>
+                   <a href="../legal/politica_privacidad.php" target="_blank" rel="noopener">Consulta nuestra Política de Tratamiento de Datos.</a>
                 </label>
                 
 

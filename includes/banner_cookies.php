@@ -24,6 +24,7 @@ $tienePreferencia = isset($_COOKIE['preferencia_cookies']);
 ">
     <p style="margin: 0; font-size: 14px; max-width: 600px;">
         En Hotel Aurora utilizamos cookies propias y de terceros para asegurar la navegación y analizar el uso de la web. Puedes aceptarlas todas, rechazarlas o configurar tus preferencias.
+        Más información en nuestra <a href="interfaz/legal/politica_cookies.php" target="_blank" rel="noopener" style="color: #d7b06a; text-decoration: underline;">Política de Cookies</a>.
     </p>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button onclick="guardarPreferencias('todas')" style="background-color: #053c0e; color: #fff; border: none; padding: 8px 14px; cursor: pointer; border-radius: 4px; font-weight: bold;">
@@ -51,7 +52,7 @@ $tienePreferencia = isset($_COOKIE['preferencia_cookies']);
 ">
     <div style="background-color: #222; color: #fff; padding: 25px; border-radius: 8px; max-width: 450px; width: 90%;">
         <h3 style="margin-top: 0; color: #ad8e28;">Configuración de Cookies</h3>
-        <p style="font-size: 13px; color: #ccc;">Selecciona qué categorías de cookies deseas permitir:</p>
+        <p style="font-size: 13px; color: #ccc;">Selecciona qué categorías de cookies deseas permitir. Consulta el detalle en nuestra <a href="interfaz/legal/politica_cookies.php" target="_blank" rel="noopener" style="color: #d7b06a;">Política de Cookies</a>.</p>
         
         <form id="form-cookies" style="display: flex; flex-direction: column; gap: 12px; margin: 20px 0;">
             <label style="display: flex; justify-content: space-between; align-items: center; font-size: 14px;">
