@@ -94,7 +94,8 @@ function navegar(sec, btn) {
         roles: 'roles.ver',
         operaciones: 'operaciones.ver',
         finanzas: 'finanzas.ver',
-        configuracion: 'configuracion.ver'
+        configuracion: 'configuracion.ver',
+        logs: 'logs.ver'
     }[sec];
     if (permisoSeccion && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
     document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));

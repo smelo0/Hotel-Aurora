@@ -12,7 +12,7 @@ declare(strict_types=1);
  */
 
 // 1. Incluimos el Logger
-require_once __DIR__ . '/../App/Logger.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
 
 // DETALLE IMPORTANTE: No se profundiza en as cookies, ni en el limite de tiempo por sesion activa.
