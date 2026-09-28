@@ -4,14 +4,12 @@ DB_PASS=
 DB_NAME=hotel
 DB_PORT=3306
 DB_TIMEOUT=5
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=yuli.aa.gomez@gmail.com
-MAIL_PASSWORD="uzaserpgmwjzevoe"
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS="yuli.aa.gomez@gmail.com"
-MAIL_FROM_NAME="Hotel Aurora"
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=yuli.aa.gomez@gmail.com
+SMTP_PASS="mncsktegsfgsrvqs"
+SMTP_PORT=587
+FROM_EMAIL="yuli.aa.gomez@gmail.com"
+FROM_NAME="Hotel Aurora"
 
 # Claves de Google reCAPTCHA v2 Checkbox
 RECAPTCHA_SITE_KEY=pega_aqui_la_clave_publica
