@@ -90,6 +90,7 @@ function navegar(sec, btn) {
     const permisoSeccion = {
         dashboard: 'dashboard.ver',
         reservas: 'reservas.ver',
+        experiencias: 'experiencias.ver',
         roles: 'roles.ver',
         operaciones: 'operaciones.ver',
         finanzas: 'finanzas.ver',
@@ -959,4 +960,3 @@ document.addEventListener('submit', async function(e) {
         btn.dataset.enviando = '0';
     }
 }, true);
-

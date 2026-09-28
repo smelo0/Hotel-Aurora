@@ -132,6 +132,57 @@ function fetchRoomCatalog(mysqli $conexion): array
     return $rooms;
 }
 
+function fetchExperiencias(mysqli $conexion): array
+{
+    $conexion->query(
+        "CREATE TABLE IF NOT EXISTS experiencias (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            categoria VARCHAR(50) NOT NULL,
+            nombre VARCHAR(150) NOT NULL,
+            descripcion TEXT NOT NULL,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    $experiencias = [];
+    $resultado = $conexion->query('SELECT id, categoria, nombre, descripcion FROM experiencias ORDER BY id ASC');
+    if ($resultado) {
+        while ($fila = $resultado->fetch_assoc()) {
+            $experiencias[] = [
+                'id' => (int) $fila['id'],
+                'categoria' => (string) $fila['categoria'],
+                'nombre' => (string) $fila['nombre'],
+                'descripcion' => (string) $fila['descripcion'],
+            ];
+        }
+    }
+
+    return $experiencias;
+}
+
+function experienciaImagen(string $categoria, int $indice): string
+{
+    $categoria = mb_strtolower($categoria, 'UTF-8');
+
+    if (str_contains($categoria, 'gastronom') || str_contains($categoria, 'sabor')) {
+        return 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900';
+    }
+    if (str_contains($categoria, 'spa') || str_contains($categoria, 'bienestar') || str_contains($categoria, 'relax') || str_contains($categoria, 'comfor')) {
+        return 'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900';
+    }
+    if (str_contains($categoria, 'aventura') || str_contains($categoria, 'nautic') || str_contains($categoria, 'diversion') || str_contains($categoria, 'entretenimiento')) {
+        return 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=85&w=900';
+    }
+
+    $galeria = [
+        'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900',
+        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900',
+        'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=85&w=900',
+    ];
+
+    return $galeria[$indice % count($galeria)];
+}
+
 $httpMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') {
@@ -248,6 +299,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
 
 $habitaciones = fetchRoomCatalog($conexion);
 $visibleRooms = 6; // mostrar sólo las primeras N habitaciones en el carrusel
+$experiencias = fetchExperiencias($conexion);
 $usuarioSesion = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
 $usuarioId = (int) ($usuarioSesion['id_usuario'] ?? 0);
 $usuarioNombre = (string) ($usuarioSesion['nombre_usuario'] ?? '');
@@ -533,62 +585,22 @@ if ($usuarioAutenticado) {
         </section>
 
         <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
+            <?php if ($experiencias === []): ?>
+                <p class="muted-light text-center text-sm">Muy pronto compartiremos nuevas experiencias.</p>
+            <?php else: ?>
             <div class="grid gap-6 lg:grid-cols-3">
-                <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=85&w=900" alt="Spa y bienestar" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Diversion y entretenimiento</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Planes especiales</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente.</p>
-                    </div>
-                </article>
-
-                
-
-                 <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sales de tu estado de comford</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Actividades</h3>
-                        <button id="openModalBtn" class="btn-primary mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-none transition duration-200">
-    Aqui
-  </button>
-
-  <!-- Ventana Modal / Desplegable (oculta por defecto con 'hidden') -->
-  <div id="modalOverlay" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-    <!-- Contenido de la ventana -->
-    <div class="bg-white p-6 rounded-none shadow-xl max-w-md w-full relative mx-4">
-      
-      <!-- Botón para cerrar (X) -->
-      <button id="closeModalBtn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-xl">
-        &times;
-      </button>
-
-      <h3 class="text-xl font-bold text-gray-800 mb-2">Ventana Desplegada</h3>
-      <p class="text-gray-600 mb-4">
-        Bienvenido a 
-      </p>
-
-      <div class="flex justify-end">
-        <button id="actionCloseBtn" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-none text-sm">
-          Cerrar
-        </button>
-                    </div>
-                </article>
-
-                                 <article class="room-card">
-                    <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=85&w=900" alt="Alta gastronomía" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                    <div class="p-6">
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]">Sabores exclusivos</p>
-                        <h3 class="card-title mt-3 text-2xl font-black text-white">Gastronomia</h3>
-                        <p class="muted-light mt-3 text-sm leading-7">Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.</p>
-                    </div>
-                </article>
-
-
-
-            
+                <?php foreach ($experiencias as $indice => $experiencia): ?>
+                    <article class="room-card">
+                        <img src="<?php echo e(experienciaImagen($experiencia['categoria'], $indice)); ?>" alt="<?php echo e($experiencia['nombre']); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                        <div class="p-6">
+                            <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($experiencia['categoria']); ?></p>
+                            <h3 class="card-title mt-3 text-2xl font-black text-white"><?php echo e($experiencia['nombre']); ?></h3>
+                            <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
             </div>
+            <?php endif; ?>
         </section>
 
         <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
@@ -606,9 +618,15 @@ if ($usuarioAutenticado) {
                         <div class="md:col-span-2">
                             <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="actividad">Experiencia</label>
                             <select id="actividad" name="actividad" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
-                                <option value="Spa privado">Spa privado</option>
-                                <option value="Cena de autor">Cena de autor</option>
-                                <option value="Paseo náutico">Paseo náutico</option>
+                                <?php if ($experiencias === []): ?>
+                                    <option value="Spa privado">Spa privado</option>
+                                    <option value="Cena de autor">Cena de autor</option>
+                                    <option value="Paseo náutico">Paseo náutico</option>
+                                <?php else: ?>
+                                    <?php foreach ($experiencias as $experiencia): ?>
+                                        <option value="<?php echo e(mb_substr($experiencia['nombre'], 0, 120)); ?>"><?php echo e($experiencia['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </select>
                         </div>
 
@@ -986,29 +1004,6 @@ if ($usuarioAutenticado) {
                 });
             });
 
-             
-    const openBtn = document.getElementById('openModalBtn');
-    const closeBtn = document.getElementById('closeModalBtn');
-    const actionCloseBtn = document.getElementById('actionCloseBtn');
-    const modal = document.getElementById('modalOverlay');
-
-    const toggleModal = () => {
-      modal.classList.toggle('hidden');
-      modal.classList.toggle('flex');
-    };
-
-    // Abrir al hacer clic en el botón
-    openBtn.addEventListener('click', toggleModal);
-
-    // Cerrar al hacer clic en la X o en el botón inferior
-    closeBtn.addEventListener('click', toggleModal);
-    actionCloseBtn.addEventListener('click', toggleModal);
-
-    // Cerrar si hace clic fuera del contenido de la ventana
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) toggleModal();
-    });
-  
 
             // initialize: ensure 'Todas' is active
             const active = document.querySelector('.room-filter[data-filter="all"]');

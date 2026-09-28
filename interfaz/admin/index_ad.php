@@ -38,8 +38,8 @@ if ($stmt_permisos) {
 // Mantiene visible el panel mientras se instala la migración de permisos.
 if ($permisos_usuario === []) {
     $permisos_usuario = $rol_sesion === 1
-        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver']
-        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver'];
+        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar']
+        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver', 'experiencias.ver', 'experiencias.gestionar'];
 }
 
 ?>
@@ -60,6 +60,7 @@ if ($permisos_usuario === []) {
             require_once 'secciones_ad/dashboard.php';
             require_once 'secciones_ad/reservas.php';
             require_once 'secciones_ad/roles.php';
+            require_once 'secciones_ad/experiencias.php';
             require_once 'secciones_ad/operaciones.php';
             require_once 'secciones_ad/finanzas.php';
             require_once 'secciones_ad/configuracion.php';

@@ -16,6 +16,10 @@
         <button data-permiso="reservas.ver" onclick="navegar('reservas', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-bold">Reservas</span>
         </button>
+        <!-- Nueva Sección: ítem de navegación para Experiencias -->
+        <button data-permiso="experiencias.ver" onclick="navegar('experiencias', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">celebration</span><span class="text-sm font-bold">Experiencias</span>
+        </button>
         <!-- Nueva Sección: ítem de navegación para Gestión de Roles y Permisos -->
         <button data-permiso="roles.ver" onclick="navegar('roles', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">admin_panel_settings</span><span class="text-sm font-bold">Roles y Permisos</span>
