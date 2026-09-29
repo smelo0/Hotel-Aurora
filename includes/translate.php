@@ -9,7 +9,6 @@
     </select>
 </div>
 
-<!-- Ya no necesitamos ocultar el elemento de Google porque usaremos cookies -->
 <div id="google_translate_element" style="display:none;"></div>
 <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
@@ -22,81 +21,115 @@ function googleTranslateElementInit() {
     }, 'google_translate_element');
 }
 
-function cambiarIdioma(lang) {
-    if (lang === 'es') {
-        // Borramos la cookie de traducción para volver al español original
-        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
-    } else {
-        // Creamos la cookie con el formato que exige Google (/idioma_origen/idioma_destino)
-        var valorCookie = "/es/" + lang;
-        document.cookie = "googtrans=" + valorCookie + "; path=/;";
-        document.cookie = "googtrans=" + valorCookie + "; path=/; domain=" + document.domain;
+// Función auxiliar para borrar la cookie en todas sus variaciones posibles
+function borrarCookieGoogtrans() {
+    var domain = window.location.hostname;
+    var domainParts = domain.split('.');
+    
+    // Borrar en el path raíz
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + domain;
+    
+    // Borrar para dominios con/sin 'www'
+    if (domainParts.length > 2) {
+        var rootDomain = domainParts.slice(-2).join('.');
+        document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + rootDomain;
     }
-    // Recargamos para aplicar el cambio de inmediato
-    location.reload();
 }
 
-// Mantener seleccionado el idioma actual en el desplegable al recargar la página
-window.addEventListener('DOMContentLoaded', function() {
-    var match = document.cookie.match(new RegExp('(^| )googtrans=([^;]+)'));
-    if (match) {
-        var langParts = match[2].split('/');
-        if (langParts.length >= 3) {
-            var currentLang = langParts[2];
-            var select = document.getElementById('language-select');
-            if (select) {
-                select.value = currentLang;
+function cambiarIdioma(lang) {
+    // 1. Siempre limpiamos rastros previos
+    borrarCookieGoogtrans();
+
+    if (lang !== 'es') {
+        var valorCookie = "/es/" + lang;
+        var domain = window.location.hostname;
+        
+        // 2. Escribimos la cookie garantizando disponibilidad inmediata para el script de Google
+        document.cookie = "googtrans=" + valorCookie + "; path=/;";
+        
+        // Si no estamos en localhost, asegurar la cookie en el dominio
+        if (domain !== 'localhost' && domain !== '127.0.0.1') {
+            document.cookie = "googtrans=" + valorCookie + "; path=/; domain=" + domain;
+        }
+    }
+    
+    // 3. Forzar recarga limpia desde el servidor
+    window.location.href = window.location.pathname + window.location.search;
+}
+
+// Sincronizar el select visual con la cookie actual al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    var match = document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/);
+    var select = document.getElementById('language-select');
+    
+    if (select) {
+        if (match) {
+            var langParts = decodeURIComponent(match[1]).split('/');
+            if (langParts.length >= 3 && langParts[2]) {
+                select.value = langParts[2];
+                return;
             }
         }
+        select.value = 'es'; // Valor por defecto si no hay cookie
     }
 });
 </script>
+
 <style>
 body { top: 0px !important; }
-    .goog-te-banner-frame { display: none !important; }
-    .goog-tooltip { display: none !important; }
-    .goog-tooltip:hover { display: none !important; }
-    .goog-text-highlight { background-color: transparent !important; border: none !important; box-shadow: none !important; }
-    
-    /* Estilo básico para el selector */
-    .language-switcher {
-        margin: 20px 0;
-    }
-
-
-#language-select-label {
-    margin: 0 2px;
-    color: #fff;
-    font-size: 1em;
-    font-weight: bold;
-}
-
-/* Ocultamos el banner que Google agrega arriba de la página por
-   defecto, y corregimos el "salto" de 40px que ese banner le
-   agrega al body cuando aparece. */
 .goog-te-banner-frame,
 .goog-te-banner-frame.skiptranslate,
 iframe.goog-te-banner-frame,
 iframe.skiptranslate,
-body > .skiptranslate { display: none !important; }
-
-
-
-.language-switcher {
-    border: 0.2rem solid ;
-    font-weight: 800;
-    transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
-    will-change: transform;
-    background-color: rgba(8, 59, 38, 0.86);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #000;
-    border-radius: 18px;
-    padding: 0px 0px 0px 4px;
-    font-size: 1rem;
-    #language-switcher {
-    background-color: #fff;
-    }
+body > .skiptranslate,
+.goog-tooltip,
+.goog-tooltip:hover { 
+    display: none !important; 
 }
 
+.goog-text-highlight { 
+    background-color: transparent !important; 
+    border: none !important; 
+    box-shadow: none !important; 
+}
+
+/* Estilos ajustados del contenedor */
+.language-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+    background-color: rgba(8, 59, 38, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #ffffff;
+    border-radius: 99px;
+    padding: 6px 16px;
+    font-size: 0.875rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+#language-select-label {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+#language-select {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    outline: none;
+    font-weight: inherit;
+    font-size: inherit;
+    cursor: pointer;
+}
+
+#language-select option {
+    background-color: #083b26;
+    color: #ffffff;
+}
 </style>
