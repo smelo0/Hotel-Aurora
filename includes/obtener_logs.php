@@ -1,4 +1,6 @@
 <?php
+// Limpia cualquier salida previa por espacios o includes con espacios en blanco
+
 // controladores/obtener_logs.php
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 

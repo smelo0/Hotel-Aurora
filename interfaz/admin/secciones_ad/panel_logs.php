@@ -1,8 +1,3 @@
-<!-- SECCIÓN LOGS -->
-<?php
-require_once __DIR__ . '/../../../includes/obtener_logs.php'
-?>
-
 <section id="sec-logs" class="seccion-contenido hidden w-full h-full p-6">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-slate-800">Monitor de Eventos del Sistema</h2>
@@ -50,25 +45,27 @@ require_once __DIR__ . '/../../../includes/obtener_logs.php'
 </section>
 
 <script>
-let todosLosLogs = []; // Almacena los datos originales para no volver a consultar la BD
+let todosLosLogs = []; 
 
 async function cargarLogs() {
     const tbody = document.querySelector('#tablaLogs tbody');
     tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando eventos...</td></tr>';
 
     try {
-        const respuesta = await fetch('../controladores/obtener_logs.php');
+        // Ajusta esta ruta si es necesario dependiendo de dónde se encuentre tu archivo principal de vistas respecto a 'includes'
+        const respuesta = await fetch('../../includes/obtener_logs.php');
         const resultado = await respuesta.json();
 
         if (resultado.status !== 'exito') {
-            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Error: ${resultado.mensaje}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Error: ${resultado.mensaje || 'No autorizado'}</td></tr>`;
             return;
         }
 
         todosLosLogs = resultado.data;
-        aplicarFiltros(); // Renderiza la tabla aplicando cualquier filtro activo
+        aplicarFiltros(); 
 
     } catch (error) {
+        console.error('Error de red:', error);
         tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-red-500">Error de conexión al cargar los logs.</td></tr>';
     }
 }
@@ -87,11 +84,11 @@ function renderizarTabla(logs) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition-colors';
         
-        let colorBadge = 'bg-blue-100 text-blue-800'; // INFO
+        let colorBadge = 'bg-blue-100 text-blue-800'; 
         if (log.level === 'WARNING') colorBadge = 'bg-yellow-100 text-yellow-800';
         if (log.level === 'ERROR') colorBadge = 'bg-red-100 text-red-800';
 
-        const contextoHtml = Object.keys(log.context).length > 0 
+        const contextoHtml = (log.context && Object.keys(log.context).length > 0) 
             ? `<pre class="text-xs bg-slate-100 p-2 rounded text-slate-600 whitespace-pre-wrap break-all">${JSON.stringify(log.context, null, 2)}</pre>` 
             : '<span class="text-slate-400 italic">Sin datos extra</span>';
 
@@ -116,17 +113,13 @@ function aplicarFiltros() {
     const fecha = document.getElementById('filtroFecha').value;
 
     const logsFiltrados = todosLosLogs.filter(log => {
-        // 1. Filtro por texto (busca en el mensaje, en la IP o dentro del objeto contexto)
-        const contextoString = JSON.stringify(log.context).toLowerCase();
+        const contextoString = JSON.stringify(log.context || {}).toLowerCase();
         const coincideTexto = texto === '' || 
                               log.message.toLowerCase().includes(texto) || 
-                              log.ip.includes(texto) || 
+                              log.ip.toLowerCase().includes(texto) || 
                               contextoString.includes(texto);
         
-        // 2. Filtro por Nivel
         const coincideNivel = nivel === '' || log.level === nivel;
-        
-        // 3. Filtro por Fecha (verifica si el timestamp empieza con la fecha seleccionada: YYYY-MM-DD)
         const coincideFecha = fecha === '' || log.timestamp.startsWith(fecha);
 
         return coincideTexto && coincideNivel && coincideFecha;
@@ -142,8 +135,11 @@ function limpiarFiltros() {
     aplicarFiltros();
 }
 
-// Asignar los eventos para que filtren en tiempo real al escribir o cambiar opciones
+// Vincular los filtros en tiempo real
 document.getElementById('filtroTexto').addEventListener('input', aplicarFiltros);
 document.getElementById('filtroNivel').addEventListener('change', aplicarFiltros);
 document.getElementById('filtroFecha').addEventListener('change', aplicarFiltros);
+
+// Opcional: Si quieres que cargue automáticamente al abrir la sección, 
+// puedes llamar a cargarLogs() o dispararlo al hacer clic en el botón de la sidebar.
 </script>

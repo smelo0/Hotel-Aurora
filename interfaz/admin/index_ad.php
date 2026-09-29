@@ -64,6 +64,7 @@ if ($permisos_usuario === []) {
             require_once 'secciones_ad/operaciones.php';
             require_once 'secciones_ad/finanzas.php';
             require_once 'secciones_ad/configuracion.php';
+            require_once 'secciones_ad/panel_logs.php'
             ?>
         </div>
     </main>
