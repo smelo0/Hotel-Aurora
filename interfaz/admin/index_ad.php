@@ -64,6 +64,7 @@ if ($permisos_usuario === []) {
             require_once 'secciones_ad/operaciones.php';
             require_once 'secciones_ad/finanzas.php';
             require_once 'secciones_ad/configuracion.php';
+            require_once 'secciones_ad/panel_logs.php'
             ?>
         </div>
     </main>
@@ -84,7 +85,7 @@ if ($permisos_usuario === []) {
                 <button onclick="cerrarModalLogout()" class="flex-1 px-6 py-4 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100">
                     Seguir trabajando
                 </button>
-                <a href="../../interfaz_usu.php" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
+                <a href="../../controladores/logout.php" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
                     Sí, salir ahora
                 </a>
             </div>

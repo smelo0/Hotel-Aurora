@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
 require_once '../configuracion/conexion.php';
@@ -133,6 +136,10 @@ switch ($rolActual) {
             'nombre_usuario' => (string) $nombreUsuario,
             'rol_usuario' => $rolActual,
         ];
+        Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como administrador', [
+            'id_usuario' => $_SESSION['emp_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['emp_auth']['rol_usuario']
+        ]);
         header('Location: ../interfaz/admin/index_ad.php');
         exit();
 
@@ -144,6 +151,10 @@ switch ($rolActual) {
             'nombre_usuario' => (string) $nombreUsuario,
             'rol_usuario' => $rolActual,
         ];
+        Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como empleado', [
+            'id_usuario' => $_SESSION['emp_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['emp_auth']['rol_usuario']
+        ]);
         header('Location: ../interfaz/empleado/index.php');
         exit();
 
@@ -153,6 +164,10 @@ switch ($rolActual) {
             'nombre_usuario' => (string) $nombreUsuario,
             'rol_usuario' => $rolActual,
         ];
+        Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como cliente', [
+            'id_usuario' => $_SESSION['user_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['user_auth']['rol_usuario']
+        ]);
         header('Location: ../interfaz_usu.php');
         exit();
 

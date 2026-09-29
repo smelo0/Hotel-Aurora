@@ -11,6 +11,10 @@ declare(strict_types=1);
  *  2. Hard Lock: destruir la sesión si pasan más de 5 minutos de inactividad real.
  */
 
+// 1. Incluimos el Logger
+require_once __DIR__ . '/../vendor/autoload.php';
+use App\Logger;
+
 // DETALLE IMPORTANTE: No se profundiza en as cookies, ni en el limite de tiempo por sesion activa.
 
 // --- 1. Cookies seguras (debe ir ANTES de session_start) ---
@@ -36,6 +40,10 @@ if ($haySesionActiva && !defined('SKIP_HARD_LOCK_CHECK')) {
         $tiempoInactivo = time() - $_SESSION['ultimo_acceso'];
 
         if ($tiempoInactivo > HARD_LOCK_SECONDS) {
+            // Log antes de destruir la sesión para poder identificar qué usuario fue desconectado
+            $idUsuarioInactivo = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 'desconocido';
+            Logger::registrarLog('INFO', 'Sesión cerrada automáticamente por inactividad (Hard Lock)', ['usuario_id' => $idUsuarioInactivo, 'tiempo_inactivo' => $tiempoInactivo]);
+
             $_SESSION = [];
 
             if (ini_get('session.use_cookies')) {
@@ -79,6 +87,10 @@ if (!function_exists('exigir_csrf')) {
         $esperado = (string) ($_SESSION['csrf_token'] ?? '');
 
         if ($esperado === '' || $token === '' || !hash_equals($esperado, $token)) {
+            // Log del posible intento de ataque CSRF
+            $idUsuarioCsrf = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 'desconocido';
+            Logger::registrarLog('WARNING', 'Intento de solicitud bloqueado por fallo de validación CSRF', ['usuario_id' => $idUsuarioCsrf, 'ruta' => $_SERVER['REQUEST_URI'] ?? '']);
+
             http_response_code(419);
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['status' => 'error', 'mensaje' => 'Solicitud no válida']);

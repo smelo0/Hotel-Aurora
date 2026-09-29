@@ -37,6 +37,10 @@
             <span class="material-symbols-outlined">security</span><span class="text-sm font-bold">Seguridad</span>
         </button>
 
+        <button data-permiso="logs.ver" onclick="navegar('logs', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">history</span><span class="text-sm font-bold">Logs</span>
+        </button>
+
         <!-- Modificación: Se ajustó el bloque de cierre de sesión al espaciado limpio del panel empleado. -->
         <div class="px-6 mt-auto pb-8 pt-10 border-t border-slate-100 space-y-3">
             <button type="button" onclick="abrirModal()" class="w-full py-4 bg-primary text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all">
