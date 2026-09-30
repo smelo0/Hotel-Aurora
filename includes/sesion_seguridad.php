@@ -7,15 +7,13 @@ declare(strict_types=1);
  * ANTES de cualquier otro session_start() y antes de imprimir HTML.
  *
  * Responsabilidades:
- *  1. Configurar la cookie de sesión con HttpOnly + SameSite (Tridente Defensivo).
- *  2. Hard Lock: destruir la sesión si pasan más de 5 minutos de inactividad real.
+ *  1. Configurar la cookie de sesión con HttpOnly + SameSite.
+ *  2. Aplicar el bloqueo de inactividad en el servidor.
  */
 
 // 1. Incluimos el Logger
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
-
-// DETALLE IMPORTANTE: No se profundiza en as cookies, ni en el limite de tiempo por sesion activa.
 
 // --- 1. Cookies seguras (debe ir ANTES de session_start) ---
 if (session_status() === PHP_SESSION_NONE) {
@@ -30,43 +28,103 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// --- 2. Hard Lock: 5 minutos de inactividad real ---
-define('HARD_LOCK_SECONDS', 180);
+// --- 2. Bloqueo de inactividad del lado del servidor ---
+define('SESSION_IDLE_LIMIT_SECONDS', 150);
+define('SESSION_LOCK_COUNTDOWN_SECONDS', 60);
+define('SESSION_UNLOCK_PAUSE_SECONDS', 15);
+
+if (!function_exists('expirar_sesion_por_inactividad')) {
+    function expirar_sesion_por_inactividad(bool $respuestaJson = false): void
+    {
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+
+        session_destroy();
+
+        if ($respuestaJson) {
+            http_response_code(440);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'expired', 'redirect' => '/Hotel-Aurora/interfaz_usu.php']);
+            exit;
+        }
+
+        header('Location: /Hotel-Aurora/interfaz_usu.php?error=inactividad');
+        exit;
+    }
+}
+
+if (!function_exists('responder_sesion_bloqueada')) {
+    function responder_sesion_bloqueada(): void
+    {
+        $bloqueadaEn = (int) ($_SESSION['sesion_bloqueada_en'] ?? time());
+        $pausaConcedida = !empty($_SESSION['sesion_bloqueo_pausa_concedida']);
+        $venceEn = $bloqueadaEn + SESSION_LOCK_COUNTDOWN_SECONDS
+            + ($pausaConcedida ? SESSION_UNLOCK_PAUSE_SECONDS : 0);
+
+        if (time() >= $venceEn) {
+            expirar_sesion_por_inactividad(true);
+        }
+
+        http_response_code(423);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'locked',
+            'bloqueada' => true,
+            'bloqueada_en' => $bloqueadaEn,
+            'segundos_restantes' => max(0, $venceEn - time()),
+        ]);
+        exit;
+    }
+}
 
 $haySesionActiva = !empty($_SESSION['user_auth']) || !empty($_SESSION['emp_auth']);
 
-if ($haySesionActiva && !defined('SKIP_HARD_LOCK_CHECK')) {
-    if (isset($_SESSION['ultimo_acceso'])) {
-        $tiempoInactivo = time() - $_SESSION['ultimo_acceso'];
+if ($haySesionActiva) {
+    if (!isset($_SESSION['ultimo_acceso'])) {
+        $_SESSION['ultimo_acceso'] = time();
+    }
 
-        if ($tiempoInactivo > HARD_LOCK_SECONDS) {
-            // Log antes de destruir la sesión para poder identificar qué usuario fue desconectado
+    if (empty($_SESSION['sesion_bloqueada'])) {
+        $tiempoInactivo = time() - (int) $_SESSION['ultimo_acceso'];
+
+        if ($tiempoInactivo >= SESSION_IDLE_LIMIT_SECONDS) {
+            $_SESSION['sesion_bloqueada'] = true;
+            $_SESSION['sesion_bloqueada_en'] = (int) $_SESSION['ultimo_acceso'] + SESSION_IDLE_LIMIT_SECONDS;
+            unset($_SESSION['sesion_bloqueo_pausa_concedida'], $_SESSION['sesion_bloqueo_intentos']);
+
             $idUsuarioInactivo = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 'desconocido';
-            Logger::registrarLog('INFO', 'Sesión cerrada automáticamente por inactividad (Hard Lock)', ['usuario_id' => $idUsuarioInactivo, 'tiempo_inactivo' => $tiempoInactivo]);
-
-            $_SESSION = [];
-
-            if (ini_get('session.use_cookies')) {
-                $params = session_get_cookie_params();
-                setcookie(
-                    session_name(),
-                    '',
-                    time() - 42000,
-                    $params['path'],
-                    $params['domain'],
-                    $params['secure'],
-                    $params['httponly']
-                );
-            }
-
-            session_destroy();
-            header('Location: /Hotel-Aurora/controladores/logout.php?panel=user&error=timeout');
-            exit;
+            Logger::registrarLog('INFO', 'Sesión bloqueada por inactividad', [
+                'usuario_id' => $idUsuarioInactivo,
+                'tiempo_inactivo' => $tiempoInactivo,
+            ]);
         }
     }
 
-    // Actualiza la marca de tiempo en cada carga de página protegida
-    $_SESSION['ultimo_acceso'] = time();
+    $scriptActual = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+    $esVerificacionDesbloqueo = defined('ALLOW_SESSION_UNLOCK') && ALLOW_SESSION_UNLOCK;
+    $esGestorActividad = defined('ALLOW_SESSION_ACTIVITY_HANDLER') && ALLOW_SESSION_ACTIVITY_HANDLER;
+    $esCierreSesion = basename($scriptActual) === 'logout.php';
+
+    if (!empty($_SESSION['sesion_bloqueada']) && !$esVerificacionDesbloqueo && !$esGestorActividad && !$esCierreSesion) {
+        $esApi = preg_match('~/(controladores|includes)/~i', $scriptActual) === 1;
+        if ($esApi) {
+            responder_sesion_bloqueada();
+        }
+
+        expirar_sesion_por_inactividad(false);
+    }
 }
 
 if (!function_exists('csrf_token')) {

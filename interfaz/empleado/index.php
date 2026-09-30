@@ -55,5 +55,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     </script>
 
     <script src="js/panel.js"></script>
+    <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
+    <script src="../../assets/js/inactividad.js?v=2"></script>
 </body>
 </html>

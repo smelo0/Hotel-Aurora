@@ -1,4 +1,4 @@
-<div id="inactivityModal" class="inactivity-modal-overlay" style="display: none;">
+<div id="inactivityModal" class="inactivity-modal-overlay" data-csrf="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>" style="display: none;">
     <div class="inactivity-modal-content aurora-glass reveal">
         <h3 class="font-display">¿Sigues ahí?</h3>
         <p>Tu sesión se cerrará por inactividad en breves segundos.</p>

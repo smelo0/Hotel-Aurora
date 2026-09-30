@@ -169,5 +169,7 @@ if ($stmtReservas) {
     $ayudaSistemaRol = 'usuario';
     require_once '../../includes/system_help.php';
     ?>
+    <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
+    <script src="../../assets/js/inactividad.js?v=2"></script>
 </body>
 </html>
