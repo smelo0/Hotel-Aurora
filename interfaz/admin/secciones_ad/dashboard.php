@@ -3,22 +3,22 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         
         <div class="admin-card bg-white p-6 rounded-xl border-t-4 border-t-primary">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ocupación</p>
+            <p class="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Ocupación</p>
             <h3 class="text-4xl font-black text-heading">84%</h3>
             </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Check-ins</p>
+            <p class="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Check-ins</p>
             <h3 class="text-4xl font-black text-heading">12</h3>
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ingresos Hoy</p>
+            <p class="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Ingresos Hoy</p>
             <h3 class="text-4xl font-black text-heading">$4,250</h3>
         </div>
         
         <div onclick="mostrarVista('sec-tareas')" class="admin-card bg-white p-6 rounded-xl cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tareas Pendientes</p>
+            <p class="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Tareas Pendientes</p>
             <h3 id="contador-tareas" class="text-4xl font-black text-heading text-amber-500">0</h3>
         </div>
     </div>
@@ -34,11 +34,11 @@
                 <div class="space-y-4">
                     <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
                         <h4 class="font-bold text-xs text-heading">Mantenimiento Urgente</h4>
-                        <p class="text-[10px] text-slate-500 mt-1">Fuga de agua detectada en tubería principal de Habitación 510.</p>
+                        <p class="text-[10px] text-primary/70 mt-1">Fuga de agua detectada en tubería principal de Habitación 510.</p>
                     </div>
                     <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500">
                         <h4 class="font-bold text-xs text-heading">Solicitud Especial</h4>
-                        <p class="text-[10px] text-slate-500 mt-1">Huésped VIP Hab 405 solicita cuna extra y botellas de agua antes del arribo.</p>
+                        <p class="text-[10px] text-primary/70 mt-1">Huésped VIP Hab 405 solicita cuna extra y botellas de agua antes del arribo.</p>
                     </div>
                 </div>
             </div>
@@ -48,19 +48,19 @@
             <h3 class="text-xl font-black text-primary uppercase tracking-tighter mb-6">Monitor Operativo Live</h3>
             
             <div class="space-y-4">
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
+                <div class="flex gap-4 items-center p-3 hover:bg-[#f4f8f6] rounded-lg">
                     <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[08:12]</strong> Check-out procesado: Habitación 302</p>
+                    <p class="text-xs text-primary/80"><strong>[08:12]</strong> Check-out procesado: Habitación 302</p>
                 </div>
                 
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
+                <div class="flex gap-4 items-center p-3 hover:bg-[#f4f8f6] rounded-lg">
                     <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[08:05]</strong> Limpieza finalizada: Habitación 408</p>
+                    <p class="text-xs text-primary/80"><strong>[08:05]</strong> Limpieza finalizada: Habitación 408</p>
                 </div>
                 
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
+                <div class="flex gap-4 items-center p-3 hover:bg-[#f4f8f6] rounded-lg">
                     <span class="w-2 h-2 bg-primary rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[07:42]</strong> Check-in exitoso: Julianne Vance (Hab 405)</p>
+                    <p class="text-xs text-primary/80"><strong>[07:42]</strong> Check-in exitoso: Julianne Vance (Hab 405)</p>
                 </div>
             </div>
         </div>

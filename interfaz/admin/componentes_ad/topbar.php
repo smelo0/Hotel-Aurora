@@ -5,7 +5,7 @@
             Hola, <?php echo explode(' ', $_SESSION['emp_auth']['nombre_usuario'])[0]; ?>
         </h2>
         <div class="flex items-center gap-2 mt-0.5">
-            <p id="fechaHoy" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></p>
+            <p id="fechaHoy" class="text-[10px] font-bold text-primary/60 uppercase tracking-widest"></p>
             <span class="text-primary/20">•</span>
             <p class="text-[10px] font-bold text-secondary uppercase tracking-widest">Panel Admin</p>
         </div>

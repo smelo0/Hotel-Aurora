@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 header('Content-Type: text/html; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
@@ -71,18 +74,18 @@ if ($permisos_usuario === []) {
 
     <?php require_once 'componentes_ad/aside_tareas_admin.php'; ?>
 
-    <div id="modalLogout" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all">
+    <div id="modalLogout" class="hidden fixed inset-0 bg-[#03271B]/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-95 opacity-0" id="cajaLogout">
             <div class="p-8 text-center">
                 <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <span class="material-symbols-outlined text-4xl">logout</span>
                 </div>
-                <h4 class="text-xl font-black text-slate-800 mb-2">¿Cerrar Sesión?</h4>
-                <p class="text-sm text-slate-500">Estás a punto de salir del sistema. Asegúrate de haber guardado todos tus cambios.</p>
+                <h4 class="text-xl font-black text-heading mb-2">¿Cerrar Sesión?</h4>
+                <p class="text-sm text-primary/70">Estás a punto de salir del sistema. Asegúrate de haber guardado todos tus cambios.</p>
             </div>
             
-            <div class="flex border-t border-slate-100">
-                <button onclick="cerrarModalLogout()" class="flex-1 px-6 py-4 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100">
+            <div class="flex border-t border-primary/10">
+                <button onclick="cerrarModalLogout()" class="flex-1 px-6 py-4 text-sm font-bold text-primary/60 hover:bg-[#f4f8f6] transition-colors border-r border-primary/10">
                     Seguir trabajando
                 </button>
                 <a href="../../controladores/logout.php" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors text-center">
@@ -92,21 +95,21 @@ if ($permisos_usuario === []) {
         </div>
     </div>
 
-    <div id="modalMantenimientoHousekeeping" onclick="cerrarModalMantenimiento(event)" class="maintenance-modal-overlay fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[90] flex justify-center items-center p-4">
-        <div id="cardMantenimientoHousekeeping" onclick="event.stopPropagation()" class="maintenance-modal-card bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl border border-slate-100">
+    <div id="modalMantenimientoHousekeeping" onclick="cerrarModalMantenimiento(event)" class="maintenance-modal-overlay fixed inset-0 bg-[#03271B]/40 backdrop-blur-sm z-[90] flex justify-center items-center p-4">
+        <div id="cardMantenimientoHousekeeping" onclick="event.stopPropagation()" class="maintenance-modal-card bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl border border-primary/10">
             <div class="flex justify-between items-start gap-4 mb-6">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.18em] text-red-400 mb-2">Mantenimiento</p>
                     <h3 id="tituloMantenimientoHousekeeping" class="text-xl font-black text-heading">Habitación</h3>
                 </div>
-                <button onclick="cerrarModalMantenimiento()" class="text-slate-400 hover:text-red-500 font-black text-xl transition-colors" type="button">&times;</button>
+                <button onclick="cerrarModalMantenimiento()" class="text-primary/60 hover:text-red-500 font-black text-xl transition-colors" type="button">&times;</button>
             </div>
 
             <div id="prioridadMantenimientoHousekeeping" class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest mb-5"></div>
 
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Motivo registrado</p>
-                <p id="motivoMantenimientoHousekeeping" class="text-sm font-bold text-slate-600 leading-relaxed whitespace-pre-line"></p>
+            <div class="bg-[#f4f8f6] border border-primary/10 rounded-xl p-4">
+                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60 mb-2">Motivo registrado</p>
+                <p id="motivoMantenimientoHousekeeping" class="text-sm font-bold text-primary/80 leading-relaxed whitespace-pre-line"></p>
             </div>
         </div>
     </div>
@@ -125,7 +128,7 @@ if ($permisos_usuario === []) {
         const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
     </script>
 
-    <script src="js_ad/admin.js?v=6"></script>
+    <script src="js_ad/admin.js?v=2026-10-01-admin-theme"></script>
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
     <script src="../../assets/js/inactividad.js?v=2"></script>

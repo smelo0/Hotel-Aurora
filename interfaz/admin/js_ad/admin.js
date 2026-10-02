@@ -71,9 +71,13 @@ function inicializarTogglesAdmin() {
             const dot = this.parentElement.querySelector('.dot');
             if (!dot || !this.nextElementSibling) return;
 
+            const primaryColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--admin-primary')
+                .trim() || '#03271B';
+
             if (this.checked) {
                 dot.style.transform = 'translateX(100%)';
-                this.nextElementSibling.style.backgroundColor = '#2C5E5E';
+                this.nextElementSibling.style.backgroundColor = primaryColor;
             } else {
                 dot.style.transform = 'translateX(0)';
                 this.nextElementSibling.style.backgroundColor = '#e2e8f0';
@@ -128,11 +132,11 @@ function filtrarReservas() {
 function generarFactura(btn) {
     btn.disabled = true;
     btn.classList.remove('bg-primary', 'hover:bg-heading');
-    btn.classList.add('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
+    btn.classList.add('bg-[#dfeee7]', 'text-primary/70', 'cursor-not-allowed');
     btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Procesando...';
 
     setTimeout(() => {
-        btn.classList.remove('bg-slate-300', 'text-slate-500');
+        btn.classList.remove('bg-[#dfeee7]', 'text-primary/70');
         btn.classList.add('bg-green-600', 'text-white');
         btn.innerHTML = '<span class="material-symbols-outlined text-sm">check_circle</span> Factura Generada';
         setTimeout(() => alert('Factura timbrada y enviada al correo del huésped exitosamente.'), 300);
@@ -391,10 +395,10 @@ function crearTareaAdminHTML(tarea) {
                 <span class="material-symbols-outlined text-[12px]">${estilos.icono}</span>${escaparHTMLAdmin(categoria)}
             </p>
             <h4 class="text-xs font-bold text-heading leading-tight">${escaparHTMLAdmin(tarea.titulo)}</h4>
-            <p class="text-[10px] text-slate-400 mt-2">${escaparHTMLAdmin(tarea.descripcion || tarea.desc || '')}</p>
+            <p class="text-[10px] text-primary/60 mt-2">${escaparHTMLAdmin(tarea.descripcion || tarea.desc || '')}</p>
             <div class="flex items-center gap-3 mt-3">
                 <span class="text-[10px] font-black uppercase tracking-tighter text-primary bg-primary/5 px-2 py-1 rounded">${escaparHTMLAdmin(creador)}</span>
-                <span class="text-[10px] text-slate-400 font-bold">${escaparHTMLAdmin(fecha)}</span>
+                <span class="text-[10px] text-primary/60 font-bold">${escaparHTMLAdmin(fecha)}</span>
             </div>
             <div class="mt-4">
                 <button type="button" onclick="marcarTareaComoHechaAdmin(${Number(tarea.id)}, this)" class="accion-tarea text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button>
@@ -699,7 +703,7 @@ function obtenerClaseEstadoReserva(estado) {
     if (estado === 'Pendiente') return 'bg-amber-100 text-amber-700';
     if (estado === 'En Casa') return 'bg-blue-100 text-blue-700';
     if (estado === 'Cancelada') return 'bg-red-100 text-red-700';
-    return 'bg-slate-100 text-slate-700';
+    return 'bg-[#eef6f2] text-primary';
 }
 
 function formatearFechaReserva(fecha) {
@@ -731,18 +735,18 @@ function crearFilaReservaHTML(reserva) {
     const habitacion = reserva.cod_hab_det ? reserva.cod_hab_det : 'Sin asignar';
     const notas = reserva.not_res || '';
     const notasSeparadas = separarNotasReserva(notas);
-    const huespedesTabla = notasSeparadas.huespedes ? `<p class="text-xs font-black text-slate-700">${escaparHTMLAdmin(notasSeparadas.huespedes)}</p>` : '';
-    const peticionTabla = notasSeparadas.peticion ? `<p class="text-xs italic text-slate-400 mt-1">${escaparHTMLAdmin(notasSeparadas.peticion)}</p>` : '';
-    const notasTabla = huespedesTabla || peticionTabla ? `${huespedesTabla}${peticionTabla}` : '<span class="text-slate-300 italic">Ninguna</span>';
+    const huespedesTabla = notasSeparadas.huespedes ? `<p class="text-xs font-black text-primary">${escaparHTMLAdmin(notasSeparadas.huespedes)}</p>` : '';
+    const peticionTabla = notasSeparadas.peticion ? `<p class="text-xs italic text-primary/60 mt-1">${escaparHTMLAdmin(notasSeparadas.peticion)}</p>` : '';
+    const notasTabla = huespedesTabla || peticionTabla ? `${huespedesTabla}${peticionTabla}` : '<span class="text-primary/40 italic">Ninguna</span>';
     const fechaIn = formatearFechaReserva(reserva.fec_ent_res);
     const fechaOut = formatearFechaReserva(reserva.fec_sal_res);
     const estado = reserva.est_res || 'Pendiente';
 
     return `
-        <tr class="hover:bg-slate-50 transition-colors" data-reserva-id="${Number(reserva.cod_res)}">
-            <td class="py-5 px-4 align-middle font-semibold text-slate-800">${escaparHTMLAdmin(reserva.nom_usu || '')}</td>
-            <td class="py-5 px-4 align-middle text-slate-600 font-bold">${escaparHTMLAdmin(habitacion)}</td>
-            <td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>${escaparHTMLAdmin(fechaIn)}</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>${escaparHTMLAdmin(fechaOut)}</span></div></td>
+        <tr class="hover:bg-[#f4f8f6] transition-colors" data-reserva-id="${Number(reserva.cod_res)}">
+            <td class="py-5 px-4 align-middle font-semibold text-heading">${escaparHTMLAdmin(reserva.nom_usu || '')}</td>
+            <td class="py-5 px-4 align-middle text-primary/80 font-bold">${escaparHTMLAdmin(habitacion)}</td>
+            <td class="py-5 px-4 align-middle text-primary/70"><div class="flex items-center gap-2 text-xs font-bold"><span>${escaparHTMLAdmin(fechaIn)}</span><span class="material-symbols-outlined text-[15px] text-primary/40">arrow_forward</span><span>${escaparHTMLAdmin(fechaOut)}</span></div></td>
             <td class="py-5 px-4 align-middle"><span class="${obtenerClaseEstadoReserva(estado)} px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">${escaparHTMLAdmin(estado)}</span></td>
             <td class="py-5 px-4 align-middle max-w-xs">${notasTabla}</td>
             <td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">
@@ -838,14 +842,14 @@ function crearConfirmacionReserva() {
     modal.id = 'confirmacionEliminarReserva';
     modal.className = 'confirm-reserva hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-[8px] p-4';
     modal.innerHTML = `
-        <div class="confirm-reserva-card bg-white rounded-xl shadow-2xl border border-slate-100 w-full max-w-sm p-6">
+        <div class="confirm-reserva-card bg-white rounded-xl shadow-2xl border border-primary/10 w-full max-w-sm p-6">
             <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-4">
                 <span class="material-symbols-outlined">delete</span>
             </div>
             <h3 class="text-lg font-black text-heading mb-2">Eliminar reserva</h3>
-            <p class="text-sm text-slate-500 font-semibold leading-relaxed mb-6">Esta accion eliminara la reserva y sus detalles asociados.</p>
+            <p class="text-sm text-primary/70 font-semibold leading-relaxed mb-6">Esta accion eliminara la reserva y sus detalles asociados.</p>
             <div class="flex gap-3">
-                <button type="button" data-accion="cancelar" class="ui-action flex-1 border border-slate-200 text-slate-500 font-bold rounded-lg py-3 hover:bg-slate-50">Cancelar</button>
+                <button type="button" data-accion="cancelar" class="ui-action flex-1 border border-primary/10 text-primary/70 font-bold rounded-lg py-3 hover:bg-[#eef6f2]">Cancelar</button>
                 <button type="button" data-accion="confirmar" class="ui-action flex-1 bg-red-500 text-white font-bold rounded-lg py-3 hover:bg-red-600 shadow-md">Eliminar</button>
             </div>
         </div>`;

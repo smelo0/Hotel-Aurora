@@ -6,7 +6,7 @@
         
         <table class="w-full text-left">
             
-            <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+            <thead class="bg-[#f4f8f6] text-[10px] font-black text-primary/60 uppercase tracking-widest border-b border-primary/10">
                 <tr>
                     <th class="p-4">Folio</th>
                     <th class="p-4">Huésped</th>
@@ -14,10 +14,10 @@
                     <th class="p-4 text-right">Acción</th> </tr>
             </thead>
             
-            <tbody class="divide-y divide-slate-100 text-sm font-semibold">
+            <tbody class="divide-y divide-primary/10 text-sm font-semibold">
                 
                 <tr>
-                    <td class="p-4 text-slate-500">#FX-1092</td>
+                    <td class="p-4 text-primary/70">#FX-1092</td>
                     <td class="p-4">Familia Gómez (Check-out)</td>
                     <td class="p-4 text-primary font-black">$850.00</td>
                     
@@ -29,7 +29,7 @@
                 </tr>
                 
                 <tr>
-                    <td class="p-4 text-slate-500">#FX-1093</td>
+                    <td class="p-4 text-primary/70">#FX-1093</td>
                     <td class="p-4">Empresa TechCorp</td>
                     <td class="p-4 text-primary font-black">$3,200.00</td>
                     

@@ -2,8 +2,8 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Servidor: 127.0.0.1:3308
--- Tiempo de generación: 02-09-2026 a las 18:10:32
+-- Servidor: 127.0.0.1
+-- Tiempo de generación: 29-09-2026 a las 18:00:42
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -44,7 +44,8 @@ CREATE TABLE `agenda_actividad` (
 --
 
 INSERT INTO `agenda_actividad` (`id_agenda`, `actividad`, `fecha_agenda`, `hora_agenda`, `nombre_contacto`, `correo_contacto`, `id_usu_agenda`, `estado_agenda`, `creado_en`) VALUES
-(1, 'Paseo náutico', '2026-08-05', '10:57:00', 'adssa', 'yuli.aa.gomez@gmail.com', 0, 'Pendiente', '2026-08-03 09:56:17');
+(1, 'Paseo náutico', '2026-08-05', '10:57:00', 'adssa', 'yuli.aa.gomez@gmail.com', 0, 'Pendiente', '2026-08-03 09:56:17'),
+(2, 'Gastronomía', '2026-02-11', '20:00:00', 'yulieth', 'aa.gomez@gmail.com', 0, 'Pendiente', '2026-09-28 07:31:57');
 
 -- --------------------------------------------------------
 
@@ -99,7 +100,32 @@ INSERT INTO `detalle` (`cod_det`, `can_noc_det`, `cod_res_det`, `cod_hab_det`) V
 (40, 3, 41, 2),
 (41, 1, 42, 36),
 (42, 2, 43, 3),
-(43, 1, 44, 9);
+(43, 1, 44, 9),
+(44, 14, 45, 33),
+(45, 1, 46, 22);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `experiencias`
+--
+
+CREATE TABLE `experiencias` (
+  `id` int(11) NOT NULL,
+  `categoria` varchar(50) NOT NULL,
+  `nombre` varchar(150) NOT NULL,
+  `descripcion` text NOT NULL,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `experiencias`
+--
+
+INSERT INTO `experiencias` (`id`, `categoria`, `nombre`, `descripcion`, `fecha_creacion`) VALUES
+(1, 'Diversión y entretenimiento', 'Planes especiales', 'Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente. jjjj', '2026-09-28 12:28:52'),
+(2, 'Bienestar y comodidad', 'Actividades', 'Agenda actividades guiadas y experiencias a la medida durante tu estancia.', '2026-09-28 12:28:52'),
+(3, 'Sabores exclusivos', 'Gastronomía', 'Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.', '2026-09-28 12:28:52');
 
 -- --------------------------------------------------------
 
@@ -168,7 +194,7 @@ INSERT INTO `habitacion` (`cod_hab`, `num_hab`, `tipo_hab`, `pre_hab`, `est_hab`
 (30, 310, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
 (31, 401, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
 (32, 402, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
-(33, 403, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
+(33, 403, 'Doble', 85000.00, 'Ocupada', 0.00, NULL),
 (34, 404, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
 (35, 405, 'Suite Premium', 200000.00, 'Disponible', 0.00, NULL),
 (36, 406, 'Suite Premium', 200000.00, 'Disponible', 0.00, NULL),
@@ -202,7 +228,43 @@ INSERT INTO `pagos` (`id_pago`, `cod_res_pago`, `monto`, `metodo_pago`, `referen
 (17, 41, 303450.00, 'Transferencia', 'REF-1786030375-41', 'Aprobado', '2026-08-06 10:32:55'),
 (18, 42, 119000.00, 'Tarjeta', 'REF-1786030793-42', 'Aprobado', '2026-08-06 10:39:53'),
 (19, 43, 119000.00, 'Recepción', 'REF-1787230558-43', 'Pendiente', '2026-08-20 07:55:58'),
-(20, 44, 59500.00, 'Recepción', 'REF-1787238618-44', 'Pendiente', '2026-08-20 10:10:18');
+(20, 44, 59500.00, 'Recepción', 'REF-1787238618-44', 'Pendiente', '2026-08-20 10:10:18'),
+(21, 45, 1416100.00, 'Tarjeta', 'REF-1790682515-45', 'Aprobado', '2026-09-29 06:48:35'),
+(22, 46, 59500.00, 'Tarjeta', 'REF-1790682591-46', 'Aprobado', '2026-09-29 06:49:51');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `password_resets`
+--
+
+CREATE TABLE `password_resets` (
+  `id` bigint(20) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `token` varchar(128) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `password_resets`
+--
+
+INSERT INTO `password_resets` (`id`, `email`, `token`, `expires_at`, `created_at`) VALUES
+(1, 'yuli.aa.gomez@gmail.com', 'd32fb1e653d4980c121abb5f91be4b79d80a88b66fb11100', '2026-09-28 18:19:38', '2026-09-28 10:19:38'),
+(2, 'yuli.aa.gomez@gmail.com', '909946b6d55aadd7a179322ec39b79c2c403c7d6ba072040', '2026-09-28 18:38:29', '2026-09-28 10:38:29'),
+(3, 'yuli.aa.gomez@gmail.com', 'e366dde2f5b41a7991125604b36e4b3c5bb4ef8185725cc1', '2026-09-28 18:39:45', '2026-09-28 10:39:45'),
+(4, 'yuli.aa.gomez@gmail.com', '7d508baa97af62c07308f1e82ca8a1d54372e9eef589c836', '2026-09-28 18:40:45', '2026-09-28 10:40:45'),
+(5, 'yuli.aa.gomez@gmail.com', '5b5b5e8251462230602775f4d90dcb00b12294a62a43d44a', '2026-09-28 18:45:47', '2026-09-28 10:45:47'),
+(6, 'yuli.aa.gomez@gmail.com', '2e1961a8222f4da74f68e74b42c14f426a4490311eed9685', '2026-09-28 18:51:24', '2026-09-28 10:51:24'),
+(7, 'yuli.aa.gomez@gmail.com', 'dad46376d6c26ca6a5e9724d34ae902ff2dccbbba1e10804', '2026-09-28 18:52:02', '2026-09-28 10:52:02'),
+(8, 'yuli.aa.gomez@gmail.com', 'b0866bffe3e08779851b700f62e6b0febb2db3f80e88917d', '2026-09-28 18:54:37', '2026-09-28 10:54:37'),
+(9, 'yuli.aa.gomez@gmail.com', 'bc0580282468ec1f3ec6949ecb06c214f2ca941f0b6a7e05', '2026-09-28 18:56:12', '2026-09-28 10:56:12'),
+(10, 'yuli.aa.gomez@gmail.com', 'b83bb1bd8cf8576055545769a6a2b7c573cc941a5c558b4c', '2026-09-28 18:58:52', '2026-09-28 10:58:52'),
+(11, 'yuli.aa.gomez@gmail.com', '0df913aab29bcc708e999ab2500aeb7778deb3930b44f278', '2026-09-28 19:11:03', '2026-09-28 11:11:03'),
+(12, 'yuli.aa.gomez@gmail.com', '06b031ecf2dc19772cddd87b7d6a1a03a109027589409335', '2026-09-28 19:12:35', '2026-09-28 11:12:35'),
+(13, 'yuli.aa.gomez@gmail.com', '1bce69c807d5d0bdaf84c438bb7b8604141cef2e3c7615fe', '2026-09-28 19:18:13', '2026-09-28 11:18:13'),
+(14, 'yuli.aa.gomez@gmail.com', '5775317f11b11601065628f0a1678024ef3c99431659016f', '2026-09-28 19:21:50', '2026-09-28 11:21:50');
 
 -- --------------------------------------------------------
 
@@ -225,8 +287,11 @@ INSERT INTO `permiso` (`cod_permiso`, `modulo`, `accion`, `des_permiso`) VALUES
 ('configuracion.editar', 'configuracion', 'editar', 'Editar la configuración del sistema'),
 ('configuracion.ver', 'configuracion', 'ver', 'Ver la sección de seguridad/configuración'),
 ('dashboard.ver', 'dashboard', 'ver', 'Ver el panel principal'),
+('experiencias.gestionar', 'experiencias', 'gestionar', 'Crear, editar y eliminar experiencias'),
+('experiencias.ver', 'experiencias', 'ver', 'Ver la sección de Experiencias en el panel'),
 ('finanzas.exportar', 'finanzas', 'exportar', 'Exportar reportes financieros'),
 ('finanzas.ver', 'finanzas', 'ver', 'Ver reportes financieros'),
+('logs.ver', 'logs', 'ver', 'ver logs'),
 ('operaciones.editar', 'operaciones', 'editar', 'Cambiar el estado de las habitaciones (aseo, mantenimiento, etc.)'),
 ('operaciones.ver', 'operaciones', 'ver', 'Ver el estado de las habitaciones'),
 ('reservas.crear', 'reservas', 'crear', 'Crear nuevas reservas'),
@@ -293,7 +358,9 @@ INSERT INTO `reservas` (`cod_res`, `fec_res`, `fec_ent_res`, `fec_sal_res`, `est
 (41, '2026-08-06 10:32:55', '2026-09-16 15:00:00', '2026-09-19 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Transferencia\nPorcentaje de cobro: 100%', 31),
 (42, '2026-08-06 10:39:53', '2026-08-26 15:00:00', '2026-08-27 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Tarjeta\nPorcentaje de cobro: 50%', 31),
 (43, '2026-08-20 07:55:58', '2026-09-15 15:00:00', '2026-09-17 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31),
-(44, '2026-08-20 10:10:18', '2026-09-02 15:00:00', '2026-09-03 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31);
+(44, '2026-08-20 10:10:18', '2026-09-02 15:00:00', '2026-09-03 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31),
+(45, '2026-09-29 06:48:35', '2026-09-16 15:00:00', '2026-09-30 12:00:00', 'Confirmada', 'Adultos: 1 | Niños: 0 | Pago: Tarjeta', 28),
+(46, '2026-09-29 06:49:51', '2026-09-30 15:00:00', '2026-10-01 12:00:00', 'Confirmada', 'Adultos: 1 | Niños: 0 | Pago: Tarjeta\ngccg', 28);
 
 -- --------------------------------------------------------
 
@@ -338,8 +405,11 @@ INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
 (1, 'configuracion.editar'),
 (1, 'configuracion.ver'),
 (1, 'dashboard.ver'),
+(1, 'experiencias.gestionar'),
+(1, 'experiencias.ver'),
 (1, 'finanzas.exportar'),
 (1, 'finanzas.ver'),
+(1, 'logs.ver'),
 (1, 'operaciones.editar'),
 (1, 'operaciones.ver'),
 (1, 'reservas.crear'),
@@ -350,6 +420,8 @@ INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
 (1, 'roles.gestionar'),
 (1, 'roles.ver'),
 (2, 'dashboard.ver'),
+(2, 'experiencias.gestionar'),
+(2, 'experiencias.ver'),
 (2, 'finanzas.exportar'),
 (2, 'finanzas.ver'),
 (2, 'operaciones.ver'),
@@ -492,6 +564,12 @@ ALTER TABLE `detalle`
   ADD KEY `cod_hab_det` (`cod_hab_det`);
 
 --
+-- Indices de la tabla `experiencias`
+--
+ALTER TABLE `experiencias`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indices de la tabla `factura`
 --
 ALTER TABLE `factura`
@@ -511,6 +589,14 @@ ALTER TABLE `habitacion`
 ALTER TABLE `pagos`
   ADD PRIMARY KEY (`id_pago`),
   ADD KEY `cod_res_pago` (`cod_res_pago`);
+
+--
+-- Indices de la tabla `password_resets`
+--
+ALTER TABLE `password_resets`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `email` (`email`),
+  ADD KEY `token` (`token`);
 
 --
 -- Indices de la tabla `permiso`
@@ -567,13 +653,19 @@ ALTER TABLE `usuario`
 -- AUTO_INCREMENT de la tabla `agenda_actividad`
 --
 ALTER TABLE `agenda_actividad`
-  MODIFY `id_agenda` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_agenda` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `detalle`
 --
 ALTER TABLE `detalle`
-  MODIFY `cod_det` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `cod_det` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+
+--
+-- AUTO_INCREMENT de la tabla `experiencias`
+--
+ALTER TABLE `experiencias`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `factura`
@@ -591,13 +683,19 @@ ALTER TABLE `habitacion`
 -- AUTO_INCREMENT de la tabla `pagos`
 --
 ALTER TABLE `pagos`
-  MODIFY `id_pago` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id_pago` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+
+--
+-- AUTO_INCREMENT de la tabla `password_resets`
+--
+ALTER TABLE `password_resets`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `reservas`
 --
 ALTER TABLE `reservas`
-  MODIFY `cod_res` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `cod_res` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT de la tabla `rol`

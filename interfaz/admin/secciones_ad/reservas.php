@@ -31,13 +31,13 @@ if (!function_exists('separar_notas_reserva_admin')) {
         <div class="flex justify-between items-end mb-8">
             <div>
                 <h3 class="text-2xl font-black text-primary tracking-tight">Gestion de Reservas</h3>
-                <p class="text-xs text-slate-400 mt-1">Directorio de ingresos y salidas.</p>
+                <p class="text-xs text-primary/60 mt-1">Directorio de ingresos y salidas.</p>
             </div>
 
             <div class="flex items-center gap-4">
                 <div class="relative w-72">
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                    <input type="text" id="buscadorReservas" onkeyup="filtrarReservas()" placeholder="Filtrar por nombre..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-12 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60">search</span>
+                    <input type="text" id="buscadorReservas" onkeyup="filtrarReservas()" placeholder="Filtrar por nombre..." class="w-full bg-[#f4f8f6] border border-primary/10 rounded-lg pl-12 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20">
                 </div>
 
                 <button type="button" onclick="abrirModalReserva()" class="ui-action bg-primary text-white px-5 py-3 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-heading focus-visible:ring-4 focus-visible:ring-primary/20 flex items-center gap-2 shadow-sm hover:shadow-md active:shadow-sm">
@@ -47,7 +47,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
         </div>
 
         <table class="w-full text-left">
-            <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+            <thead class="bg-[#f4f8f6] text-[10px] font-black text-primary/60 uppercase tracking-widest border-b border-primary/10">
                 <tr>
                     <th class="p-4">Huésped</th>
                     <th class="p-4">Habitacion</th>
@@ -58,7 +58,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 </tr>
             </thead>
 
-            <tbody id="tablaReservas" class="divide-y divide-slate-100 text-sm font-semibold">
+            <tbody id="tablaReservas" class="divide-y divide-primary/10 text-sm font-semibold">
                 <?php
                 require_once __DIR__ . '/../../../configuracion/conexion.php';
 
@@ -76,7 +76,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                         $fecha_out = formatear_fecha_reserva_admin($reserva['fec_sal_res']);
 
                         $estado = $reserva['est_res'];
-                        $color_clase = 'bg-slate-100 text-slate-700';
+                        $color_clase = 'bg-[#edf4ef] text-primary';
                         if ($estado === 'Confirmada') $color_clase = 'bg-green-100 text-green-700';
                         if ($estado === 'Pendiente') $color_clase = 'bg-amber-100 text-amber-700';
                         if ($estado === 'En Casa') $color_clase = 'bg-blue-100 text-blue-700';
@@ -86,21 +86,21 @@ if (!function_exists('separar_notas_reserva_admin')) {
                         $notas_db = $reserva['not_res'] ?? '';
                         $notas_separadas = separar_notas_reserva_admin($notas_db);
                         $huespedes_tabla = !empty($notas_separadas['huespedes'])
-                            ? '<p class="text-xs font-black text-slate-700">' . htmlspecialchars($notas_separadas['huespedes'], ENT_QUOTES, 'UTF-8') . '</p>'
+                            ? '<p class="text-xs font-black text-primary">' . htmlspecialchars($notas_separadas['huespedes'], ENT_QUOTES, 'UTF-8') . '</p>'
                             : '';
                         $peticion_tabla = !empty($notas_separadas['peticion'])
-                            ? '<p class="text-xs italic text-slate-400 mt-1">' . htmlspecialchars($notas_separadas['peticion'], ENT_QUOTES, 'UTF-8') . '</p>'
+                            ? '<p class="text-xs italic text-primary/60 mt-1">' . htmlspecialchars($notas_separadas['peticion'], ENT_QUOTES, 'UTF-8') . '</p>'
                             : '';
-                        $notas_tabla = ($huespedes_tabla || $peticion_tabla) ? $huespedes_tabla . $peticion_tabla : '<span class="text-slate-300 italic">Ninguna</span>';
+                        $notas_tabla = ($huespedes_tabla || $peticion_tabla) ? $huespedes_tabla . $peticion_tabla : '<span class="text-primary/40 italic">Ninguna</span>';
 
                         $id_reserva = (int) $reserva['cod_res'];
                         $notas_seguras = htmlspecialchars($notas_db, ENT_QUOTES, 'UTF-8');
                         $hab_segura = htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8');
 
-                        echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
-                        echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . htmlspecialchars($reserva['nom_usu']) . '</td>';
-                        echo '<td class="py-5 px-4 align-middle text-slate-600 font-bold">' . htmlspecialchars($habitacion) . '</td>';
-                        echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in) . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out) . '</span></div></td>';
+                        echo '<tr class="hover:bg-[#f4f8f6] transition-colors" data-reserva-id="' . $id_reserva . '">';
+                        echo '<td class="py-5 px-4 align-middle font-semibold text-heading">' . htmlspecialchars($reserva['nom_usu']) . '</td>';
+                        echo '<td class="py-5 px-4 align-middle text-primary/80 font-bold">' . htmlspecialchars($habitacion) . '</td>';
+                        echo '<td class="py-5 px-4 align-middle text-primary/70"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in) . '</span><span class="material-symbols-outlined text-[15px] text-primary/40">arrow_forward</span><span>' . htmlspecialchars($fecha_out) . '</span></div></td>';
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado) . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
@@ -111,7 +111,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                         echo '</tr>';
                     }
                 } else {
-                    echo '<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
+                    echo '<tr><td colspan="6" class="p-4 text-center text-primary/60">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
                 // Mejora: listado para searchable select.
@@ -137,24 +137,24 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </tbody>
         </table>
 
-        <div id="noResultados" class="hidden text-center py-10 text-slate-400 text-sm font-bold">
+        <div id="noResultados" class="hidden text-center py-10 text-primary/60 text-sm font-bold">
             No se encontraron huéspedes con ese nombre.
         </div>
     </div>
 
     <div id="modalReserva" class="modal-reserva-shell hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="modal-reserva-card bg-white rounded-2xl shadow-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto border border-slate-100">
+        <div class="modal-reserva-card bg-white rounded-2xl shadow-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto border border-primary/10">
             <div class="px-7 pt-7 pb-2">
                 <h4 class="font-black text-heading text-xl">Registrar Reserva</h4>
-                <p class="text-[12px] text-slate-400 font-semibold mt-1">Completa el flujo en tres grupos para registrar la estancia.</p>
+                <p class="text-[12px] text-primary/60 font-semibold mt-1">Completa el flujo en tres grupos para registrar la estancia.</p>
             </div>
 
             <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="px-7 pb-7 space-y-6">
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Huésped</label>
+                <div class="bg-[#f4f8f6] p-5 rounded-xl border border-primary/10 space-y-3">
+                    <label class="block text-[11px] font-semibold text-primary/70 tracking-wide">Huésped</label>
                     <div id="contenedorBuscadorHuespedReserva" class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">person_search</span>
-                        <input type="search" id="buscadorHuespedReserva" oninput="filtrarHuespedesReservaPremium()" placeholder="Buscar por nombre o correo" class="reserva-field w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold outline-none">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 text-[18px]">person_search</span>
+                        <input type="search" id="buscadorHuespedReserva" oninput="filtrarHuespedesReservaPremium()" placeholder="Buscar por nombre o correo" class="reserva-field w-full bg-white border border-primary/10 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold outline-none">
                     </div>
                     <input type="hidden" id="tipo_huesped" name="tipo_huesped" required>
                     <input type="hidden" id="nuevo_nombre_hidden" name="nuevo_nombre" value="">
@@ -162,49 +162,49 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     <div id="huespedSeleccionadoReserva" class="hidden items-center justify-between gap-3 rounded-xl border border-primary/10 bg-primary/5 px-4 py-3">
                         <div>
                             <p id="huespedSeleccionadoNombre" class="text-sm font-black text-heading leading-tight"></p>
-                            <p id="huespedSeleccionadoCorreo" class="text-[11px] font-semibold text-slate-400 mt-0.5"></p>
+                            <p id="huespedSeleccionadoCorreo" class="text-[11px] font-semibold text-primary/60 mt-0.5"></p>
                         </div>
-                        <button type="button" onclick="limpiarHuespedSeleccionado()" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors font-black">×</button>
+                        <button type="button" onclick="limpiarHuespedSeleccionado()" class="w-8 h-8 rounded-full bg-white border border-primary/10 text-primary/60 hover:text-red-500 hover:border-red-200 transition-colors font-black">×</button>
                     </div>
-                    <div id="listaHuespedesReserva" class="max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100"></div>
+                    <div id="listaHuespedesReserva" class="max-h-44 overflow-y-auto rounded-xl border border-primary/10 bg-white divide-y divide-primary/10"></div>
                     <div class="flex justify-end">
                         <button type="button" onclick="abrirSubModalNuevoHuesped()" class="ui-action text-primary text-xs font-black tracking-wide px-3 py-2 rounded-lg hover:bg-primary/10">+ Nuevo Huésped</button>
                     </div>
                 </div>
 
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-4">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Estancia</label>
+                <div class="bg-[#f4f8f6] p-5 rounded-xl border border-primary/10 space-y-4">
+                    <label class="block text-[11px] font-semibold text-primary/70 tracking-wide">Estancia</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-[11px] font-semibold text-slate-500 mb-2">Check-in</label>
-                            <input type="date" name="fecha_in" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
+                            <label class="block text-[11px] font-semibold text-primary/70 mb-2">Check-in</label>
+                            <input type="date" name="fecha_in" required class="reserva-field w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none">
                         </div>
                         <div>
-                            <label class="block text-[11px] font-semibold text-slate-500 mb-2">Check-out</label>
-                            <input type="date" name="fecha_out" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
+                            <label class="block text-[11px] font-semibold text-primary/70 mb-2">Check-out</label>
+                            <input type="date" name="fecha_out" required class="reserva-field w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none">
                         </div>
                     </div>
                     <div class="relative">
-                        <label class="block text-[11px] font-semibold text-slate-500 mb-2">Cantidad de Huéspedes</label>
+                        <label class="block text-[11px] font-semibold text-primary/70 mb-2">Cantidad de Huéspedes</label>
                         <input type="hidden" id="cantAdultosReserva" name="cant_adultos" value="1">
                         <input type="hidden" id="cantNinosReserva" name="cant_ninos" value="0">
-                        <button type="button" onclick="togglePopoverHuespedesAdmin()" class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none flex items-center justify-between">
+                        <button type="button" onclick="togglePopoverHuespedesAdmin()" class="reserva-field w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none flex items-center justify-between">
                             <span id="resumenHuespedesAdmin">1 Adulto, 0 Niños</span>
-                            <span class="material-symbols-outlined text-slate-400 text-[18px]">expand_more</span>
+                            <span class="material-symbols-outlined text-primary/60 text-[18px]">expand_more</span>
                         </button>
-                        <div id="popoverHuespedesAdmin" class="hidden absolute left-0 right-0 top-[72px] z-[75] bg-white border border-slate-200 rounded-xl shadow-2xl p-4 space-y-3">
+                        <div id="popoverHuespedesAdmin" class="hidden absolute left-0 right-0 top-[72px] z-[75] bg-white border border-primary/10 rounded-xl shadow-2xl p-4 space-y-3">
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-bold text-slate-700">Adultos</span>
+                                <span class="text-sm font-bold text-primary/80">Adultos</span>
                                 <div class="flex items-center gap-3">
-                                    <button type="button" onclick="cambiarHuespedesAdmin('adultos', -1)" class="w-8 h-8 rounded-full border border-slate-200 font-black">-</button>
+                                    <button type="button" onclick="cambiarHuespedesAdmin('adultos', -1)" class="w-8 h-8 rounded-full border border-primary/10 font-black">-</button>
                                     <span id="contadorAdultosAdmin" class="w-6 text-center font-black">1</span>
                                     <button type="button" onclick="cambiarHuespedesAdmin('adultos', 1)" class="w-8 h-8 rounded-full bg-primary text-white font-black">+</button>
                                 </div>
                             </div>
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-bold text-slate-700">Niños</span>
+                                <span class="text-sm font-bold text-primary/80">Niños</span>
                                 <div class="flex items-center gap-3">
-                                    <button type="button" onclick="cambiarHuespedesAdmin('ninos', -1)" class="w-8 h-8 rounded-full border border-slate-200 font-black">-</button>
+                                    <button type="button" onclick="cambiarHuespedesAdmin('ninos', -1)" class="w-8 h-8 rounded-full border border-primary/10 font-black">-</button>
                                     <span id="contadorNinosAdmin" class="w-6 text-center font-black">0</span>
                                     <button type="button" onclick="cambiarHuespedesAdmin('ninos', 1)" class="w-8 h-8 rounded-full bg-primary text-white font-black">+</button>
                                 </div>
@@ -213,9 +213,9 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     </div>
                 </div>
 
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-4">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Habitacion</label>
-                    <select name="id_habitacion" id="selectorHabitacionDisponible" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
+                <div class="bg-[#f4f8f6] p-5 rounded-xl border border-primary/10 space-y-4">
+                    <label class="block text-[11px] font-semibold text-primary/70 tracking-wide">Habitacion</label>
+                    <select name="id_habitacion" id="selectorHabitacionDisponible" required class="reserva-field w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none">
                         <option value="" selected disabled>Seleccionar habitacion disponible...</option>
                         <?php foreach ($habitaciones_disponibles as $hab): ?>
                             <option value="<?php echo (int) $hab['cod_hab']; ?>">
@@ -225,37 +225,37 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     </select>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 mb-2">Peticiones Especiales (Opcional)</label>
-                        <textarea name="notas_reserva" rows="3" placeholder="Ej: alergias, cuna, piso alto..." class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none resize-none"></textarea>
+                        <label class="block text-[11px] font-semibold text-primary/70 mb-2">Peticiones Especiales (Opcional)</label>
+                        <textarea name="notas_reserva" rows="3" placeholder="Ej: alergias, cuna, piso alto..." class="reserva-field w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none resize-none"></textarea>
                     </div>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3 pt-1">
-                    <button type="button" onclick="cerrarModalReserva()" class="ui-action flex-1 text-slate-500 font-semibold py-3 rounded-xl hover:bg-slate-100">Cancelar</button>
+                    <button type="button" onclick="cerrarModalReserva()" class="ui-action flex-1 text-primary/70 font-semibold py-3 rounded-xl hover:bg-[#eef6f2]">Cancelar</button>
                     <button type="submit" class="ui-action flex-1 bg-primary text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg">Guardar Reserva</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="subModalNuevoHuesped" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[8px]">
-        <div class="bg-white w-full max-w-sm rounded-2xl border border-slate-100 shadow-2xl p-5">
+    <div id="subModalNuevoHuesped" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#03271B]/40 backdrop-blur-[8px]">
+        <div class="bg-white w-full max-w-sm rounded-2xl border border-primary/10 shadow-2xl p-5">
             <h5 class="text-base font-black text-heading mb-1">Nuevo Huésped</h5>
-            <p class="text-xs text-slate-400 font-semibold mb-4">Registra nombre y correo para continuar.</p>
+            <p class="text-xs text-primary/60 font-semibold mb-4">Registra nombre y correo para continuar.</p>
             <div class="space-y-3">
-                <input type="text" id="nuevo_nombre" name="nuevo_nombre" placeholder="Nombre completo" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-                <input type="email" id="nuevo_correo" name="nuevo_correo" placeholder="Correo electronico" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
+                <input type="text" id="nuevo_nombre" name="nuevo_nombre" placeholder="Nombre completo" class="reserva-field w-full bg-[#f4f8f6] border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none">
+                <input type="email" id="nuevo_correo" name="nuevo_correo" placeholder="Correo electronico" class="reserva-field w-full bg-[#f4f8f6] border border-primary/10 rounded-xl px-4 py-3 text-sm font-semibold text-primary/80 outline-none">
             </div>
             <div class="flex justify-end gap-2 pt-4">
-                <button type="button" onclick="cerrarSubModalNuevoHuesped()" class="ui-action text-slate-500 font-semibold px-3 py-2 rounded-lg hover:bg-slate-100">Cancelar</button>
+                <button type="button" onclick="cerrarSubModalNuevoHuesped()" class="ui-action text-primary/70 font-semibold px-3 py-2 rounded-lg hover:bg-[#eef6f2]">Cancelar</button>
                 <button type="button" onclick="confirmarNuevoHuespedEnModal()" class="ui-action bg-primary text-white font-bold px-4 py-2 rounded-lg shadow-sm hover:shadow-md">Usar en reserva</button>
             </div>
         </div>
     </div>
 
-    <div id="modalEditarReserva" class="modal-editar-reserva-shell hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="modal-editar-reserva-card bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
-            <div class="bg-slate-50 px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+    <div id="modalEditarReserva" class="modal-editar-reserva-shell hidden fixed inset-0 bg-[#03271B]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="modal-editar-reserva-card bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-primary/10">
+            <div class="bg-[#f4f8f6] px-6 py-5 border-b border-primary/10 flex justify-between items-center">
                 <h4 class="font-black text-heading">Editar Reserva</h4>
             </div>
 
@@ -263,13 +263,13 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 <input type="hidden" name="cod_res" id="edit_cod_res">
 
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Asignar Habitacion</label>
-                    <input type="text" name="habitacion" id="edit_habitacion" placeholder="Ej: 5 (Codigo de BD)" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none">
+                    <label class="block text-xs font-black text-primary/70 uppercase mb-2">Asignar Habitacion</label>
+                    <input type="text" name="habitacion" id="edit_habitacion" placeholder="Ej: 5 (Codigo de BD)" class="reserva-field w-full bg-[#f4f8f6] border border-primary/10 rounded-lg px-4 py-3 text-sm font-bold text-primary/80 outline-none">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Estado</label>
-                    <select name="estado" id="edit_estado" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none">
+                    <label class="block text-xs font-black text-primary/70 uppercase mb-2">Estado</label>
+                    <select name="estado" id="edit_estado" class="reserva-field w-full bg-[#f4f8f6] border border-primary/10 rounded-lg px-4 py-3 text-sm font-bold text-primary/80 outline-none">
                         <option value="Pendiente">Pendiente</option>
                         <option value="Confirmada">Confirmada</option>
                         <option value="En Casa">En Casa</option>
@@ -278,12 +278,12 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Peticiones Especiales</label>
-                    <textarea name="notas" id="edit_notas" rows="3" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none resize-none"></textarea>
+                    <label class="block text-xs font-black text-primary/70 uppercase tracking-widest mb-2">Peticiones Especiales</label>
+                    <textarea name="notas" id="edit_notas" rows="3" class="reserva-field w-full bg-[#f4f8f6] border border-primary/10 rounded-lg px-4 py-3 text-sm font-bold text-primary/80 outline-none resize-none"></textarea>
                 </div>
 
-                <div class="flex gap-3 pt-4 border-t border-slate-100 mt-6">
-                    <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-lg hover:bg-slate-50">Cancelar</button>
+                <div class="flex gap-3 pt-4 border-t border-primary/10 mt-6">
+                    <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-primary/10 text-primary/70 font-bold py-3 rounded-lg hover:bg-[#eef6f2]">Cancelar</button>
                     <button type="submit" class="ui-action flex-1 bg-amber-400 text-white font-bold py-3 rounded-lg shadow-md hover:bg-amber-500 hover:shadow-lg">Guardar Cambios</button>
                 </div>
             </form>
@@ -315,8 +315,8 @@ if (!function_exists('separar_notas_reserva_admin')) {
             filtrados.forEach(h => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors';
-                btn.innerHTML = `<p class="text-sm font-semibold text-slate-700">${h.nom_usu}</p><p class="text-[11px] text-slate-400">${h.corr_usu}</p>`;
+                btn.className = 'w-full text-left px-3 py-2 hover:bg-[#f4f8f6] transition-colors';
+                btn.innerHTML = `<p class="text-sm font-semibold text-primary/80">${h.nom_usu}</p><p class="text-[11px] text-primary/60">${h.corr_usu}</p>`;
                 btn.onclick = () => {
                     seleccionarHuespedReserva(h.id_usu, h.nom_usu, h.corr_usu);
                 };
@@ -324,7 +324,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
             });
 
             if (!filtrados.length) {
-                lista.innerHTML = '<p class="px-3 py-3 text-xs font-bold text-slate-400">No hay coincidencias.</p>';
+                lista.innerHTML = '<p class="px-3 py-3 text-xs font-bold text-primary/60">No hay coincidencias.</p>';
             }
         }
 

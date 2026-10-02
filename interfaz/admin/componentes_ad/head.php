@@ -5,7 +5,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>HOTEL AURORA - Admin Pro</title>
     
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries&v=2026-10-01-admin-theme"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -18,14 +18,17 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#2C5E5E", 
-                        "secondary": "#4A8B8B", 
-                        "accent": "#E6F2F2",    
-                        "heading": "#1A3B3B",   
-                        // Modificación: Se sincronizó el fondo del panel administrador con el tono gris del panel empleado.
-                        "surface": "#DDE6E6", 
+                        "primary": "#03271B",
+                        "primary-hover": "#021C13",
+                        "secondary": "#D7B06A",
+                        "gold": "#D7B06A",
+                        "gold-light": "#F0D39A",
+                        "dark": "#111111",
+                        "accent": "#F4F8F6",
+                        "heading": "#111111",
+                        "surface": "#FFFFFF",
+                        "card-bg": "#FFFFFF"
                     },
-                    // Modificación: Se igualó la escala de bordes del administrador con la configuración visual del panel empleado.
                     borderRadius: { "lg": "1rem", "xl": "2rem", "full": "9999px" },
                     fontFamily: { "headline": ["Plus Jakarta Sans"], "body": ["Manrope"] }
                 },
@@ -33,21 +36,49 @@
         }
     </script>
     <style>
+        :root {
+            --admin-primary: #03271B;
+            --admin-primary-hover: #021C13;
+            --admin-gold: #D7B06A;
+            --admin-gold-light: #F0D39A;
+            --admin-dark: #111111;
+            --admin-surface: #FFFFFF;
+            --admin-card-bg: #FFFFFF;
+            --admin-accent: #F4F8F6;
+            --admin-success: #034E2B;
+            --admin-limpio: #06B6D4;
+            --admin-ocupada: #F97316;
+            --admin-sucia: #57534E;
+            --admin-mantenimiento: #EF4444;
+        }
+
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        /* Modificación: Se aplicó el mismo estado activo del panel empleado al menú del administrador. */
-        .active-nav { color: #2C5E5E !important; font-weight: 800; position: relative; }
-        /* Modificación: Se agregó la barra lateral activa igual a la navegación del panel empleado. */
+
+        /* Forzar la paleta final del panel administrador para evitar que queden tonos legacy del slate en elementos antiguos. */
+        .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-slate-300, .bg-slate-400, .bg-slate-500, .bg-slate-600, .bg-slate-700, .bg-slate-800, .bg-slate-900,
+        .border-slate-100, .border-slate-200, .border-slate-300,
+        .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800,
+        .hover\:bg-slate-50:hover,
+        .hover\:bg-slate-100:hover {
+            background-color: var(--admin-accent) !important;
+        }
+        .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800,
+        .text-slate-300 {
+            color: rgba(3, 39, 27, 0.7) !important;
+        }
+        .border-slate-100, .border-slate-200, .border-slate-300 {
+            border-color: rgba(3, 39, 27, 0.10) !important;
+        }
+        .active-nav { color: var(--admin-primary) !important; font-weight: 800; position: relative; }
         .active-nav::after {
             content: ''; position: absolute; left: 0; width: 4px; height: 100%;
-            background: #2C5E5E; border-radius: 0 4px 4px 0;
+            background: var(--admin-gold); border-radius: 0 4px 4px 0;
         }
         .seccion-contenido { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Modificación: Se sincronizó el diseño de recuadros del administrador con las tarjetas del panel empleado. */
-        .admin-card { background: #fbfdfd; border: 1px solid #2C5E5E11; border-top: 4px solid #2C5E5E; box-shadow: 0 14px 35px -24px rgba(44, 94, 94, 0.35); transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }
-        /* Modificación: Se aplicó el mismo hover limpio de tarjetas del panel empleado en el administrador. */
-        .admin-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -10px rgba(44, 94, 94, 0.18); background: linear-gradient(to bottom right, #fbfdfd, #eef6f6); }
+        .admin-card { background: var(--admin-card-bg); border: 1px solid rgba(3, 39, 27, 0.10); border-top: 4px solid var(--admin-primary); box-shadow: 0 14px 35px -24px rgba(3, 39, 27, 0.35); transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }
+        .admin-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -10px rgba(3, 39, 27, 0.18); background: linear-gradient(to bottom right, #fbfdfd, #eef6f6); }
         /* Modificación: Se refinó el hover de Housekeeping con una elevación más suave, sombra moderna y transición profesional. */
         .room-dot {
             width: 100%;
@@ -122,14 +153,14 @@
             transform: translateY(0) scale(1);
             opacity: 1;
         }
-        .toggle-checkbox:checked { right: 0; border-color: #2C5E5E; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #2C5E5E; }
+        .toggle-checkbox:checked { right: 0; border-color: var(--admin-primary); }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--admin-primary); }
         .ui-action {
             transition: transform 0.18s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease, opacity 0.22s ease;
         }
         .ui-action:hover { transform: translateY(-1px); }
         .ui-action:active { transform: translateY(0) scale(0.98); }
-        .ui-action:focus-visible { outline: 3px solid rgba(44, 94, 94, 0.22); outline-offset: 3px; }
+        .ui-action:focus-visible { outline: 3px solid rgba(3, 39, 27, 0.18); outline-offset: 3px; }
         .modal-reserva-shell {
             opacity: 0;
             transition: opacity 0.3s ease-out;
@@ -152,8 +183,8 @@
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
         .reserva-field:focus {
-            border-color: #2C5E5E;
-            box-shadow: 0 0 0 4px rgba(44, 94, 94, 0.12);
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 4px rgba(3, 39, 27, 0.12);
             background-color: #ffffff;
         }
         .modal-reserva-card label {

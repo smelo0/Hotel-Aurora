@@ -6,24 +6,24 @@
                 <p class="text-[10px] font-black uppercase tracking-widest text-secondary mb-1">Operacion interna</p>
                 <h2 class="text-2xl font-black text-primary">Nueva Tarea</h2>
             </div>
-            <button type="button" onclick="cerrarModal()" class="text-slate-300 hover:text-red-500 transition-colors">
+            <button type="button" onclick="cerrarModal()" class="text-primary/50 hover:text-red-500 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
 
         <form id="formTarea" class="space-y-4">
-            <input type="text" id="tituloTarea" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-4 text-sm font-bold text-slate-700 focus:ring-1 focus:ring-primary outline-none" placeholder="Que hay que hacer?">
+            <input type="text" id="tituloTarea" required class="w-full border-primary/10 bg-[#f4f8f6] rounded-lg p-4 text-sm font-bold text-primary/80 focus:ring-1 focus:ring-primary outline-none" placeholder="Que hay que hacer?">
 
-            <select id="categoriaTarea" class="w-full border-slate-200 bg-slate-50 rounded-lg p-4 text-xs font-bold text-slate-500 uppercase focus:ring-1 focus:ring-primary outline-none">
+            <select id="categoriaTarea" class="w-full border-primary/10 bg-[#f4f8f6] rounded-lg p-4 text-xs font-bold text-primary/70 uppercase focus:ring-1 focus:ring-primary outline-none">
                 <option value="LIMPIEZA">Limpieza</option>
                 <option value="URGENTE">Urgente</option>
                 <option value="GENERAL">General</option>
             </select>
 
-            <textarea id="descTarea" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-4 text-sm font-bold text-slate-700 focus:ring-1 focus:ring-primary outline-none resize-none" rows="3" placeholder="Detalles..."></textarea>
+            <textarea id="descTarea" required class="w-full border-primary/10 bg-[#f4f8f6] rounded-lg p-4 text-sm font-bold text-primary/80 focus:ring-1 focus:ring-primary outline-none resize-none" rows="3" placeholder="Detalles..."></textarea>
 
             <div class="flex gap-4 pt-4">
-                <button type="button" onclick="cerrarModal()" class="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
+                <button type="button" onclick="cerrarModal()" class="flex-1 py-4 text-primary/70 font-bold hover:bg-[#eef6f2] rounded-lg transition-all">Cancelar</button>
                 <button type="submit" class="flex-1 py-4 bg-primary text-white font-bold rounded-lg shadow-lg hover:brightness-110 transition-all">Confirmar</button>
             </div>
         </form>
