@@ -1,4 +1,10 @@
 (function() {
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+
     const IDLE_LIMIT_MS = 150000;
     const COUNTDOWN_LIMIT_SECONDS = 60;
     const ACTIVITY_REPORT_INTERVAL_MS = 10000;

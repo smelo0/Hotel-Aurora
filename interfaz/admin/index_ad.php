@@ -113,7 +113,7 @@ if ($permisos_usuario === []) {
 
     <?php
     $ayudaSistemaRol = 'admin';
-    // borre el system-help.php
+    require_once __DIR__ . '/../../includes/system_help.php';
     ?>
     
 
@@ -128,7 +128,7 @@ if ($permisos_usuario === []) {
     <script src="js_ad/admin.js?v=6"></script>
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=2"></script>
+    <script src="../../assets/js/inactividad.js?v=3"></script>
 <?php endif; ?>
 </body>
 </html>

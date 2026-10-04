@@ -347,7 +347,7 @@ if ($usuarioAutenticado) {
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css"> 
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=3">
     <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>;</script>
 </head>
 <body>
@@ -486,7 +486,7 @@ if ($usuarioAutenticado) {
     </header>
 
     <main class="px-4 pb-20 md:px-6">
-        <section id="vista-resultados" class="mx-auto mt-[-72px] max-w-7xl reveal">
+        <section id="vista-resultados" class="mx-auto mt-8 max-w-7xl reveal">
             <div id="habitaciones" class="glass-section rounded-[34px] px-6 py-8 md:px-8">
                 <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
@@ -499,21 +499,25 @@ if ($usuarioAutenticado) {
                     </span>
                 </div>
 
-                <div class="mt-4 flex items-center justify-between">
+                <div class="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div class="flex flex-wrap items-center gap-3">
                         <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25">Todas</button>
                         <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite</button>
                         <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Doble</button>
                         <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
                     </div>
+                    <div class="flex items-center gap-2 self-end md:self-auto">
+                        <button id="roomsPrev" type="button" aria-label="Habitaciones anteriores" class="rooms-nav flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-md backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
+                            <span class="material-symbols-outlined">chevron_left</span>
+                        </button>
+                        <button id="roomsNext" type="button" aria-label="Siguientes habitaciones" class="rooms-nav flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-md backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </button>
+                    </div>
                 </div>
 
              <div class="mt-8 relative">
-                <button id="roomsPrev" aria-label="Anterior" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 left-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
-                    <span class="material-symbols-outlined">chevron_left</span>
-                </button>
-
-                <div id="roomsCarousel" class="mt-0 flex gap-6 overflow-x-auto pb-4 snap-x px-4 md:px-0">
+                <div id="roomsCarousel" class="rooms-carousel mt-0 flex gap-6 overflow-x-auto snap-x px-4 md:px-0">
                     <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
         <?php
         $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
@@ -572,10 +576,6 @@ if ($usuarioAutenticado) {
         </article>
     <?php endforeach; ?>
                 </div>
-
-                <button id="roomsNext" aria-label="Siguiente" class="rooms-nav absolute z-30 flex h-12 w-12 top-1/2 right-4 -translate-y-1/2 rounded-full bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur shadow-md transition transform duration-200 hover:scale-110 hover:shadow-xl items-center justify-center">
-                    <span class="material-symbols-outlined">chevron_right</span>
-                </button>
             </div>
                 <div id="emptyRoomsState" class="hidden rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
                     <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
@@ -792,6 +792,11 @@ if ($usuarioAutenticado) {
                 </button>
             </div>
             <div>
+                <div class="border-t border-white/10 px-5 py-3">
+                    <button type="button" data-start-system-tour class="text-sm font-extrabold text-white hover:text-[#ffe3aa]">
+                        Iniciar recorrido paso a paso
+                    </button>
+                </div>
                 <details class="system-help__question" open>
                     <summary>¿Cómo busco una habitación?</summary>
                     <p class="system-help__answer">Abre “Fechas”, selecciona tu check-in y check-out, ajusta los huéspedes y pulsa “Buscar disponibilidad”.</p>
@@ -818,6 +823,10 @@ if ($usuarioAutenticado) {
             <span>Ayuda</span>
         </button>
     </div>
+    <?php
+    $tourSistemaRol = !empty($_SESSION['user_auth']) ? 'usuario' : 'visitante';
+    require_once __DIR__ . '/includes/system_tour.php';
+    ?>
 
  <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
         
@@ -951,18 +960,19 @@ if ($usuarioAutenticado) {
             const filters = Array.from(document.querySelectorAll('.room-filter'));
             if (!carousel || !prev || !next) return;
 
-            // Nav enable/disable based on overflow
+            // Keep navigation controls in sync with the carousel edges.
             function updateNavState(){
-                const hasOverflow = carousel.scrollWidth > carousel.clientWidth + 1;
-                prev.disabled = !hasOverflow;
-                next.disabled = !hasOverflow;
-                prev.setAttribute('aria-disabled', String(!hasOverflow));
-                next.setAttribute('aria-disabled', String(!hasOverflow));
-                prev.classList.toggle('opacity-40', !hasOverflow);
-                next.classList.toggle('opacity-40', !hasOverflow);
+                const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+                const atStart = carousel.scrollLeft <= 1;
+                const atEnd = carousel.scrollLeft >= maxScroll - 1;
+                prev.disabled = maxScroll <= 1 || atStart;
+                next.disabled = maxScroll <= 1 || atEnd;
+                prev.setAttribute('aria-disabled', String(prev.disabled));
+                next.setAttribute('aria-disabled', String(next.disabled));
             }
             updateNavState();
             window.addEventListener('resize', updateNavState);
+            carousel.addEventListener('scroll', updateNavState, { passive: true });
 
             const step = () => Math.round(carousel.clientWidth * 0.8) || 380;
 
@@ -1623,6 +1633,6 @@ async function processReservationPayment() {
 <!-- Modal y lógica de inactividad -->
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
-    <script src="assets/js/inactividad.js?v=2"></script>
+    <script src="assets/js/inactividad.js?v=3"></script>
     
 <?php endif; ?>

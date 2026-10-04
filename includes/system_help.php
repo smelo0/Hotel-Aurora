@@ -60,6 +60,11 @@ $ayudaSistema = $ayudaSistemaContenido[$ayudaSistemaRol] ?? $ayudaSistemaConteni
             </button>
         </div>
         <div>
+            <div class="border-t border-slate-200 px-5 py-3">
+                <button type="button" data-start-system-tour class="text-sm font-extrabold text-[#2C5E5E] hover:text-[#c19046]">
+                    Iniciar recorrido paso a paso
+                </button>
+            </div>
             <?php foreach ($ayudaSistema['questions'] as $pregunta): ?>
                 <details class="system-help-widget__question">
                     <summary><?php echo htmlspecialchars($pregunta[0], ENT_QUOTES, 'UTF-8'); ?></summary>
@@ -101,3 +106,4 @@ $ayudaSistema = $ayudaSistemaContenido[$ayudaSistemaRol] ?? $ayudaSistemaConteni
     });
 })();
 </script>
+<?php require_once __DIR__ . '/system_tour.php'; ?>

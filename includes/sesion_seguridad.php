@@ -8,7 +8,8 @@ declare(strict_types=1);
  *
  * Responsabilidades:
  *  1. Configurar la cookie de sesión con HttpOnly + SameSite.
- *  2. Aplicar el bloqueo de inactividad en el servidor.
+ *  2. Impedir que el navegador almacene respuestas de las interfaces.
+ *  3. Aplicar el bloqueo de inactividad en el servidor.
  */
 
 // 1. Incluimos el Logger
@@ -27,6 +28,10 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
     session_start();
 }
+
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 // --- 2. Bloqueo de inactividad del lado del servidor ---
 define('SESSION_IDLE_LIMIT_SECONDS', 150);

@@ -170,6 +170,6 @@ if ($stmtReservas) {
     require_once '../../includes/system_help.php';
     ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=2"></script>
+    <script src="../../assets/js/inactividad.js?v=3"></script>
 </body>
 </html>
