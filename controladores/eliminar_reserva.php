@@ -14,12 +14,13 @@ exigir_permiso($conexion, 'reservas.eliminar');
 // Obtenemos el ID del usuario actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" || $_SERVER["REQUEST_METHOD"] == "GET") {
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    exigir_csrf();
     /** @var mysqli $conexion */
     $conexion->begin_transaction();
      
     try {
-        $cod_res = $_POST['id'] ?? $_GET['id'] ?? '';
+        $cod_res = $_POST['id'] ?? '';
         
         if (empty($cod_res)) {
             Logger::registrarLog('WARN', 'Intento de eliminar reserva sin especificar ID', [
@@ -59,7 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" || $_SERVER["REQUEST_METHOD"] == "GET")
         // LOG DE ERROR: Si falla el borrado o la transacción
         Logger::registrarLog('ERROR', 'Fallo al intentar eliminar la reserva en base de datos', [
             'id_usuario' => $idUsuarioLog,
-            'cod_res' => $_POST['id'] ?? $_GET['id'] ?? null,
+            'cod_res' => $_POST['id'] ?? null,
             'error_excepcion' => $e->getMessage(),
             'error_db' => $conexion->error
         ]);

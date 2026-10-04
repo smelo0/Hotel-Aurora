@@ -26,6 +26,7 @@ $telefono_usuario = $_SESSION['telefono'] ?? '';
 
             <!-- Formulario con atributos 'name' configurados para PHP -->
             <form id="form-checkout" class="space-y-8" onsubmit="procesarPagoFinal(event)">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <!-- ID de la habitación seleccionada (oculto) -->
                 <input type="hidden" id="id_habitacion" name="id_habitacion" value="1">

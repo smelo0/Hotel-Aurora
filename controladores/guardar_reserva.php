@@ -72,6 +72,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     jsonResponse(405, ['status' => 'error', 'mensaje' => 'Método no permitido.']);
 }
 
+exigir_csrf();
+
 $tipoHuesped = trim((string) ($_POST['tipo_huesped'] ?? ''));
 $fechaIn = trim((string) ($_POST['fecha_in'] ?? ''));
 $fechaOut = trim((string) ($_POST['fecha_out'] ?? ''));
@@ -80,39 +82,64 @@ $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
 $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
 
-// Nuevos parámetros recibidos desde la pasarela / modal de pago
-$metodoPago = normalizarMetodoPago((string) ($_POST['metodo_pago'] ?? 'Tarjeta'));
-$referenciaPago = trim((string) ($_POST['referencia_pago'] ?? ''));
-$totalReserva = (float) ($_POST['total_reserva'] ?? 0.0);
+// El personal puede registrar una reserva pendiente para pago en recepción.
+$metodoRecibido = trim((string) ($_POST['metodo_pago'] ?? ''));
+if ($metodoRecibido === '' && isset($_SESSION['emp_auth'])) {
+    $metodoRecibido = 'Recepción';
+}
+$metodoPago = normalizarMetodoPago($metodoRecibido);
 $wompiTransactionId = trim((string) ($_POST['wompi_transaction_id'] ?? ''));
 $porcentajePago = (int) ($_POST['porcentaje_pago'] ?? 100);
 $porcentajePago = in_array($porcentajePago, [50, 100], true) ? $porcentajePago : 100;
 
-$secretkey = trim((string) (getenv('RECAPTCHA_SECRET_KEY') ?: ''));
+if (!in_array($metodoPago, ['Wompi', 'Recepción'], true)) {
+    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido.']);
+}
+
+$secretkey = trim((string) (
+    getenv('RECAPTCHA_SECRET_KEY')
+    ?: ($_ENV['RECAPTCHA_SECRET_KEY'] ?? $_SERVER['RECAPTCHA_SECRET_KEY'] ?? '')
+));
 $recapchatoken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
-  
-if ($recapchatoken === '' && $secretkey !== '') {
+$esPersonal = isset($_SESSION['emp_auth']);
+$sitekey = trim((string) (
+    getenv('RECAPTCHA_SITE_KEY')
+    ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
+));
+
+$appEnvironment = strtolower(trim((string) (
+    getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'local')
+)));
+if (!$esPersonal && $secretkey === '' && $appEnvironment === 'production') {
+    jsonResponse(503, ['status' => 'error', 'mensaje' => 'La verificación de seguridad no está configurada.']);
+}
+if (!$esPersonal && $secretkey !== '' && $sitekey === '') {
+    jsonResponse(503, ['status' => 'error', 'mensaje' => 'La verificación de seguridad no está configurada correctamente.']);
+}
+
+if (!$esPersonal && $recapchatoken === '' && $secretkey !== '') {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Por favor, completa el reCAPTCHA para continuar.']);
 }
  
-$secretkey = $secretkey;
-//agregar la verificación del reCAPTCHA 
-//forma grafica de verificar el reCAPTCHA
-///                            
+if (!$esPersonal && $secretkey !== '' && $recapchatoken !== '') {
+    $curl = curl_init('https://www.google.com/recaptcha/api/siteverify');
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'secret' => $secretkey,
+            'response' => $recapchatoken,
+            'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $verifyresponse = curl_exec($curl);
+    $verifyStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    $verifyError = curl_error($curl);
+    curl_close($curl);
 
-
-
-
-
-
-
-
-
-if ($secretkey !== '' && $recapchatoken !== '') {
-    $verifyurl = 'https://www.google.com/recaptcha/api/siteverify';
-    $verifyresponse = file_get_contents($verifyurl . '?secret=' . urlencode($secretkey));
-
-    if ($verifyresponse === false) {
+    if ($verifyresponse === false || $verifyError !== '' || $verifyStatus < 200 || $verifyStatus >= 300) {
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'Error al verificar reCAPTCHA.']);
     }
 
@@ -141,7 +168,7 @@ $notasCompletas = trim(
     ($notasReserva !== '' ? "\n{$notasReserva}" : '')
 );
 
-// Ajuste dinámico del estado según el medio de pago
+// Solo una transacción aprobada por Wompi puede confirmar una reserva.
 $estadoInicial = ($metodoPago === 'Recepción') ? 'Pendiente' : 'Confirmada';
 $estadoPago = ($metodoPago === 'Recepción') ? 'Pendiente' : 'Aprobado';
 $idUsuarioFinal = 0;
@@ -153,7 +180,12 @@ try {
     $idUsuarioSesion = (int) ($usuarioSesion['id_usuario'] ?? 0);
     $rolUsuarioSesion = (int) ($usuarioSesion['rol_usuario'] ?? 0);
 
-    if ($idUsuarioSesion > 0 && ($tipoHuesped === '' || $rolUsuarioSesion === 6)) {
+    if (
+        isset($_SESSION['user_auth']['id_usuario'])
+        && $rolUsuarioSesion === 6
+    ) {
+        $idUsuarioFinal = $idUsuarioSesion;
+    } elseif ($idUsuarioSesion > 0 && ($tipoHuesped === '' || $rolUsuarioSesion === 6)) {
         $idUsuarioFinal = $idUsuarioSesion;
     } else {
         $nombreNuevo = trim((string) ($_POST['nuevo_nombre'] ?? ''));
@@ -251,20 +283,35 @@ try {
 
     // 3. Registrar el Pago en la Base de Datos
     $precioHabitacion = (float) ($roomPricePrimary ?: $roomPriceSecondary ?: 0);
-    $montoCalculado = $precioHabitacion * $noches * 1.19 * ($porcentajePago / 100);
-    $montoFinal = $totalReserva > 0 ? $totalReserva : $montoCalculado;
+    $montoCalculado = round($precioHabitacion * $noches * 1.19 * ($porcentajePago / 100), 2);
+    $montoFinal = $montoCalculado;
+    $refFinal = '';
 
     if ($metodoPago === 'Wompi') {
         if ($wompiTransactionId === '') {
             throw new RuntimeException('wompi_transaction_missing');
         }
 
-        $montoFinal = round($montoCalculado, 2);
         $transaccionWompi = verificarTransaccionWompi($wompiTransactionId, (int) round($montoFinal * 100));
-        $referenciaPago = (string) ($transaccionWompi['reference'] ?? '');
+        $refFinal = (string) ($transaccionWompi['id'] ?? '');
+        if ($refFinal === '' || $refFinal !== $wompiTransactionId) {
+            throw new RuntimeException('wompi_transaction_invalid');
+        }
+
+        $stmtPagoDuplicado = $conexion->prepare('SELECT id_pago FROM pagos WHERE referencia_pago = ? LIMIT 1 FOR UPDATE');
+        $stmtPagoDuplicado->bind_param('s', $refFinal);
+        $stmtPagoDuplicado->execute();
+        $stmtPagoDuplicado->store_result();
+        $pagoDuplicado = $stmtPagoDuplicado->num_rows > 0;
+        $stmtPagoDuplicado->close();
+        if ($pagoDuplicado) {
+            throw new RuntimeException('wompi_transaction_reused');
+        }
     }
 
-    $refFinal = $referenciaPago !== '' ? $referenciaPago : ('REF-' . time() . '-' . $idReservaNueva);
+    if ($refFinal === '') {
+        $refFinal = 'REF-' . bin2hex(random_bytes(16));
+    }
 
     $sqlPago = 'INSERT INTO pagos (cod_res_pago, monto, metodo_pago, referencia_pago, estado_pago) VALUES (?, ?, ?, ?, ?)';
     $stmtPago = $conexion->prepare($sqlPago);

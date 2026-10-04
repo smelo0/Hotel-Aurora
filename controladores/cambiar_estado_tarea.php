@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
-require_once '../configuracion/conexion.php';
+header('Content-Type: application/json; charset=utf-8');
 
 function responder_tarea_json($payload, $codigo_http = 200) {
     http_response_code($codigo_http);
@@ -9,39 +9,29 @@ function responder_tarea_json($payload, $codigo_http = 200) {
     exit();
 }
 
-function es_peticion_ajax_tarea() {
-    $acepta_json = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
-    $es_xml_http_request = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-
-    return $acepta_json || $es_xml_http_request;
-}
-
-function redirigir_panel_admin_tarea() {
-    $url_anterior = $_SERVER['HTTP_REFERER'] ?? '../interfaz/admin/index_ad.php';
-    header("Location: " . $url_anterior);
-    exit();
+if (
+    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+) {
+    responder_tarea_json(["status" => "error", "mensaje" => "No estás autorizado"], 401);
 }
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    if (!es_peticion_ajax_tarea()) {
-        redirigir_panel_admin_tarea();
-    }
-
     responder_tarea_json([
         "status" => "error",
         "mensaje" => "Método no permitido"
     ], 405);
 }
 
+exigir_csrf();
+
+require_once __DIR__ . '/../configuracion/conexion.php';
+
 $id_tarea = isset($_POST['cod_tar']) ? (int) $_POST['cod_tar'] : 0;
 $nuevo_estado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
 $estados_permitidos = ['Pendiente', 'Completada', 'Cancelada'];
 
 if ($id_tarea <= 0 || !in_array($nuevo_estado, $estados_permitidos, true)) {
-    if (!es_peticion_ajax_tarea()) {
-        redirigir_panel_admin_tarea();
-    }
-
     responder_tarea_json([
         "status" => "error",
         "mensaje" => "Datos inválidos para actualizar la tarea"
@@ -68,10 +58,6 @@ try {
     $stmt->close();
     $conexion->close();
 
-    if (!es_peticion_ajax_tarea()) {
-        redirigir_panel_admin_tarea();
-    }
-
     responder_tarea_json([
         "status" => "exito",
         "mensaje" => "Estado actualizado correctamente",
@@ -80,14 +66,9 @@ try {
     ]);
 } catch (Throwable $error) {
     $conexion->rollback(); // Modificación: Rutina transaccional para actualizar estado de tarea.
-
-    if (es_peticion_ajax_tarea()) {
-        responder_tarea_json([
-            "status" => "error",
-            "mensaje" => "No se pudo actualizar la tarea"
-        ], 500);
-    }
-
-    redirigir_panel_admin_tarea();
+    responder_tarea_json([
+        "status" => "error",
+        "mensaje" => "No se pudo actualizar la tarea"
+    ], 500);
 }
 ?>

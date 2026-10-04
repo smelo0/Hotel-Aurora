@@ -19,7 +19,10 @@ function responder_completar_tarea($payload, $codigo_http = 200) {
     exit();
 }
 
-if (!isset($_SESSION['emp_auth']['id_usuario']) && !isset($_SESSION['user_auth']['id_usuario'])) {
+if (
+    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+) {
     Logger::registrarLog('WARN', 'Intento no autorizado de completar tarea sin sesión activa');
     responder_completar_tarea([
         "status" => "error",

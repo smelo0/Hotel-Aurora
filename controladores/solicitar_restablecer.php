@@ -62,14 +62,30 @@ if (!$stmt->execute()) {
 }
 $stmt->close();
 
-// Construir la URL del enlace de recuperación
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$base = $protocol . '://' . $host;
-$resetUrl = $base . '/Hotel-Aurora/interfaz/loggins/restablecer_contrasena.php?token=' . urlencode($token);
+// El enlace usa una URL configurada por el servidor, nunca el encabezado Host de la solicitud.
+$appEnvironment = strtolower(trim((string) (getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? 'local'))));
+$defaultBaseUrl = $appEnvironment === 'production' ? '' : 'http://localhost/Hotel-Aurora';
+$baseUrl = trim((string) (getenv('APP_BASE_URL') ?: ($_ENV['APP_BASE_URL'] ?? $defaultBaseUrl)));
+$baseParts = parse_url($baseUrl);
+if (
+    $baseParts === false
+    || !in_array(strtolower((string) ($baseParts['scheme'] ?? '')), ['http', 'https'], true)
+    || empty($baseParts['host'])
+    || ($appEnvironment === 'production' && strtolower((string) $baseParts['scheme']) !== 'https')
+    || isset($baseParts['user'])
+    || isset($baseParts['pass'])
+    || isset($baseParts['query'])
+    || isset($baseParts['fragment'])
+) {
+    error_log('Password reset email was not sent because APP_BASE_URL is invalid.');
+    redirectBack('exito=1&sent=0');
+}
+$baseUrl = rtrim($baseUrl, '/');
+$resetUrl = $baseUrl . '/interfaz/loggins/restablecer_contrasena.php?token=' . urlencode($token);
+$resetUrlHtml = htmlspecialchars($resetUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 $subject = 'Restablece tu contraseña · Hotel Aurora';
-$message = "<p>Hola,</p>\n<p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el siguiente enlace para establecer una nueva contraseña (válido 1 hora):</p>\n<p><a href=\"{$resetUrl}\">Restablecer contraseña</a></p>\n<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>\n<p>Saludos,<br>Hotel Aurora</p>";
+$message = "<p>Hola,</p>\n<p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el siguiente enlace para establecer una nueva contraseña (válido 1 hora):</p>\n<p><a href=\"{$resetUrlHtml}\">Restablecer contraseña</a></p>\n<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>\n<p>Saludos,<br>Hotel Aurora</p>";
 
 $sent = false;
 
@@ -90,15 +106,6 @@ if (class_exists(PHPMailer::class)) {
         $mail->Port       = (int)($_ENV['SMTP_PORT'] ?? ($_SERVER['SMTP_PORT'] ?? 587));
         $mail->CharSet    = 'UTF-8';
 
-        // Solución para evitar bloqueos SSL en entorno local (XAMPP/Laragon)
-        $mail->SMTPOptions = array(
-            'ssl' => array(
-                'verify_peer'       => false,
-                'verify_peer_name'  => false,
-                'allow_self_signed' => true
-            )
-        );
-
         // Configuración de Remitente y Destinatario
         $fromEmail = $_ENV['FROM_EMAIL'] ?? ($_SERVER['FROM_EMAIL'] ?? $mail->Username);
         $fromName  = $_ENV['FROM_NAME']  ?? ($_SERVER['FROM_NAME']  ?? 'Hotel Aurora');
@@ -108,21 +115,13 @@ if (class_exists(PHPMailer::class)) {
 
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body    = $message . "<p><a href='{$resetUrl}'>{$resetUrl}</a></p>";
+        $mail->Body    = $message;
 
         $mail->send();
         $sent = true;
 
     } catch (Exception $e) {
-        // En caso de fallo, detenemos la redirección e imprimimos los detalles técnicos:
-        echo "<div style='font-family: sans-serif; padding: 20px; border: 1px solid #f5c6cb; background-color: #f8d7da; color: #721c24; border-radius: 8px;'>";
-        echo "<h2>Diagnóstico de Envío SMTP (Hotel Aurora)</h2>";
-        echo "<p><strong>Usuario SMTP leído:</strong> " . htmlspecialchars($mail->Username) . "</p>";
-        echo "<p><strong>Longitud de contraseña SMTP:</strong> " . strlen($mail->Password) . " caracteres</p>";
-        echo "<p><strong>Error PHPMailer:</strong> " . htmlspecialchars($mail->ErrorInfo) . "</p>";
-        echo "<p><strong>Excepción del sistema:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
-        echo "</div>";
-        exit();
+        error_log('Password reset email delivery failed: ' . $mail->ErrorInfo);
     }
 }
 

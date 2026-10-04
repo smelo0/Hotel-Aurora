@@ -3,8 +3,18 @@
 // Reparacion: Endpoint unificado para que empleado y administrador lean la misma cola desde MySQL.
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
-require_once __DIR__ . '/../configuracion/conexion.php';
 header('Content-Type: application/json; charset=utf-8');
+
+if (
+    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+) {
+    http_response_code(401);
+    echo json_encode(['status' => 'error', 'mensaje' => 'No estás autorizado'], JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+require_once __DIR__ . '/../configuracion/conexion.php';
 
 function limpiar_nombre_creador_api_tareas($nombre, $rol) {
     // Correccion: Formato de nombre y rol ajustado a [Nombre] - [Rol], evitando duplicar el rol si viene pegado al nombre.

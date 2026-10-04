@@ -150,6 +150,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </div>
 
             <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="px-7 pb-7 space-y-6">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                     <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Huésped</label>
                     <div id="contenedorBuscadorHuespedReserva" class="relative">
@@ -260,6 +261,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </div>
 
             <form id="formEditarReserva" action="../../controladores/editar_reserva.php" method="POST" class="p-6 space-y-4">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="cod_res" id="edit_cod_res">
 
                 <div>
@@ -291,7 +293,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
     </div>
 
     <script>
-        const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const huespedesAdminState = { adultos: 1, ninos: 0 };
 
         function confirmarEliminacion(idReserva) {
@@ -316,7 +318,13 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors';
-                btn.innerHTML = `<p class="text-sm font-semibold text-slate-700">${h.nom_usu}</p><p class="text-[11px] text-slate-400">${h.corr_usu}</p>`;
+                const nombre = document.createElement('p');
+                nombre.className = 'text-sm font-semibold text-slate-700';
+                nombre.textContent = h.nom_usu || '';
+                const correo = document.createElement('p');
+                correo.className = 'text-[11px] text-slate-400';
+                correo.textContent = h.corr_usu || '';
+                btn.append(nombre, correo);
                 btn.onclick = () => {
                     seleccionarHuespedReserva(h.id_usu, h.nom_usu, h.corr_usu);
                 };

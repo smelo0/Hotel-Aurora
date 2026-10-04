@@ -5,7 +5,10 @@ const WOMPI_PUBLIC_KEY = 'pub_prod_oIXAfuJfGglWlmd5PAqrhWirh3VU66RQ';
 
 function wompiPrivateKey(): string
 {
-    return trim((string) (getenv('WOMPI_PRIVATE_KEY') ?: ''));
+    return trim((string) (
+        getenv('WOMPI_PRIVATE_KEY')
+        ?: ($_ENV['WOMPI_PRIVATE_KEY'] ?? $_SERVER['WOMPI_PRIVATE_KEY'] ?? '')
+    ));
 }
 
 function wompiApiUrl(string $transactionId): string
@@ -41,7 +44,7 @@ function verificarTransaccionWompi(string $transactionId, int $amountInCents): a
 
     $payload = json_decode($response, true);
     $transaction = $payload['data'] ?? null;
-    if (!is_array($transaction)) {
+    if (!is_array($transaction) || (string) ($transaction['id'] ?? '') !== $transactionId) {
         throw new RuntimeException('wompi_transaction_invalid');
     }
 

@@ -347,8 +347,17 @@ if ($usuarioAutenticado) {
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
+    <?php
+    $recaptchaSiteKey = trim((string) (
+        getenv('RECAPTCHA_SITE_KEY')
+        ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
+    ));
+    ?>
+    <?php if ($recaptchaSiteKey !== ''): ?>
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <?php endif; ?>
     <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=3">
-    <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>;</script>
+    <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>; const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>; const RECAPTCHA_SITE_KEY = <?php echo json_encode($recaptchaSiteKey); ?>;</script>
 </head>
 <body>
     <nav class="site-nav fixed inset-x-0 top-0 z-50">
@@ -937,6 +946,11 @@ if ($usuarioAutenticado) {
                         </div>
                     </div>
 
+                    <?php if ($recaptchaSiteKey !== ''): ?>
+                        <div class="mt-5 flex justify-center" aria-label="Verificación de seguridad">
+                            <div class="g-recaptcha" data-sitekey="<?php echo e($recaptchaSiteKey); ?>"></div>
+                        </div>
+                    <?php endif; ?>
                     <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
                     <button 
                         id="confirmBookingBtn" 
@@ -1404,7 +1418,14 @@ async function processReservationPayment() {
         fd.append('cant_ninos', guests.children);
         fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
         fd.append('porcentaje_pago', selectedReservation.porcentajePago);
-        fd.append('total_reserva', selectedReservation.montoAPagar);
+        fd.append('csrf_token', CSRF_TOKEN);
+        if (RECAPTCHA_SITE_KEY) {
+            const captchaToken = window.grecaptcha?.getResponse();
+            if (!captchaToken) {
+                throw new Error('Completa la verificación reCAPTCHA para continuar.');
+            }
+            fd.append('g-recaptcha-response', captchaToken);
+        }
         if (transaction) {
             fd.append('referencia_pago', transaction.reference || '');
             fd.append('wompi_transaction_id', transaction.id);
@@ -1448,6 +1469,9 @@ async function processReservationPayment() {
 
     } catch (err) {
         console.error("Error en la reserva:", err);
+        if (RECAPTCHA_SITE_KEY && window.grecaptcha?.reset) {
+            window.grecaptcha.reset();
+        }
         if (feedback) {
             const errorMessage = err?.message || (typeof err === 'string' ? err : '') || 'No se pudo iniciar o validar el pago con Wompi.';
             feedback.className = 'mt-4 text-sm font-bold text-rose-400 block';

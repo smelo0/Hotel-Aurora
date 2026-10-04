@@ -18,15 +18,27 @@ use App\Logger;
 
 // --- 1. Cookies seguras (debe ir ANTES de session_start) ---
 if (session_status() === PHP_SESSION_NONE) {
+    $requestIsHttps = !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+    $secureCookieConfigured = strtolower((string) (
+        getenv('SESSION_COOKIE_SECURE')
+        ?: ($_ENV['SESSION_COOKIE_SECURE'] ?? $_SERVER['SESSION_COOKIE_SECURE'] ?? '')
+    )) === 'true';
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
         'domain'   => '',
-        'secure'   => false,   // cambiar a true en producción con HTTPS
+        'secure'   => $requestIsHttps || $secureCookieConfigured,
         'httponly' => true,    // evita acceso vía JS (XSS)
         'samesite' => 'Lax',   // previene CSRF
     ]);
     session_start();
+
+    if ($requestIsHttps || $secureCookieConfigured) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
 }
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

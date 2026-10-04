@@ -877,6 +877,7 @@ window.eliminarReservaEnVivo = async function(idReserva) {
     try {
         const fd = new FormData();
         fd.append('id', idReserva);
+        fd.append('csrf_token', CSRF_TOKEN);
         const response = await fetch('../../controladores/eliminar_reserva.php', {
             method: 'POST',
             body: fd

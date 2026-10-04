@@ -4,11 +4,15 @@ DB_PASS=
 DB_NAME=hotel
 DB_PORT=3306
 DB_TIMEOUT=5
+APP_ENV=local
+APP_BASE_URL=http://localhost/Hotel-Aurora
+SESSION_COOKIE_SECURE=false
+WOMPI_PRIVATE_KEY=your-wompi-private-key
 SMTP_HOST=smtp.gmail.com
-SMTP_USER=yuli.aa.gomez@gmail.com
-SMTP_PASS="zznznqimdxrcwduw"
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
 SMTP_PORT=587
-FROM_EMAIL="yuli.aa.gomez@gmail.com"
+FROM_EMAIL=your-sender@example.com
 FROM_NAME="Hotel Aurora"
 
 # Claves de Google reCAPTCHA v2 Checkbox

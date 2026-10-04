@@ -15,6 +15,7 @@ exigir_permiso($conexion, 'reservas.editar');
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    exigir_csrf();
     $conexion->begin_transaction();
 
     try {
