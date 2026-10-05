@@ -38,10 +38,10 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
             <div id="mensajeFormularioExperiencia" class="hidden rounded-lg px-4 py-3 text-sm font-bold" role="alert" aria-live="polite"></div>
             <input type="hidden" id="idExperiencia">
             <div class="grid gap-4 md:grid-cols-2">
-                <div><label for="categoriaExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Categoría</label><input type="text" id="categoriaExperiencia" maxlength="50" required placeholder="Ej. Sabores exclusivos" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div>
-                <div><label for="nombreExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre</label><input type="text" id="nombreExperiencia" maxlength="150" required placeholder="Ej. Gastronomía" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div>
+                <div><label for="categoriaExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Categoría</label><input type="text" id="categoriaExperiencia" maxlength="50" placeholder="Opcional: Ej. Sabores exclusivos" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div>
+                <div><label for="nombreExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre</label><input type="text" id="nombreExperiencia" maxlength="150" placeholder="Opcional: Ej. Gastronomía" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div>
             </div>
-            <div><label for="descripcionExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Descripción</label><textarea id="descripcionExperiencia" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary" rows="3" placeholder="Describe la experiencia que se ofrecerá..."></textarea></div>
+            <div><label for="descripcionExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Descripción</label><textarea id="descripcionExperiencia" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary" rows="3" placeholder="Describe la experiencia que se ofrecerá..."></textarea></div>
             <div>
                 <label for="imagenExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Imagen (JPG, PNG o WebP; máximo 5 MB)</label>
                 <input type="file" id="imagenExperiencia" accept="image/jpeg,image/png,image/webp" class="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -52,13 +52,13 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                 </div>
             </div>
             <fieldset>
-                <legend class="mb-2 text-[10px] font-black uppercase text-slate-500">Opciones y precios (opcional)</legend>
-                <p class="mb-3 text-xs text-slate-400">Puedes asignar un precio en pesos colombianos a cada opción. Déjalo vacío si no tiene precio.</p>
+                <legend class="mb-2 text-[10px] font-black uppercase text-slate-500">Opciones y precios</legend>
+                <p class="mb-3 text-xs text-slate-400">La opción 1 es obligatoria. Las opciones 2 y 3 son opcionales; puedes dejar cualquier precio vacío.</p>
                 <div class="grid gap-3 md:grid-cols-3">
                     <?php foreach ([1, 2, 3] as $numeroOpcion): ?>
                         <div class="space-y-2 rounded-lg border border-slate-200 p-3">
                             <label for="opcionExperiencia<?php echo $numeroOpcion; ?>" class="block text-xs font-bold text-slate-600">Opción <?php echo $numeroOpcion; ?></label>
-                            <input type="text" id="opcionExperiencia<?php echo $numeroOpcion; ?>" maxlength="100" required placeholder="<?php echo ['1' => 'Ej. Menú degustación', '2' => 'Ej. Plato especial', '3' => 'Ej. Cena privada'][$numeroOpcion]; ?>" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+                            <input type="text" id="opcionExperiencia<?php echo $numeroOpcion; ?>" maxlength="100" <?php echo $numeroOpcion === 1 ? 'required' : ''; ?> placeholder="<?php echo ['1' => 'Ej. Menú degustación', '2' => 'Opcional: Ej. Plato especial', '3' => 'Opcional: Ej. Cena privada'][$numeroOpcion]; ?>" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
                             <label for="precioOpcionExperiencia<?php echo $numeroOpcion; ?>" class="block text-xs font-bold text-slate-600">Precio (COP)</label>
                             <input type="number" id="precioOpcionExperiencia<?php echo $numeroOpcion; ?>" min="0" max="9999999999" step="1" inputmode="numeric" placeholder="Sin precio" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
                         </div>
@@ -67,15 +67,23 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
             </fieldset>
             <fieldset>
                 <legend class="mb-1 text-[10px] font-black uppercase text-slate-500">Fechas y horarios disponibles</legend>
-                <p class="mb-3 text-xs text-slate-400">Selecciona una opción y configura sus fechas. Cada fecha tendrá su propio rango de inicio y fin, con turnos cada 30 minutos.</p>
+                <p class="mb-3 text-xs text-slate-400">Opcionalmente, programa una o varias fechas consecutivas. Se aplicará el mismo horario a cada día del rango.</p>
                 <label for="opcionHorarioExperiencia" class="mb-3 block text-xs font-bold text-slate-600">Opción a programar
                     <select id="opcionHorarioExperiencia" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></select>
                 </label>
-                <div class="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                    <label class="text-xs font-bold text-slate-600" for="fechaHorarioExperiencia">Fecha<input id="fechaHorarioExperiencia" type="date" min="<?php echo htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
-                    <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
-                    <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
-                    <button id="agregarHorarioExperiencia" type="button" class="self-end rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir fecha</button>
+                <div class="space-y-4">
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="text-xs font-bold text-slate-600" for="fechaInicioHorarioExperiencia">Fecha de inicio<input id="fechaInicioHorarioExperiencia" type="date" min="<?php echo htmlspecialchars((new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                        <label class="text-xs font-bold text-slate-600" for="fechaFinHorarioExperiencia">Fecha de fin<input id="fechaFinHorarioExperiencia" type="date" min="<?php echo htmlspecialchars((new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                    </div>
+                    <div class="border-t border-slate-100 pt-4">
+                        <p class="mb-3 text-xs font-bold text-slate-600">Horario diario</p>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                            <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                        </div>
+                        <button id="agregarHorarioExperiencia" type="button" class="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir rango de fechas</button>
+                    </div>
                 </div>
                 <div id="listaHorariosExperiencia" class="experience-schedule-list mt-4 space-y-2" role="region" aria-label="Fechas y horas añadidas" tabindex="0"></div>
             </fieldset>
@@ -119,21 +127,47 @@ let datosExperiencias = { experiencias: [], puede_gestionar: false };
 let horariosExperienciaBorrador = {};
 function escaparExperiencias(valor) { return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter])); }
 function fechaExperienciaLegible(fecha) { const [anio, mes, dia] = fecha.split('-').map(Number); return new Date(anio, mes - 1, dia).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }); }
+function fechaExperienciaCorta(fecha) { return fecha.split('-').reverse().join('/'); }
+function agruparFechasHorarioExperiencia(fechas) {
+    const grupos = [];
+    Object.keys(fechas).sort().forEach(fecha => {
+        const rango = fechas[fecha];
+        const anterior = grupos[grupos.length - 1];
+        const siguienteAlAnterior = anterior
+            && new Date(`${anterior.fin}T00:00:00Z`).getTime() + 86400000 === new Date(`${fecha}T00:00:00Z`).getTime();
+        if (siguienteAlAnterior && anterior.horaInicio === rango.inicio && anterior.horaFin === rango.fin) {
+            anterior.fin = fecha;
+            return;
+        }
+        grupos.push({ inicio: fecha, fin: fecha, horaInicio: rango.inicio, horaFin: rango.fin });
+    });
+    return grupos;
+}
 function precioExperienciaLegible(precio) { return precio === null || precio === undefined || precio === '' ? 'Sin precio' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(precio)); }
+function numerosOpcionesExperienciaDefinidas() {
+    return [1, 2, 3].filter(numero => document.getElementById(`opcionExperiencia${numero}`).value.trim() !== '');
+}
 function renderizarSelectorOpcionHorario() {
     const selector = document.getElementById('opcionHorarioExperiencia');
     const seleccionAnterior = selector.value || '1';
-    selector.innerHTML = [1, 2, 3].map(numero => {
-        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim() || `Opción ${numero}`;
+    const opcionesDefinidas = numerosOpcionesExperienciaDefinidas();
+    selector.innerHTML = opcionesDefinidas.map(numero => {
+        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim();
         return `<option value="${numero}">${escaparExperiencias(nombre)}</option>`;
     }).join('');
-    selector.value = seleccionAnterior;
+    selector.value = opcionesDefinidas.includes(Number(seleccionAnterior))
+        ? seleccionAnterior
+        : String(opcionesDefinidas[0] || '');
 }
 function renderizarHorariosExperiencia() {
     const lista = document.getElementById('listaHorariosExperiencia');
-    const opciones = [1, 2, 3];
+    const opciones = numerosOpcionesExperienciaDefinidas();
+    if (opciones.length === 0) {
+        lista.innerHTML = '<p class="text-xs text-slate-400">Completa la opción para configurar fechas y horarios.</p>';
+        return;
+    }
     lista.innerHTML = opciones.map(numero => {
-        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim() || `Opción ${numero}`;
+        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim();
         const fechas = Object.keys(horariosExperienciaBorrador[String(numero)] || {}).sort();
         const filas = fechas.map(fecha => {
             const rango = horariosExperienciaBorrador[String(numero)][fecha];
@@ -144,15 +178,20 @@ function renderizarHorariosExperiencia() {
 }
 function agregarHorarioExperiencia() {
     const opcion = document.getElementById('opcionHorarioExperiencia').value;
-    const fecha = document.getElementById('fechaHorarioExperiencia').value;
-    const inicio = document.getElementById('horaInicioExperiencia').value;
-    const fin = document.getElementById('horaFinExperiencia').value;
-    if (!fecha || !inicio || !fin) {
-        mostrarMensajeExperiencias('Selecciona la fecha, la hora de inicio y la hora de fin.', true);
+    if (!opcion) {
+        mostrarMensajeExperiencias('Completa una opción antes de programar fechas y horarios.', true);
         return;
     }
-    if (fecha < document.getElementById('fechaHorarioExperiencia').min) {
-        mostrarMensajeExperiencias('No puedes añadir una fecha pasada.', true);
+    const fechaInicio = document.getElementById('fechaInicioHorarioExperiencia').value;
+    const fechaFin = document.getElementById('fechaFinHorarioExperiencia').value;
+    const inicio = document.getElementById('horaInicioExperiencia').value;
+    const fin = document.getElementById('horaFinExperiencia').value;
+    if (!fechaInicio || !fechaFin || !inicio || !fin) {
+        mostrarMensajeExperiencias('Selecciona las fechas de inicio y fin, y las horas de inicio y fin.', true);
+        return;
+    }
+    if (fechaInicio < document.getElementById('fechaInicioHorarioExperiencia').min || fechaFin < fechaInicio) {
+        mostrarMensajeExperiencias('Selecciona un rango de fechas válido, desde hoy en adelante.', true);
         return;
     }
     if (!/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(inicio) || !/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(fin)) {
@@ -163,12 +202,27 @@ function agregarHorarioExperiencia() {
         mostrarMensajeExperiencias('La hora de fin no puede ser anterior a la hora de inicio.', true);
         return;
     }
+    const milisegundosPorDia = 24 * 60 * 60 * 1000;
+    const primerDia = Date.parse(`${fechaInicio}T00:00:00Z`);
+    const ultimoDia = Date.parse(`${fechaFin}T00:00:00Z`);
+    const cantidadDias = Math.floor((ultimoDia - primerDia) / milisegundosPorDia) + 1;
+    if (!Number.isSafeInteger(cantidadDias) || cantidadDias < 1 || cantidadDias > 100) {
+        mostrarMensajeExperiencias('Cada rango admite hasta 100 fechas programadas.', true);
+        return;
+    }
     horariosExperienciaBorrador[opcion] ||= {};
-    if (!horariosExperienciaBorrador[opcion][fecha] && Object.keys(horariosExperienciaBorrador[opcion]).length >= 100) {
+    // Guardamos un horario por día para mantener compatible la agenda pública.
+    const fechasRango = Array.from({ length: cantidadDias }, (_, indice) =>
+        new Date(primerDia + indice * milisegundosPorDia).toISOString().slice(0, 10)
+    );
+    const nuevasFechas = fechasRango.filter(fecha => !horariosExperienciaBorrador[opcion][fecha]);
+    if (Object.keys(horariosExperienciaBorrador[opcion]).length + nuevasFechas.length > 100) {
         mostrarMensajeExperiencias('Cada opción admite hasta 100 fechas programadas.', true);
         return;
     }
-    horariosExperienciaBorrador[opcion][fecha] = { inicio, fin };
+    fechasRango.forEach(fecha => {
+        horariosExperienciaBorrador[opcion][fecha] = { inicio, fin };
+    });
     renderizarHorariosExperiencia();
     document.getElementById('horaInicioExperiencia').value = '';
     document.getElementById('horaFinExperiencia').value = '';
@@ -186,13 +240,13 @@ function renderizarExperiencias() {
         const imagen = experiencia.imagen ? `<img src="../../${escaparExperiencias(experiencia.imagen)}" alt="" class="h-12 w-16 rounded object-cover">` : '<span class="text-xs text-slate-400">Sin imagen</span>';
         const opciones = (experiencia.opciones || []).map((opcion, indice) => `${escaparExperiencias(opcion)} (${escaparExperiencias(precioExperienciaLegible(experiencia.precios?.[indice]))})`).join(' · ');
         const horarios = [1, 2, 3].flatMap(numero => {
-            const nombreOpcion = experiencia.opciones?.[numero - 1] || `Opción ${numero}`;
-            return Object.keys(experiencia.horarios?.[String(numero)] || {}).sort().map(fecha => {
-                const rango = experiencia.horarios[String(numero)][fecha];
-                return `<strong>${escaparExperiencias(nombreOpcion)} · ${escaparExperiencias(fechaExperienciaLegible(fecha))}:</strong> ${escaparExperiencias(rango.inicio)}–${escaparExperiencias(rango.fin)}`;
-            });
-        }).join('<br>');
-        return `<tr class="hover:bg-slate-50/50"><td class="px-6 py-4">${imagen}</td><td class="px-6 py-4"><span class="bg-accent/40 text-primary px-2 py-1 rounded text-xs font-bold">${escaparExperiencias(experiencia.categoria)}</span></td><td class="px-6 py-4"><p class="font-black text-slate-800">${escaparExperiencias(experiencia.nombre)}</p><p class="mt-1 max-w-xs text-xs text-slate-500">${opciones}</p></td><td class="px-6 py-4 text-xs leading-5 text-slate-500">${horarios || 'Sin horarios'}</td><td class="px-6 py-4 text-right">${acciones}</td></tr>`;
+            const indiceOpcion = (experiencia.numeros_opciones || [1, 2, 3]).indexOf(numero);
+            const nombreOpcion = indiceOpcion < 0 ? `Opción ${numero}` : experiencia.opciones?.[indiceOpcion];
+            return agruparFechasHorarioExperiencia(experiencia.horarios?.[String(numero)] || {}).map(grupo =>
+                `<div class="rounded-md bg-slate-50 px-2 py-1"><strong class="text-slate-700">${escaparExperiencias(nombreOpcion)}</strong>; ${escaparExperiencias(fechaExperienciaCorta(grupo.inicio))}; ${escaparExperiencias(fechaExperienciaCorta(grupo.fin))}; ${escaparExperiencias(grupo.horaInicio)}–${escaparExperiencias(grupo.horaFin)}</div>`
+            );
+        }).join('');
+        return `<tr class="hover:bg-slate-50/50"><td class="px-6 py-4">${imagen}</td><td class="px-6 py-4"><span class="bg-accent/40 text-primary px-2 py-1 rounded text-xs font-bold">${escaparExperiencias(experiencia.categoria)}</span></td><td class="px-6 py-4"><p class="font-black text-slate-800">${escaparExperiencias(experiencia.nombre)}</p><p class="mt-1 max-w-xs text-xs text-slate-500">${opciones}</p></td><td class="space-y-1 px-6 py-4 text-xs leading-5 text-slate-500">${horarios || 'Sin horarios'}</td><td class="px-6 py-4 text-right">${acciones}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400 text-sm">Aún no hay experiencias registradas.</td></tr>';
 }
 function renderizarHistorialExperiencias() {
@@ -252,7 +306,9 @@ function abrirModalExperiencia(experiencia) {
     document.getElementById('nombreExperiencia').value = experiencia?.nombre || '';
     document.getElementById('descripcionExperiencia').value = experiencia?.descripcion || '';
     document.getElementById('quitarImagenExperiencia').value = '0';
-    [1, 2, 3].forEach((numero, indice) => {
+    const numerosOpciones = experiencia?.numeros_opciones || [1, 2, 3].slice(0, experiencia?.opciones?.length || 0);
+    [1, 2, 3].forEach(numero => {
+        const indice = numerosOpciones.indexOf(numero);
         document.getElementById(`opcionExperiencia${numero}`).value = experiencia?.opciones?.[indice] || '';
         document.getElementById(`precioOpcionExperiencia${numero}`).value = experiencia?.precios?.[indice] ?? '';
     });
@@ -305,10 +361,6 @@ document.getElementById('formExperiencia').addEventListener('submit', async even
         cuerpo.append(`opcion_${numero}`, document.getElementById(`opcionExperiencia${numero}`).value.trim());
         cuerpo.append(`precio_opcion_${numero}`, document.getElementById(`precioOpcionExperiencia${numero}`).value.trim());
     });
-    if ([1, 2, 3].some(numero => Object.keys(horariosExperienciaBorrador[String(numero)] || {}).length === 0)) {
-        mostrarErrorFormularioExperiencia('Configura al menos una fecha y un horario para cada opción.');
-        return;
-    }
     cuerpo.append('horarios', JSON.stringify({ opciones: horariosExperienciaBorrador }));
     const imagen = document.getElementById('imagenExperiencia').files[0];
     if (imagen) cuerpo.append('imagen', imagen);
@@ -353,6 +405,14 @@ document.getElementById('eliminarImagenExperiencia').addEventListener('click', (
     document.getElementById('eliminarImagenExperiencia').classList.add('hidden');
 });
 document.getElementById('agregarHorarioExperiencia').addEventListener('click', agregarHorarioExperiencia);
+document.getElementById('opcionHorarioExperiencia').addEventListener('change', () => {
+    const opcion = document.getElementById('opcionHorarioExperiencia').value;
+    const primeraFecha = Object.keys(horariosExperienciaBorrador[opcion] || {}).sort()[0];
+    if (primeraFecha) {
+        document.getElementById('fechaInicioHorarioExperiencia').value = primeraFecha;
+        document.getElementById('fechaFinHorarioExperiencia').value = primeraFecha;
+    }
+});
 document.getElementById('listaHorariosExperiencia').addEventListener('click', evento => {
     const quitarFecha = evento.target.closest('[data-eliminar-fecha]');
     if (quitarFecha) {
@@ -363,11 +423,6 @@ document.getElementById('listaHorariosExperiencia').addEventListener('click', ev
 document.getElementById('tablaHistorialExperiencias').addEventListener('click', evento => {
     const boton = evento.target.closest('[data-cancelar-solicitud-admin]');
     if (boton) cancelarSolicitudExperienciaAdmin(boton.dataset.cancelarSolicitudAdmin, boton);
-});
-document.getElementById('opcionHorarioExperiencia').addEventListener('change', () => {
-    const opcion = document.getElementById('opcionHorarioExperiencia').value;
-    const primeraFecha = Object.keys(horariosExperienciaBorrador[opcion] || {}).sort()[0];
-    if (primeraFecha) document.getElementById('fechaHorarioExperiencia').value = primeraFecha;
 });
 [1, 2, 3].forEach(numero => {
     document.getElementById(`opcionExperiencia${numero}`).addEventListener('input', () => {

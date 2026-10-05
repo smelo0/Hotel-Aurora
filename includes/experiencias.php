@@ -40,8 +40,8 @@ function asegurar_esquema_agenda_experiencias(mysqli $conexion): void
             actividad VARCHAR(150) NOT NULL,
             opcion_actividad VARCHAR(100) NOT NULL DEFAULT '',
             selecciones_personas_json TEXT NULL,
-            fecha_agenda DATE NOT NULL,
-            hora_agenda TIME NOT NULL,
+            fecha_agenda DATE NULL,
+            hora_agenda TIME NULL,
             nombre_contacto VARCHAR(140) NOT NULL,
             correo_contacto VARCHAR(140) NOT NULL,
             id_usu_agenda BIGINT NULL,
@@ -57,6 +57,8 @@ function asegurar_esquema_agenda_experiencias(mysqli $conexion): void
     $columnas = [
         'opcion_actividad' => "ALTER TABLE agenda_actividad ADD COLUMN opcion_actividad VARCHAR(100) NOT NULL DEFAULT '' AFTER actividad",
         'selecciones_personas_json' => 'ALTER TABLE agenda_actividad ADD COLUMN selecciones_personas_json TEXT NULL AFTER opcion_actividad',
+        'fecha_agenda' => 'ALTER TABLE agenda_actividad MODIFY fecha_agenda DATE NULL',
+        'hora_agenda' => 'ALTER TABLE agenda_actividad MODIFY hora_agenda TIME NULL',
         'id_usu_agenda' => 'ALTER TABLE agenda_actividad ADD COLUMN id_usu_agenda BIGINT NULL',
         'estado_agenda' => "ALTER TABLE agenda_actividad ADD COLUMN estado_agenda VARCHAR(30) DEFAULT 'Pendiente'",
         'estado_pago_experiencia' => "ALTER TABLE agenda_actividad ADD COLUMN estado_pago_experiencia VARCHAR(20) NOT NULL DEFAULT 'Pendiente'",
@@ -209,12 +211,14 @@ function obtener_experiencias(mysqli $conexion): array
         $fila['id'] = (int) $fila['id'];
         $fila['opciones'] = [];
         $fila['precios'] = [];
+        $fila['numeros_opciones'] = [];
         foreach ([1, 2, 3] as $indice) {
             $opcion = trim((string) $fila['opcion_' . $indice]);
             if ($opcion === '') {
                 continue;
             }
             $fila['opciones'][] = $opcion;
+            $fila['numeros_opciones'][] = $indice;
             $precio = $fila['precio_opcion_' . $indice];
             $fila['precios'][] = $precio === null ? null : number_format((float) $precio, 2, '.', '');
         }

@@ -8,9 +8,11 @@ if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
     !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2], true)
 ) {
-    header("Location: interfaz/admin/interfaz_usu.php");
+    header('Location: /Hotel-Aurora/interfaz_usu.php');
     exit();
 }
+
+$csrfToken = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 $firma_actor_panel = hash_hmac(
     'sha256',
@@ -122,7 +124,7 @@ if ($permisos_usuario === []) {
         const PERMISOS_USUARIO = <?php echo json_encode($permisos_usuario, JSON_UNESCAPED_UNICODE); ?>;
         const ID_USUARIO_ACTIVO = <?php echo isset($_SESSION['emp_auth']['id_usuario']) ? (int) $_SESSION['emp_auth']['id_usuario'] : 0; ?>;
         const FIRMA_USUARIO_ACTIVO = "<?php echo htmlspecialchars($firma_actor_panel, ENT_QUOTES, 'UTF-8'); ?>";
-        const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
+        const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
     <script src="js_ad/admin.js?v=10"></script>

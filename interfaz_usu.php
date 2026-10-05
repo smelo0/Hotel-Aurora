@@ -184,46 +184,108 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
     $horaRaw = $_POST['hora'] ?? null;
     $nombreRaw = $_POST['nombre'] ?? ($_SESSION['user_auth']['nombre_usuario'] ?? '');
     $correoRaw = $_POST['correo'] ?? '';
-    if (!is_string($experienciaIdRaw) || !is_string($participantesRaw) || !is_string($cantidadPersonasRaw)
-        || !is_string($fechaRaw) || !is_string($horaRaw)
-        || !is_string($nombreRaw) || !is_string($correoRaw)) {
+    $experienciaPersonalizadaRaw = $_POST['experiencia_personalizada'] ?? null;
+    $categoriaPersonalizadaRaw = $_POST['categoria_personalizada'] ?? null;
+    $solicitudPersonalizadaRaw = $_POST['solicitud_personalizada'] ?? '0';
+
+    if (($experienciaIdRaw !== null && !is_string($experienciaIdRaw))
+        || !is_string($participantesRaw)
+        || !is_string($cantidadPersonasRaw)
+        || ($fechaRaw !== null && !is_string($fechaRaw))
+        || ($horaRaw !== null && !is_string($horaRaw))
+        || !is_string($nombreRaw) || !is_string($correoRaw)
+        || ($experienciaPersonalizadaRaw !== null && !is_string($experienciaPersonalizadaRaw))
+        || ($categoriaPersonalizadaRaw !== null && !is_string($categoriaPersonalizadaRaw))
+        || !is_string($solicitudPersonalizadaRaw)) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
-    $experienciaId = filter_var($experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+    $experienciaPersonalizada = trim((string) $experienciaPersonalizadaRaw);
+    $categoriaPersonalizada = trim((string) $categoriaPersonalizadaRaw);
+    $solicitudPersonalizada = in_array(strtolower(trim((string) $solicitudPersonalizadaRaw)), ['1', 'true', 'on'], true);
+    $esPersonalizada = $solicitudPersonalizada || $categoriaPersonalizada !== '' || $experienciaPersonalizada !== '';
+    $experienciaId = $esPersonalizada ? null : filter_var((string) $experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $cantidadPersonas = filter_var($cantidadPersonasRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
     $participantes = json_decode($participantesRaw, true);
-    $fecha = trim($fechaRaw);
-    $hora = trim($horaRaw);
+    $fecha = trim((string) ($fechaRaw ?? ''));
+    $hora = trim((string) ($horaRaw ?? ''));
     $nombre = trim($nombreRaw);
     $correo = trim($correoRaw);
-    $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
 
-    if (!$experienciaId || !$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes) || count($participantes) !== $cantidadPersonas
-        || $fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')
-        || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora) || $nombre === '' || mb_strlen($nombre) > 140
-        || mb_strlen($correo) > 140 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+    if (!$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes)
+        || $nombre === '' || mb_strlen($nombre) > 140 || mb_strlen($correo) > 140 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
 
-    $stmtReservaExperiencia = $conexion->prepare(
-        "SELECT cod_res FROM reservas
-         WHERE id_usu_res = ?
-           AND est_res NOT IN ('Cancelada', 'Cancelado')
-           AND DATE(fec_ent_res) <= ?
-           AND DATE(fec_sal_res) > ?
-         ORDER BY fec_ent_res DESC, cod_res DESC
-         LIMIT 1"
-    );
-    $stmtReservaExperiencia->bind_param('iss', $idUsuario, $fecha, $fecha);
-    $stmtReservaExperiencia->execute();
-    $reservaExperiencia = $stmtReservaExperiencia->get_result()->fetch_assoc();
-    $stmtReservaExperiencia->close();
-    if (!$reservaExperiencia) {
-        jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
+    if ($esPersonalizada) {
+        if (count($participantes) > 0 && count($participantes) !== $cantidadPersonas) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de personas no coincide con la reserva.']);
+        }
+        $participantes = array_fill(0, $cantidadPersonas, 'Solicitud personalizada');
+    } else {
+        if (!$experienciaId || count($participantes) !== $cantidadPersonas) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
+        }
+        $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+        if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
+        }
+        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora)) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
+        }
     }
-    $idReservaExperiencia = (int) $reservaExperiencia['cod_res'];
+
+    $idReservaExperiencia = null;
+    if ($esPersonalizada) {
+        $stmtReservaExperiencia = $conexion->prepare(
+            "SELECT cod_res FROM reservas
+             WHERE id_usu_res = ?
+               AND est_res NOT IN ('Cancelada', 'Cancelado')
+             ORDER BY fec_ent_res DESC, cod_res DESC
+             LIMIT 1"
+        );
+        $stmtReservaExperiencia->bind_param('i', $idUsuario);
+        $stmtReservaExperiencia->execute();
+        $reservaExperiencia = $stmtReservaExperiencia->get_result()->fetch_assoc();
+        $stmtReservaExperiencia->close();
+        $idReservaExperiencia = $reservaExperiencia ? (int) $reservaExperiencia['cod_res'] : null;
+    } else {
+        $stmtReservaExperiencia = $conexion->prepare(
+            "SELECT cod_res FROM reservas
+             WHERE id_usu_res = ?
+               AND est_res NOT IN ('Cancelada', 'Cancelado')
+               AND DATE(fec_ent_res) <= ?
+               AND DATE(fec_sal_res) > ?
+             ORDER BY fec_ent_res DESC, cod_res DESC
+             LIMIT 1"
+        );
+        $stmtReservaExperiencia->bind_param('iss', $idUsuario, $fecha, $fecha);
+        $stmtReservaExperiencia->execute();
+        $reservaExperiencia = $stmtReservaExperiencia->get_result()->fetch_assoc();
+        $stmtReservaExperiencia->close();
+        if (!$reservaExperiencia) {
+            jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
+        }
+        $idReservaExperiencia = (int) $reservaExperiencia['cod_res'];
+    }
 
     try {
+        if ($esPersonalizada) {
+            asegurar_esquema_agenda_experiencias($conexion);
+            $actividadPersonalizada = $experienciaPersonalizada !== '' ? $experienciaPersonalizada : ($categoriaPersonalizada !== '' ? $categoriaPersonalizada : 'Solicitud personalizada');
+            $stmt = $conexion->prepare(
+                "INSERT INTO agenda_actividad (actividad, opcion_actividad, selecciones_personas_json, fecha_agenda, hora_agenda,
+                                               nombre_contacto, correo_contacto, id_usu_agenda, monto_experiencia, precios_personas_json, cod_res_agenda)
+                 VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, NULL, ?, ?)"
+            );
+            $seleccionesJson = json_encode(array_fill(0, $cantidadPersonas, 'Solicitud personalizada'), JSON_UNESCAPED_UNICODE);
+            $preciosJson = json_encode(array_fill(0, $cantidadPersonas, null), JSON_UNESCAPED_UNICODE);
+            $stmt->bind_param('sssssisi', $actividadPersonalizada, 'Personalizada', $seleccionesJson, $nombre, $correo, $idUsuario, $preciosJson, $idReservaExperiencia);
+            $stmt->execute();
+            $stmt->close();
+            jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Tu solicitud personalizada fue enviada correctamente.']);
+        }
+
         asegurar_esquema_experiencias($conexion);
         $stmtExperiencia = $conexion->prepare(
             'SELECT nombre, opcion_1, opcion_2, opcion_3, precio_opcion_1, precio_opcion_2, precio_opcion_3, horarios_json
@@ -237,11 +299,11 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'La experiencia seleccionada ya no está disponible.']);
         }
 
-        $opcionesExperiencia = array_map(static fn($valor): string => trim((string) $valor), [
-            $experiencia['opcion_1'],
-            $experiencia['opcion_2'],
-            $experiencia['opcion_3'],
-        ]);
+        $opcionesExperiencia = [
+            1 => trim((string) $experiencia['opcion_1']),
+            2 => trim((string) $experiencia['opcion_2']),
+            3 => trim((string) $experiencia['opcion_3']),
+        ];
         $preciosExperiencia = [
             $experiencia['precio_opcion_1'] === null ? null : (string) $experiencia['precio_opcion_1'],
             $experiencia['precio_opcion_2'] === null ? null : (string) $experiencia['precio_opcion_2'],
@@ -253,13 +315,13 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         $totalExperiencia = 0;
         $totalConocido = true;
         foreach ($participantes as $seleccionPersona) {
-            if (!is_string($seleccionPersona) || !in_array($seleccionPersona, $opcionesExperiencia, true)) {
+            if (!is_string($seleccionPersona) || !in_array($seleccionPersona, array_filter($opcionesExperiencia, static fn(string $opcion): bool => $opcion !== ''), true)) {
                 jsonResponse(422, ['status' => 'error', 'mensaje' => 'Elige una opción válida para cada persona.']);
             }
             $seleccionesValidadas[] = $seleccionPersona;
             $indiceOpcion = array_search($seleccionPersona, $opcionesExperiencia, true);
-            $indicesOpcionesSeleccionadas[] = (string) ($indiceOpcion + 1);
-            $precioPersona = $preciosExperiencia[$indiceOpcion];
+            $indicesOpcionesSeleccionadas[] = (string) $indiceOpcion;
+            $precioPersona = $preciosExperiencia[$indiceOpcion - 1];
             $preciosPorPersona[] = $precioPersona;
             if ($precioPersona === null) {
                 $totalConocido = false;
@@ -279,7 +341,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         $opcionResumen = count($seleccionesValidadas) . ' personas';
 
         $horariosDecodificados = json_decode((string) ($experiencia['horarios_json'] ?? ''), true);
-        $horariosExperiencia = is_array($horariosDecodificados) ? normalizar_horarios_experiencia($horariosDecodificados, $opcionesExperiencia) : [];
+        $horariosExperiencia = is_array($horariosDecodificados) ? normalizar_horarios_experiencia($horariosDecodificados, array_values($opcionesExperiencia)) : [];
         $minutosSeleccionados = ((int) substr($hora, 0, 2) * 60 + (int) substr($hora, 3, 2));
         $horarioDisponible = true;
         foreach (array_unique($indicesOpcionesSeleccionadas) as $indiceOpcion) {
@@ -718,9 +780,11 @@ if ($usuarioAutenticado) {
                             <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
                             <?php
                                 $fechasConfiguradas = [];
+                                $fechaHoyExperiencia = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
                                 foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
-                                    foreach (array_keys($experiencia['horarios'][(string) ($indiceOpcion + 1)] ?? []) as $fechaProgramada) {
-                                        if (is_string($fechaProgramada) && $fechaProgramada >= date('Y-m-d')) {
+                                    $numeroOpcion = $experiencia['numeros_opciones'][$indiceOpcion] ?? ($indiceOpcion + 1);
+                                    foreach (array_keys($experiencia['horarios'][(string) $numeroOpcion] ?? []) as $fechaProgramada) {
+                                        if (is_string($fechaProgramada) && $fechaProgramada >= $fechaHoyExperiencia) {
                                             $fechasConfiguradas[$fechaProgramada] = true;
                                         }
                                     }
@@ -747,6 +811,7 @@ if ($usuarioAutenticado) {
                                     data-experience-name="<?php echo e($experiencia['nombre']); ?>"
                                     data-experience-options="<?php echo e(json_encode($experiencia['opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     data-experience-prices="<?php echo e(json_encode($experiencia['precios'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                    data-experience-option-indices="<?php echo e(json_encode($experiencia['numeros_opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     data-experience-schedule="<?php echo e(json_encode($experiencia['horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
                                     data-reservation-stays="<?php echo e(json_encode($reservasEstanciaExperiencia, JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     <?php echo $experiencia['opciones'] === [] || !$horariosConfigurados || !$usuarioAutenticado || !$usuarioTieneReserva ? 'disabled' : ''; ?>>
@@ -789,6 +854,20 @@ if ($usuarioAutenticado) {
                             <p class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Selección</p>
                             <div id="seleccionExperiencia" class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/70">Elige una experiencia en una de las tarjetas.</div>
                             <input id="experienciaIdActividad" name="experiencia_id" type="hidden">
+                            <label class="mt-3 flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/80">
+                                <input id="experienciaPersonalizadaToggle" name="solicitud_personalizada" value="1" type="checkbox" class="h-4 w-4 rounded border-white/30 bg-white/10 text-emerald-500 focus:ring-emerald-400" aria-label="Solicitar una experiencia personalizada">
+                                <span>Solicitar experiencia personalizada</span>
+                            </label>
+                            <select id="experienciaPersonalizadaCategoria" name="categoria_personalizada" class="mt-3 hidden w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
+                                <option value="">Selecciona una categoría (opcional)</option>
+                                <option value="Spa y bienestar">Spa y bienestar</option>
+                                <option value="Gastronomía">Gastronomía</option>
+                                <option value="Aventura">Aventura</option>
+                                <option value="Romántica">Romántica</option>
+                                <option value="Celebración">Celebración</option>
+                                <option value="Otra">Otra</option>
+                            </select>
+                            <input id="experienciaPersonalizadaNombre" name="experiencia_personalizada" type="text" placeholder="Opcional: describe la idea o servicio que buscas" class="mt-3 hidden w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 placeholder:text-slate-500">
                         </div>
 
                         <div class="md:col-span-2">
@@ -1736,16 +1815,33 @@ async function processReservationPayment() {
     async function submitActivityForm(event) {
         event.preventDefault();
         const form = event.currentTarget;
+        const experienciaPersonalizadaToggle = document.getElementById('experienciaPersonalizadaToggle');
+        const experienciaPersonalizadaCategoria = document.getElementById('experienciaPersonalizadaCategoria');
+        const experienciaPersonalizadaNombre = document.getElementById('experienciaPersonalizadaNombre');
         const cantidadPersonas = Number(document.getElementById('cantidadPersonasActividad').value);
         const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
-        if (!document.getElementById('experienciaIdActividad').value
+        const esPersonalizada = Boolean(experienciaPersonalizadaToggle && experienciaPersonalizadaToggle.checked);
+
+        if (esPersonalizada) {
+            const categoriaPersonalizada = (experienciaPersonalizadaCategoria?.value || '').trim();
+            const nombrePersonalizado = (experienciaPersonalizadaNombre?.value || '').trim();
+            if (!categoriaPersonalizada && !nombrePersonalizado) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Elige una categoría o describe la idea',
+                    text: 'Puedes escoger una categoría o dejar una breve descripción, pero no necesitas poner fecha, hora ni nombre de una experiencia específica.',
+                    confirmButtonColor: '#17354f'
+                });
+                return;
+            }
+        } else if (!document.getElementById('experienciaIdActividad').value
             || !Number.isInteger(cantidadPersonas) || cantidadPersonas < 1 || cantidadPersonas > 20
             || selecciones.length !== cantidadPersonas || selecciones.some(seleccion => !seleccion)
             || !document.getElementById('horaActividad').value) {
             await Swal.fire({
                 icon: 'warning',
                 title: 'Completa las elecciones',
-                text: 'Elige una experiencia, una opción para cada persona y un horario.',
+                text: 'Elige una experiencia, una opción para cada persona y un horario, o marca la opción de experiencia personalizada.',
                 confirmButtonColor: '#17354f'
             });
             return;
@@ -1753,6 +1849,7 @@ async function processReservationPayment() {
         const formData = new FormData(form);
         formData.append('accion', 'agendar_actividad');
         formData.append('csrf_token', CSRF_TOKEN);
+        formData.append('solicitud_personalizada', esPersonalizada ? '1' : '0');
 
         try {
             const response = await fetch('interfaz_usu.php', {
@@ -1779,8 +1876,21 @@ async function processReservationPayment() {
             document.getElementById('listaHorasActividad').setAttribute('aria-disabled', 'true');
             document.getElementById('listaHorasActividad').innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>';
             document.getElementById('seleccionExperiencia').textContent = 'Elige una experiencia en una de las tarjetas.';
+            const togglePersonalizada = document.getElementById('experienciaPersonalizadaToggle');
+            const categoriaPersonalizada = document.getElementById('experienciaPersonalizadaCategoria');
+            const inputPersonalizado = document.getElementById('experienciaPersonalizadaNombre');
+            if (togglePersonalizada) togglePersonalizada.checked = false;
+            if (categoriaPersonalizada) {
+                categoriaPersonalizada.value = '';
+                categoriaPersonalizada.classList.add('hidden');
+            }
+            if (inputPersonalizado) {
+                inputPersonalizado.value = '';
+                inputPersonalizado.classList.add('hidden');
+            }
             window.opcionesExperienciaSeleccionada = [];
             window.preciosExperienciaSeleccionada = [];
+            window.numerosOpcionesExperienciaSeleccionada = [];
             window.horariosExperienciaSeleccionada = {};
             document.querySelectorAll('.experience-select-button').forEach(boton => boton.classList.remove('ring-2', 'ring-white'));
             await Swal.fire({
@@ -1848,6 +1958,11 @@ async function processReservationPayment() {
         }
     }
 
+    function numeroOpcionExperienciaSeleccionada(opcion) {
+        const indice = window.opcionesExperienciaSeleccionada.indexOf(opcion);
+        return indice < 0 ? 0 : Number(window.numerosOpcionesExperienciaSeleccionada?.[indice] || indice + 1);
+    }
+
     function actualizarHorariosExperiencia() {
         const fecha = document.getElementById('fechaActividad');
         const listaHoras = document.getElementById('listaHorasActividad');
@@ -1860,7 +1975,7 @@ async function processReservationPayment() {
             return;
         }
         const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
-        const indicesOpciones = [...new Set(selecciones.map(opcion => window.opcionesExperienciaSeleccionada.indexOf(opcion) + 1))];
+        const indicesOpciones = [...new Set(selecciones.map(numeroOpcionExperienciaSeleccionada))];
         const rangos = indicesOpciones.map(indice => window.horariosExperienciaSeleccionada?.[String(indice)]?.[fecha.value]);
         let franjas = [];
         if (indicesOpciones.length > 0 && indicesOpciones.every(indice => indice > 0)
@@ -1961,7 +2076,7 @@ async function processReservationPayment() {
             return;
         }
 
-        const indicesOpciones = [...new Set(selecciones.map(opcion => window.opcionesExperienciaSeleccionada.indexOf(opcion) + 1))];
+        const indicesOpciones = [...new Set(selecciones.map(numeroOpcionExperienciaSeleccionada))];
         if (indicesOpciones.some(indice => indice < 1)) {
             selectorFecha.disabled = true;
             actualizarHorariosExperiencia();
@@ -2011,6 +2126,13 @@ async function processReservationPayment() {
         const cantidad = Number(document.getElementById('cantidadPersonasActividad').value);
         const opciones = window.opcionesExperienciaSeleccionada || [];
         const contenedor = document.getElementById('opcionesPorPersona');
+        const togglePersonalizada = document.getElementById('experienciaPersonalizadaToggle');
+        const esPersonalizada = togglePersonalizada && togglePersonalizada.checked;
+        if (esPersonalizada) {
+            contenedor.replaceChildren();
+            document.getElementById('participantesActividad').value = JSON.stringify([]);
+            return;
+        }
         if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20 || opciones.length === 0) {
             contenedor.replaceChildren();
             document.getElementById('participantesActividad').value = '';
@@ -2060,6 +2182,7 @@ async function processReservationPayment() {
         seleccion.textContent = boton.dataset.experienceName;
         window.opcionesExperienciaSeleccionada = JSON.parse(boton.dataset.experienceOptions || '[]');
         window.preciosExperienciaSeleccionada = JSON.parse(boton.dataset.experiencePrices || '[]');
+        window.numerosOpcionesExperienciaSeleccionada = JSON.parse(boton.dataset.experienceOptionIndices || '[]');
         window.horariosExperienciaSeleccionada = JSON.parse(boton.dataset.experienceSchedule || '{}');
         window.reservasEstanciaExperiencia = JSON.parse(boton.dataset.reservationStays || '[]');
         document.querySelectorAll('.experience-select-button').forEach(elemento => elemento.classList.remove('ring-2', 'ring-white'));
@@ -2206,6 +2329,39 @@ async function processReservationPayment() {
             $('activityForm').addEventListener('submit', submitActivityForm);
             $('fechaActividad').addEventListener('change', actualizarHorariosExperiencia);
             $('cantidadPersonasActividad').addEventListener('input', renderizarOpcionesPorPersona);
+            const togglePersonalizada = document.getElementById('experienciaPersonalizadaToggle');
+            const categoriaPersonalizada = document.getElementById('experienciaPersonalizadaCategoria');
+            const campoPersonalizado = document.getElementById('experienciaPersonalizadaNombre');
+            if (togglePersonalizada) {
+                togglePersonalizada.addEventListener('change', () => {
+                    const esPersonalizada = togglePersonalizada.checked;
+                    if (categoriaPersonalizada) {
+                        categoriaPersonalizada.classList.toggle('hidden', !esPersonalizada);
+                    }
+                    if (campoPersonalizado) {
+                        campoPersonalizado.classList.toggle('hidden', !esPersonalizada);
+                    }
+                    if (esPersonalizada) {
+                        if (categoriaPersonalizada) categoriaPersonalizada.focus();
+                        document.getElementById('experienciaIdActividad').value = '';
+                        document.getElementById('participantesActividad').value = JSON.stringify([]);
+                        document.getElementById('fechaActividad').value = '';
+                        document.getElementById('horaActividad').value = '';
+                        document.getElementById('listaHorasActividad').innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">La experiencia personalizada se revisará con el equipo y no requiere fecha ni horario.</p>';
+                        document.getElementById('listaHorasActividad').setAttribute('aria-disabled', 'true');
+                        document.getElementById('resumenPrecioExperiencia').textContent = 'Puedes dejar fecha, hora y nombre de experiencia vacíos si prefieres.';
+                        document.querySelectorAll('.experience-select-button').forEach(boton => boton.classList.remove('ring-2', 'ring-white'));
+                        document.getElementById('seleccionExperiencia').textContent = 'Experiencia personalizada seleccionada.';
+                        document.getElementById('cantidadPersonasActividad').disabled = false;
+                    } else {
+                        document.getElementById('participantesActividad').value = '';
+                        document.getElementById('listaHorasActividad').innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>';
+                        document.getElementById('resumenPrecioExperiencia').textContent = 'Elige las opciones por persona para consultar el precio.';
+                        document.getElementById('seleccionExperiencia').textContent = 'Elige una experiencia en una de las tarjetas.';
+                    }
+                    renderizarOpcionesPorPersona();
+                });
+            }
             document.querySelectorAll('.experience-select-button:not(:disabled)').forEach(boton => {
                 boton.addEventListener('click', () => seleccionarExperiencia(boton));
             });

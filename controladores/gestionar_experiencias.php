@@ -245,6 +245,8 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.gestionar')) {
 }
 
 if ($accion === 'guardar') {
+    $zonaHorariaHotel = new DateTimeZone('America/Bogota');
+    $fechaHoy = (new DateTimeImmutable('now', $zonaHorariaHotel))->format('Y-m-d');
     $idDato = $_POST['id'] ?? '';
     if (!is_string($idDato)) {
         responder_experiencias(422, 'Experiencia no válida');
@@ -263,19 +265,14 @@ if ($accion === 'guardar') {
     $nombre = trim($_POST['nombre']);
     $descripcion = trim($_POST['descripcion']);
     $opciones = [];
-    foreach ([1, 2, 3] as $indice) {
-        $valor = $_POST['opcion_' . $indice] ?? null;
-        if (!is_string($valor)) {
-            responder_experiencias(422, 'Completa las tres opciones de la experiencia');
-        }
-        $opciones[] = trim($valor);
-    }
     $precios = [];
     foreach ([1, 2, 3] as $indice) {
+        $opcion = $_POST['opcion_' . $indice] ?? '';
         $precio = $_POST['precio_opcion_' . $indice] ?? '';
-        if (!is_string($precio)) {
-            responder_experiencias(422, 'Revisa los precios de las opciones');
+        if (!is_string($opcion) || !is_string($precio)) {
+            responder_experiencias(422, 'Revisa las opciones y sus precios');
         }
+        $opciones[] = trim($opcion);
         $precio = trim($precio);
         if ($precio !== '' && (!preg_match('/^\d{1,10}$/', $precio) || (float) $precio > 9999999999)) {
             responder_experiencias(422, 'Cada precio debe ser un monto entero válido en pesos colombianos');
@@ -300,23 +297,34 @@ if ($accion === 'guardar') {
         $stmtHorarios->close();
     }
 
-    if ($categoria === '' || mb_strlen($categoria) > 50) {
-        responder_experiencias(422, 'La categoría es obligatoria y debe tener máximo 50 caracteres');
+    if ($opciones[0] === '') {
+        responder_experiencias(422, 'La opción es obligatoria');
     }
-    if ($nombre === '' || mb_strlen($nombre) > 150) {
-        responder_experiencias(422, 'El nombre es obligatorio y debe tener máximo 150 caracteres');
+    if ($categoria !== '' && mb_strlen($categoria) > 50) {
+        responder_experiencias(422, 'La categoría debe tener máximo 50 caracteres');
     }
-    if ($descripcion === '') {
-        responder_experiencias(422, 'La descripción es obligatoria');
+    if ($nombre !== '' && mb_strlen($nombre) > 150) {
+        responder_experiencias(422, 'El nombre debe tener máximo 150 caracteres');
     }
-
+    if ($descripcion !== '' && mb_strlen($descripcion) > 500) {
+        responder_experiencias(422, 'La descripción admite máximo 500 caracteres');
+    }
+    $opcionesDefinidas = array_filter($opciones, static fn(string $opcion): bool => $opcion !== '');
     foreach ($opciones as $opcion) {
-        if ($opcion === '' || mb_strlen($opcion) > 100) {
-            responder_experiencias(422, 'Completa las tres opciones; cada una admite máximo 100 caracteres');
+        if ($opcion === '') {
+            continue;
+        }
+        if (mb_strlen($opcion) > 100) {
+            responder_experiencias(422, 'Cada opción admite máximo 100 caracteres');
         }
     }
-    if (count(array_unique(array_map(static fn(string $opcion): string => mb_strtolower($opcion, 'UTF-8'), $opciones))) !== 3) {
-        responder_experiencias(422, 'Las tres opciones deben ser diferentes');
+    if (count(array_unique(array_map(static fn(string $opcion): string => mb_strtolower($opcion, 'UTF-8'), $opcionesDefinidas))) !== count($opcionesDefinidas)) {
+        responder_experiencias(422, 'Las opciones deben ser diferentes');
+    }
+    foreach ($precios as $indice => $precio) {
+        if ($opciones[$indice] === '') {
+            $precios[$indice] = null;
+        }
     }
 
     if (!is_array($horarios) || !isset($horarios['opciones']) || !is_array($horarios['opciones'])) {
@@ -324,9 +332,16 @@ if ($accion === 'guardar') {
     }
     $horariosValidados = [];
     foreach ([1, 2, 3] as $numeroOpcion) {
+        if ($opciones[$numeroOpcion - 1] === '') {
+            $horariosValidados[(string) $numeroOpcion] = [];
+            continue;
+        }
         $fechasOpcion = $horarios['opciones'][(string) $numeroOpcion] ?? $horarios['opciones'][$numeroOpcion] ?? null;
-        if (!is_array($fechasOpcion) || count($fechasOpcion) === 0) {
-            responder_experiencias(422, 'Configura al menos una fecha y un horario para cada opción');
+        if ($fechasOpcion === null) {
+            $fechasOpcion = [];
+        }
+        if (!is_array($fechasOpcion)) {
+            responder_experiencias(422, 'Revisa las fechas y horarios de la experiencia');
         }
         if (count($fechasOpcion) > 100) {
             responder_experiencias(422, 'Cada opción admite hasta 100 fechas programadas');
@@ -334,10 +349,8 @@ if ($accion === 'guardar') {
         $horariosValidados[(string) $numeroOpcion] = [];
         foreach ($fechasOpcion as $fecha => $franjas) {
             $fecha = (string) $fecha;
-            $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
-            $fechaPasadaNueva = $fecha < date('Y-m-d')
-                && !isset($horariosExistentes[(string) $numeroOpcion][$fecha]);
-            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fechaPasadaNueva) {
+            $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $zonaHorariaHotel);
+            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < $fechaHoy) {
                 responder_experiencias(422, 'Selecciona fechas válidas, desde hoy en adelante');
             }
             $normalizados = normalizar_horarios_experiencia([(string) $numeroOpcion => [$fecha => $franjas]]);
@@ -431,7 +444,9 @@ if ($accion === 'guardar') {
                 $horariosJson,
                 $id
             );
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new RuntimeException('MySQL rechazó la actualización de la experiencia: ' . $stmt->error);
+            }
         } else {
             $stmt = $conexion->prepare(
                 'INSERT INTO experiencias (categoria, nombre, descripcion, imagen, opcion_1, opcion_2, opcion_3,
@@ -452,7 +467,9 @@ if ($accion === 'guardar') {
                 $precioOpcionTres,
                 $horariosJson
             );
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                throw new RuntimeException('MySQL rechazó la inserción de la experiencia: ' . $stmt->error);
+            }
             $id = $stmt->insert_id;
         }
 
