@@ -18,9 +18,6 @@
         <button onclick="navegar('habitaciones', this)" aria-label="Habitaciones" title="Habitaciones" class="nav-item active-nav relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">hotel</span><span class="text-sm font-bold">Habitaciones</span>
         </button>
-        <button onclick="navegar('limpieza', this)" aria-label="Limpieza" title="Limpieza" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
-            <span class="material-symbols-outlined">cleaning_services</span><span class="text-sm font-bold">Limpieza</span>
-        </button>
         <button onclick="navegar('huespedes', this)" aria-label="Huéspedes" title="Huéspedes" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">group</span><span class="text-sm font-bold">Huéspedes</span>
         </button>

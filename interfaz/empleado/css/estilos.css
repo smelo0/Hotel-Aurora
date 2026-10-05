@@ -140,26 +140,23 @@ header .border-primary\/30 {
 }
 
 /* ==========================================================================
-   COMPONENTES: ARQUITECTURA UNIFICADA DE TARJETAS (HABITACIÓN & HOUSEKEEPING)
+   COMPONENTES: TARJETAS DE HABITACIÓN
    ========================================================================== */
-.habitacion-card,
-.housekeeping-card {
+.habitacion-card {
   isolation: isolate;
   min-height: 156px;
   background-color: var(--color-bg-light);
   transition: all 0.4s var(--transition-smooth);
 }
 
-.habitacion-card:hover,
-.housekeeping-card:hover {
+.habitacion-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 40px -10px rgba(var(--color-primary-rgb), 0.18);
 }
 
 /* Modificadores Dinámicos de Estado (Consolidados) */
 .card--mantenimiento,
-.habitacion-card--mantenimiento,
-.housekeeping-card--mantenimiento {
+.habitacion-card--mantenimiento {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.09), rgba(251, 253, 253, 0.96) 50%, var(--color-bg-light));
   border-color: rgba(248, 113, 113, 0.28);
   border-top-color: var(--state-mantenimiento);
@@ -167,8 +164,7 @@ header .border-primary\/30 {
 }
 
 .card--disponible,
-.habitacion-card--disponible,
-.housekeeping-card--disponible {
+.habitacion-card--disponible {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(251, 253, 253, 0.96) 50%, var(--color-bg-light));
   border-color: rgba(34, 197, 94, 0.24);
   border-top-color: var(--state-disponible);
@@ -184,8 +180,7 @@ header .border-primary\/30 {
 }
 
 .card--ocupada,
-.habitacion-card--ocupada,
-.housekeeping-card--ocupada {
+.habitacion-card--ocupada {
   background: linear-gradient(135deg, rgba(249, 115, 22, 0.09), rgba(251, 253, 253, 0.96) 50%, var(--color-bg-light));
   border-color: rgba(251, 146, 60, 0.26);
   border-top-color: var(--state-ocupada);
@@ -193,8 +188,7 @@ header .border-primary\/30 {
 }
 
 .card--sucia,
-.habitacion-card--sucia,
-.housekeeping-card--sucia {
+.habitacion-card--sucia {
   background: linear-gradient(135deg, rgba(87, 83, 78, 0.1), rgba(251, 253, 253, 0.96) 50%, var(--color-bg-light));
   border-color: rgba(120, 113, 108, 0.26);
   border-top-color: var(--state-sucia);
@@ -218,29 +212,6 @@ header .border-primary\/30 {
 
 aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
 .aside-oculto { transform: translateX(100%); }
-
-.maintenance-popover {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  top: calc(100% - 10px);
-  z-index: 20;
-  padding: 14px 16px;
-  background: #ffffff;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  box-shadow: 0 24px 45px -22px rgba(127, 29, 29, 0.35);
-  opacity: 0;
-  transform: translateY(-6px) scale(0.98);
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
-}
-
-.housekeeping-card.motivo-visible .maintenance-popover {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
 
 @media (max-width: 900px) {
   .empleado-sidebar {

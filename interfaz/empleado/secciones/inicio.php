@@ -9,13 +9,13 @@
                 <h3 id="dash-ocupadas" class="text-4xl font-black text-heading tracking-tighter">0</h3>
             </div>
         </div>
-        <div onclick="redirigirDesdeDash('limpieza')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">
+        <div onclick="redirigirDesdeDash('habitaciones')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">
             <div class="icon-box w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-primary">
-                <span class="material-symbols-outlined">mop</span>
+                <span class="material-symbols-outlined">hotel</span>
             </div>
             <div>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Por Limpiar</p>
-                <h3 id="dash-limpieza" class="text-4xl font-black text-heading tracking-tighter">0</h3>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hab. Disponibles</p>
+                <h3 id="dash-disponibles" class="text-4xl font-black text-heading tracking-tighter">0</h3>
             </div>
         </div>
         <div onclick="redirigirDesdeDash('huespedes')" class="metric-card bg-[#fbfdfd] p-5 rounded-xl flex flex-col justify-between min-h-36 cursor-pointer shadow-md">

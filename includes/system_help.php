@@ -15,7 +15,7 @@ $ayudaSistemaContenido = [
         'eyebrow' => 'Ayuda operativa',
         'title' => '¿Qué necesitas consultar?',
         'questions' => [
-            ['¿Cómo cambio de sección?', 'Usa el menú lateral para entrar al tablero, habitaciones, limpieza o huéspedes. La sección activa queda marcada en la navegación.'],
+            ['¿Cómo cambio de sección?', 'Usa el menú lateral para entrar al tablero, habitaciones o huéspedes. La sección activa queda marcada en la navegación.'],
             ['¿Cómo actualizo el estado de una habitación?', 'Entra a Habitaciones, selecciona la habitación y usa la acción de cambio de estado. Confirma el nuevo estado para actualizar la operación.'],
             ['¿Cómo gestiono las tareas pendientes?', 'Abre la cola de tareas desde el acceso lateral. Desde allí puedes revisar, tomar y completar las tareas asignadas.'],
             ['¿Qué hago si encuentro una novedad?', 'Registra la novedad en la sección correspondiente y deja una observación clara para que el siguiente turno pueda darle seguimiento.'],

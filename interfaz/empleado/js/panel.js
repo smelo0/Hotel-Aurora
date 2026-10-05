@@ -22,11 +22,11 @@ async function actualizarInterfaz(habitacionesLocales = null) {
         habitacionesEmpleadoState = DATA_HOTEL;
 
         const ocupadas = DATA_HOTEL.filter(h => h.estado === 'Ocupada').length;
-        const sucias = DATA_HOTEL.filter(h => h.estado === 'Sucia').length;
+        const disponibles = DATA_HOTEL.filter(h => h.estado === 'Disponible' || h.estado === 'Limpio').length;
         const huespedes = ocupadas; 
 
         if (document.getElementById('dash-ocupadas')) document.getElementById('dash-ocupadas').innerText = ocupadas;
-        if (document.getElementById('dash-limpieza')) document.getElementById('dash-limpieza').innerText = sucias;
+        if (document.getElementById('dash-disponibles')) document.getElementById('dash-disponibles').innerText = disponibles;
         if (document.getElementById('dash-huespedes')) document.getElementById('dash-huespedes').innerText = huespedes;
 
         // 1. Grid Habitaciones
@@ -72,48 +72,7 @@ async function actualizarInterfaz(habitacionesLocales = null) {
             });
         }
 
-        // 2. Grid Housekeeping
-        const gridHousekeeping = document.getElementById('gridHousekeeping');
-        if (gridHousekeeping) {
-            gridHousekeeping.innerHTML = '';
-            DATA_HOTEL.forEach(h => {
-                const estadoUI = clasesEstadoHousekeeping(h.estado);
-                const motivoMantenimiento = obtenerMotivoMantenimiento(h.observacion);
-                const textoMotivo = motivoMantenimiento || 'Motivo no registrado.';
-                const eventoMantenimiento = h.estado === 'Mantenimiento' ? `onclick="toggleMotivoMantenimiento(${h.id})"` : '';
-                const cursorMantenimiento = h.estado === 'Mantenimiento' ? 'cursor-pointer' : '';
-                const popoverMantenimiento = h.estado === 'Mantenimiento' ? `
-                    <div class="maintenance-popover" role="status" aria-live="polite">
-                        <p class="text-[9px] font-black uppercase tracking-[0.18em] text-red-400 mb-2">Motivo de mantenimiento</p>
-                        <p class="text-xs font-bold text-slate-600 leading-relaxed">${escaparHTML(textoMotivo)}</p>
-                    </div>
-                ` : '';
-
-                gridHousekeeping.insertAdjacentHTML('beforeend', `
-                    <article id="housekeeping-${h.id}" ${eventoMantenimiento} class="metric-card habitacion-card housekeeping-card ${estadoUI.tarjeta} ${cursorMantenimiento} p-6 rounded-xl shadow-md border relative overflow-visible bg-white">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mb-2">Habitación</p>
-                                <h4 class="text-3xl font-black text-heading leading-none">${escaparHTML(h.numero)}</h4>
-                            </div>
-                            <div class="housekeeping-icon">
-                                <span class="material-symbols-outlined text-[22px]">${estadoUI.icono}</span>
-                            </div>
-                        </div>
-                        <div class="mt-8 flex items-end justify-between gap-4">
-                            <div>
-                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">${escaparHTML(h.tipo)}</p>
-                                <span class="inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${estadoUI.etiqueta}">${estadoUI.titulo}</span>
-                            </div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Turno</p>
-                        </div>
-                        ${popoverMantenimiento}
-                    </article>
-                `);
-            });
-        }
-
-        // 3. Grid Huéspedes
+        // 2. Grid Huéspedes
         const gridHue = document.getElementById('gridHuespedes');
         if (gridHue) {
             gridHue.innerHTML = '';
@@ -220,32 +179,6 @@ function escaparHTML(valor) {
 function redirigirDesdeDash(sec) {
     const boton = document.querySelector(`.nav-item[onclick*="${sec}"]`);
     if (boton) navegar(sec, boton);
-}
-
-function obtenerMotivoMantenimiento(observacion) {
-    return String(observacion || '').replace(/^Prioridad:\s*[^\n\r]*(\r?\n)?/i, '').trim();
-}
-
-function clasesEstadoHousekeeping(estado) {
-    if (estado === 'Mantenimiento') {
-        return { tarjeta: 'housekeeping-card--mantenimiento', etiqueta: 'bg-red-50 text-red-600 border border-red-100', icono: 'build', titulo: 'Mantenimiento' };
-    }
-    if (estado === 'Sucia') {
-        return { tarjeta: 'housekeeping-card--sucia', etiqueta: 'bg-amber-50 text-amber-700 border border-amber-100', icono: 'cleaning_services', titulo: 'Sucia' };
-    }
-    if (estado === 'Ocupada') {
-        return { tarjeta: 'housekeeping-card--ocupada', etiqueta: 'bg-red-50 text-red-600 border border-red-100', icono: 'bed', titulo: 'Ocupada' };
-    }
-    return { tarjeta: 'housekeeping-card--disponible', etiqueta: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icono: 'check_circle', titulo: estado === 'Limpio' ? 'Limpio' : 'Disponible' };
-}
-
-function toggleMotivoMantenimiento(idHabitacion) {
-    const tarjeta = document.getElementById(`housekeeping-${idHabitacion}`);
-    if (!tarjeta) return;
-    document.querySelectorAll('.housekeeping-card.motivo-visible').forEach(otra => {
-        if (otra !== tarjeta) otra.classList.remove('motivo-visible');
-    });
-    tarjeta.classList.toggle('motivo-visible');
 }
 
 function obtenerUIEstadoHabitacion(estado) {

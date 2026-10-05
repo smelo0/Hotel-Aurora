@@ -32,7 +32,6 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
             
             <?php include __DIR__ . '/secciones/inicio.php'; ?>
             <?php include __DIR__ . '/secciones/habitaciones.php'; ?>
-            <?php include __DIR__ . '/secciones/limpieza.php'; ?>
             <?php include __DIR__ . '/secciones/huespedes.php'; ?>
 
         </main>
@@ -54,7 +53,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
         )); ?>;
     </script>
 
-    <script src="js/panel.js?v=2"></script>
+    <script src="js/panel.js?v=3"></script>
     <?php
     $ayudaSistemaRol = 'empleado';
     require_once __DIR__ . '/../../includes/system_help.php';
