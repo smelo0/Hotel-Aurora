@@ -91,36 +91,6 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
         </form>
     </div>
 </div>
-<style>
-    .experience-schedule-list {
-        max-height: 15rem;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-gutter: stable;
-        scrollbar-width: auto;
-        scrollbar-color: #64748b #e2e8f0;
-    }
-
-    .experience-schedule-list::-webkit-scrollbar {
-        width: 14px;
-    }
-
-    .experience-schedule-list::-webkit-scrollbar-track {
-        background: #e2e8f0;
-        border-radius: 999px;
-    }
-
-    .experience-schedule-list::-webkit-scrollbar-thumb {
-        background: #64748b;
-        border: 3px solid #e2e8f0;
-        border-radius: 999px;
-    }
-
-    .experience-schedule-list:focus-visible {
-        outline: 2px solid #2c5e5e;
-        outline-offset: 2px;
-    }
-</style>
 <script>
 const ENDPOINT_EXPERIENCIAS = '../../controladores/gestionar_experiencias.php';
 let datosExperiencias = { experiencias: [], puede_gestionar: false };
