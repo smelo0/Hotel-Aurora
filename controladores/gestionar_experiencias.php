@@ -350,7 +350,10 @@ if ($accion === 'guardar') {
         foreach ($fechasOpcion as $fecha => $franjas) {
             $fecha = (string) $fecha;
             $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $zonaHorariaHotel);
-            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < $fechaHoy) {
+            $horariosExistentesNormalizados = normalizar_horarios_experiencia($horariosExistentes);
+            $fechaPasadaNueva = $fecha < $fechaHoy
+                && !isset($horariosExistentesNormalizados[(string) $numeroOpcion][$fecha]);
+            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fechaPasadaNueva) {
                 responder_experiencias(422, 'Selecciona fechas válidas, desde hoy en adelante');
             }
             $normalizados = normalizar_horarios_experiencia([(string) $numeroOpcion => [$fecha => $franjas]]);
