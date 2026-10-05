@@ -12,11 +12,11 @@ $dotenv->load();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Huespedes | Hotel Aurora</title>
+    <title>Acceso de huéspedes | Hotel Aurora</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link rel="stylesheet" href="../../assets/css/index_usu.css">
+    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=2">
 </head>
 <body>
     <?php
@@ -26,10 +26,10 @@ $dotenv->load();
     $recaptchaSiteKey = trim((string) (getenv('RECAPTCHA_SITE_KEY') ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')));
 
     $mensajesError = [
-        'rol' => 'Esta cuenta no pertenece al panel de huespedes.',
-        'vacio' => 'Por favor completa todos los campos.',
-        'email' => 'Ingresa un correo valido.',
-        'credenciales' => 'Correo o contrasena incorrectos.',
+        'rol' => 'Esta cuenta no pertenece al panel de huéspedes.',
+        'vacio' => 'Por favor, completa todos los campos.',
+        'email' => 'Ingresa un correo válido.',
+        'credenciales' => 'Correo o contraseña incorrectos.',
         'captcha' => 'Debes marcar la casilla: No soy un robot.',
         'consentimiento' => 'Debes aceptar el tratamiento de tus datos personales para continuar.',
         'conexion_fallida' => 'No se pudo conectar con la base de datos.',
@@ -57,16 +57,16 @@ $dotenv->load();
 
             <form method="POST" action="../../controladores/validar_usuario.php">
                 <label for="correo_login">Correo</label>
-                <input id="correo_login" type="email" name="correo" required placeholder="ejemplo@correo.com">
+                <input id="correo_login" type="email" name="correo" autocomplete="email" required placeholder="nombre@correo.com">
 
                 <label for="password_login">Contrasena</label>
-                <input id="password_login" type="password" name="password" required placeholder="********">
+                <input id="password_login" type="password" name="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
                 
                 <!-- Configuración e integración del botón -->
             
                 <!-- Configuración del cliente -->
                 <div id="g_id_onload"
-                     data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
+                     data-client_id="<?php echo htmlspecialchars((string) ($_ENV['GOOGLE_CLIENT_ID'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                      data-login_uri="http://localhost/Hotel-Aurora/controladores/callBack.php"
                      data-auto_prompt="false">
                 </div>
@@ -78,7 +78,7 @@ $dotenv->load();
                      data-text="sign_in_with"
                      data-shape="rectangular"
                      data-logo_alignment="left"
-                     data-width="350">>
+                     data-width="350">
                 </div>
 
                 <?php if ($recaptchaSiteKey !== ''): ?>
@@ -90,9 +90,9 @@ $dotenv->load();
 
                 <!-- Configuración e integración del botón -->   
 
-                <input type="submit" value="Iniciar sesion">
+                <input type="submit" value="Iniciar sesión">
 
-                <a class="link-switch" href="recuperar_contrasena.php" class="link-forgot">¿Has olvidado tu contraseña?</a>
+                <a class="link-switch" href="recuperar_contrasena.php">¿Has olvidado tu contraseña?</a>
 
                 <a href="#" onclick="cambiarPanel('registro'); return false;" class="link-switch">No tienes cuenta? Registrate aqui.</a>
             </form>
@@ -111,20 +111,20 @@ $dotenv->load();
 
             <form method="POST" action="../../controladores/registrar_usuario.php">
                 <label for="nom_usu">Nombre completo</label>
-                <input id="nom_usu" type="text" name="nom_usu" required placeholder="Tu nombre">
+                <input id="nom_usu" type="text" name="nom_usu" autocomplete="name" required placeholder="Tu nombre">
 
                 <label for="corr_usu">Correo</label>
-                <input id="corr_usu" type="email" name="corr_usu" required placeholder="ejemplo@correo.com">
+                <input id="corr_usu" type="email" name="corr_usu" autocomplete="email" required placeholder="nombre@correo.com">
 
                 <label for="psw_usu">Contrasena</label>
-                <input id="psw_usu" type="password" name="psw_usu" required placeholder="********">
+                <input id="psw_usu" type="password" name="psw_usu" autocomplete="new-password" required placeholder="Crea una contraseña">
 
     
               <!-- Configuración e integración del botón -->
             
                 <!-- Configuración del cliente -->
                 <div id="g_id_onload"
-                     data-client_id= <?= $_ENV['GOOGLE_CLIENT_ID'] ?>
+                     data-client_id="<?php echo htmlspecialchars((string) ($_ENV['GOOGLE_CLIENT_ID'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                      data-login_uri="http://localhost/Hotel-Aurora/controladores/callBackRegistro.php"
                      data-auto_prompt="false">
                 </div>
@@ -136,7 +136,7 @@ $dotenv->load();
                      data-text="sign_in_with"
                      data-shape="rectangular"
                      data-logo_alignment="left"
-                     data-width="350">>
+                     data-width="350">
                 </div>
 
 
@@ -146,10 +146,10 @@ $dotenv->load();
                     </div>
                 <?php endif; ?>
 
-                <label class="consent-label"style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
+                <label class="consent-label" style="display:flex; align-items:flex-start; gap:3px; margin: 5px 0 15px 0; text-transform:none; font-size:12px; line-height:1.5; letter-spacing:0px;">
                     <input type="checkbox" name="data_consent" value="1" required style=" width:18px; height:18px; margin-top:2px; accent-color:#2a7a5c;">
                     Acepto el tratamiento de mis datos personales.  
-                   <a href="../legal/politica_privacidad.php" target="_blank" rel="noopener">Consulta nuestra Política de Tratamiento de Datos.</a>
+                   <a href="#politica-privacidad" data-open-privacy-policy>Consulta nuestra Política de Tratamiento de Datos.</a>
                 </label>
                 
 
@@ -186,22 +186,12 @@ $dotenv->load();
         }
     </script>
     
+    <?php include __DIR__ . '/../../includes/translate.php'; ?>
     <?php
-    
-    $ayudaSistemaRol = 'usuario';
+    $privacyPolicyCookiesUrl = '../legal/politica_cookies.php';
+    $privacyPolicyUrl = '../legal/politica_privacidad.php';
+    include __DIR__ . '/../../includes/privacy_policy_modal.php';
     ?>
-
-    <div class="login-layouts">
-        <?php include __DIR__ . "../../../includes/translate.php";?>
-        <?php require_once __DIR__ . "../../../includes/system_help.php"?>
-    </div>
-    <style>
-        .login-layouts {
-            position: absolute;
-            right: 100px;
-            bottom: 50px;
-        }
-    </style>
 
     
 </body>

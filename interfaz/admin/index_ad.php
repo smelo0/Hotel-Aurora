@@ -51,7 +51,7 @@ if ($permisos_usuario === []) {
     require_once 'componentes_ad/modal_tarea.php';
     ?>
 
-    <main class="ml-64 flex-1 h-screen overflow-y-auto no-scrollbar">
+    <main id="adminMain" class="ml-64 flex-1 h-screen overflow-y-auto no-scrollbar">
         
         <?php require_once 'componentes_ad/topbar.php'; ?>
 
@@ -125,7 +125,7 @@ if ($permisos_usuario === []) {
         const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
     </script>
 
-    <script src="js_ad/admin.js?v=6"></script>
+    <script src="js_ad/admin.js?v=10"></script>
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
     <script src="../../assets/js/inactividad.js?v=3"></script>

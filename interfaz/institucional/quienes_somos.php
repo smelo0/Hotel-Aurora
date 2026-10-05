@@ -32,6 +32,7 @@ declare(strict_types=1);
     </style>
 </head>
 <body class="min-h-screen">
+    <?php include __DIR__ . '/../../includes/translate.php'; ?>
     <header class="border-b border-white/10">
         <div class="max-w-4xl mx-auto px-4 md:px-6 py-6 flex items-center justify-between gap-4">
             <a href="../../interfaz_usu.php" class="flex items-center gap-3">

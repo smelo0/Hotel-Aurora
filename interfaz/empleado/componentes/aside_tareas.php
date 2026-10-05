@@ -7,23 +7,9 @@
     <!-- Cabecera de la Cola de Tareas -->
     <div id="cabeceraColaTareas" class="flex items-center justify-between mb-3 border-b border-primary/10 pb-1 pt-3 transition-all flex-col gap-0">
         
-        <!-- Activador de Apertura -->
-        <button id="botonColaTareas" 
-                data-action="abrir-cola" 
-                type="button" 
-                class="flex items-center gap-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-lg p-1"
-                title="Abrir cola de tareas">
-            <div class="relative flex items-center">
-                <span class="material-symbols-outlined text-primary text-2xl" aria-hidden="true">list_alt</span>
-                <span id="badgeNotificaciones" 
-                      class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full shadow-sm hidden transition-all"
-                      role="status" 
-                      aria-live="polite">0</span>
-            </div>
-            <h3 id="tituloColaTareas" class="font-black text-xs text-primary tracking-widest uppercase whitespace-nowrap transition-all opacity-0 w-0 overflow-hidden">
-                Cola de Tareas
-            </h3>
-        </button>
+        <h3 id="tituloColaTareas" class="font-black text-xs text-primary tracking-widest uppercase whitespace-nowrap transition-all opacity-0 w-0 overflow-hidden">
+            Cola de Tareas
+        </h3>
 
         <!-- Botón de Cierre -->
         <button id="flechaCerrarColaTareas" 

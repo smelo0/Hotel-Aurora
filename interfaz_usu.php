@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/sesion_seguridad.php';
 
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
+require_once __DIR__ . '/includes/experiencias.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
@@ -134,34 +135,16 @@ function fetchRoomCatalog(mysqli $conexion): array
 
 function fetchExperiencias(mysqli $conexion): array
 {
-    $conexion->query(
-        "CREATE TABLE IF NOT EXISTS experiencias (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            categoria VARCHAR(50) NOT NULL,
-            nombre VARCHAR(150) NOT NULL,
-            descripcion TEXT NOT NULL,
-            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-    );
-
-    $experiencias = [];
-    $resultado = $conexion->query('SELECT id, categoria, nombre, descripcion FROM experiencias ORDER BY id ASC');
-    if ($resultado) {
-        while ($fila = $resultado->fetch_assoc()) {
-            $experiencias[] = [
-                'id' => (int) $fila['id'],
-                'categoria' => (string) $fila['categoria'],
-                'nombre' => (string) $fila['nombre'],
-                'descripcion' => (string) $fila['descripcion'],
-            ];
-        }
-    }
-
-    return $experiencias;
+    asegurar_esquema_experiencias($conexion);
+    return obtener_experiencias($conexion);
 }
 
-function experienciaImagen(string $categoria, int $indice): string
+function experienciaImagen(string $categoria, int $indice, ?string $imagen = null): string
 {
+    if ($imagen !== null && preg_match('#^assets/uploads/experiencias/[a-f0-9]{32}\.(?:jpg|png|webp)$#', $imagen)) {
+        return $imagen;
+    }
+
     $categoria = mb_strtolower($categoria, 'UTF-8');
 
     if (str_contains($categoria, 'gastronom') || str_contains($categoria, 'sabor')) {
@@ -188,42 +171,146 @@ $httpMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') {
     header('Content-Type: application/json; charset=utf-8');
 
-    $actividad = trim((string) ($_POST['actividad'] ?? ''));
-    $fecha = trim((string) ($_POST['fecha'] ?? ''));
-    $hora = trim((string) ($_POST['hora'] ?? ''));
-    $nombre = trim((string) ($_POST['nombre'] ?? ($_SESSION['user_auth']['nombre_usuario'] ?? '')));
-    $correo = trim((string) ($_POST['correo'] ?? ''));
     $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
+    if ($idUsuario < 1 || $rolUsuario !== 6) {
+        jsonResponse(401, ['status' => 'error', 'mensaje' => 'Inicia sesión con una cuenta de huésped para programar una experiencia.']);
+    }
+    exigir_csrf();
+    $experienciaIdRaw = $_POST['experiencia_id'] ?? null;
+    $participantesRaw = $_POST['participantes'] ?? null;
+    $cantidadPersonasRaw = $_POST['cantidad_personas'] ?? null;
+    $fechaRaw = $_POST['fecha'] ?? null;
+    $horaRaw = $_POST['hora'] ?? null;
+    $nombreRaw = $_POST['nombre'] ?? ($_SESSION['user_auth']['nombre_usuario'] ?? '');
+    $correoRaw = $_POST['correo'] ?? '';
+    if (!is_string($experienciaIdRaw) || !is_string($participantesRaw) || !is_string($cantidadPersonasRaw)
+        || !is_string($fechaRaw) || !is_string($horaRaw)
+        || !is_string($nombreRaw) || !is_string($correoRaw)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
+    }
+    $experienciaId = filter_var($experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $cantidadPersonas = filter_var($cantidadPersonasRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
+    $participantes = json_decode($participantesRaw, true);
+    $fecha = trim($fechaRaw);
+    $hora = trim($horaRaw);
+    $nombre = trim($nombreRaw);
+    $correo = trim($correoRaw);
+    $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
 
-    if ($actividad === '' || $fecha === '' || $hora === '' || $nombre === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+    if (!$experienciaId || !$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes) || count($participantes) !== $cantidadPersonas
+        || $fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')
+        || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora) || $nombre === '' || mb_strlen($nombre) > 140
+        || mb_strlen($correo) > 140 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
 
+    $stmtReservaExperiencia = $conexion->prepare(
+        "SELECT cod_res FROM reservas
+         WHERE id_usu_res = ?
+           AND est_res NOT IN ('Cancelada', 'Cancelado')
+           AND DATE(fec_ent_res) <= ?
+           AND DATE(fec_sal_res) > ?
+         ORDER BY fec_ent_res DESC, cod_res DESC
+         LIMIT 1"
+    );
+    $stmtReservaExperiencia->bind_param('iss', $idUsuario, $fecha, $fecha);
+    $stmtReservaExperiencia->execute();
+    $reservaExperiencia = $stmtReservaExperiencia->get_result()->fetch_assoc();
+    $stmtReservaExperiencia->close();
+    if (!$reservaExperiencia) {
+        jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
+    }
+    $idReservaExperiencia = (int) $reservaExperiencia['cod_res'];
+
     try {
-        $conexion->query(
-            "CREATE TABLE IF NOT EXISTS agenda_actividad (
-                id_agenda BIGINT AUTO_INCREMENT PRIMARY KEY,
-                actividad VARCHAR(120) NOT NULL,
-                fecha_agenda DATE NOT NULL,
-                hora_agenda TIME NOT NULL,
-                nombre_contacto VARCHAR(140) NOT NULL,
-                correo_contacto VARCHAR(140) NOT NULL,
-                id_usu_agenda BIGINT NULL,
-                estado_agenda VARCHAR(30) DEFAULT 'Pendiente',
-                creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+        asegurar_esquema_experiencias($conexion);
+        $stmtExperiencia = $conexion->prepare(
+            'SELECT nombre, opcion_1, opcion_2, opcion_3, precio_opcion_1, precio_opcion_2, precio_opcion_3, horarios_json
+             FROM experiencias WHERE id = ?'
         );
+        $stmtExperiencia->bind_param('i', $experienciaId);
+        $stmtExperiencia->execute();
+        $experiencia = $stmtExperiencia->get_result()->fetch_assoc();
+        $stmtExperiencia->close();
+        if (!$experiencia) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La experiencia seleccionada ya no está disponible.']);
+        }
+
+        $opcionesExperiencia = array_map(static fn($valor): string => trim((string) $valor), [
+            $experiencia['opcion_1'],
+            $experiencia['opcion_2'],
+            $experiencia['opcion_3'],
+        ]);
+        $preciosExperiencia = [
+            $experiencia['precio_opcion_1'] === null ? null : (string) $experiencia['precio_opcion_1'],
+            $experiencia['precio_opcion_2'] === null ? null : (string) $experiencia['precio_opcion_2'],
+            $experiencia['precio_opcion_3'] === null ? null : (string) $experiencia['precio_opcion_3'],
+        ];
+        $seleccionesValidadas = [];
+        $indicesOpcionesSeleccionadas = [];
+        $preciosPorPersona = [];
+        $totalExperiencia = 0;
+        $totalConocido = true;
+        foreach ($participantes as $seleccionPersona) {
+            if (!is_string($seleccionPersona) || !in_array($seleccionPersona, $opcionesExperiencia, true)) {
+                jsonResponse(422, ['status' => 'error', 'mensaje' => 'Elige una opción válida para cada persona.']);
+            }
+            $seleccionesValidadas[] = $seleccionPersona;
+            $indiceOpcion = array_search($seleccionPersona, $opcionesExperiencia, true);
+            $indicesOpcionesSeleccionadas[] = (string) ($indiceOpcion + 1);
+            $precioPersona = $preciosExperiencia[$indiceOpcion];
+            $preciosPorPersona[] = $precioPersona;
+            if ($precioPersona === null) {
+                $totalConocido = false;
+            } else {
+                $totalExperiencia += (int) $precioPersona;
+            }
+        }
+        $seleccionesJson = json_encode($seleccionesValidadas, JSON_UNESCAPED_UNICODE);
+        if ($seleccionesJson === false) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'No se pudieron procesar las opciones de cada persona.']);
+        }
+        $preciosJson = json_encode($preciosPorPersona, JSON_UNESCAPED_UNICODE);
+        if ($preciosJson === false) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'No se pudieron procesar los precios de las opciones.']);
+        }
+        $montoExperiencia = $totalConocido ? number_format($totalExperiencia, 2, '.', '') : null;
+        $opcionResumen = count($seleccionesValidadas) . ' personas';
+
+        $horariosDecodificados = json_decode((string) ($experiencia['horarios_json'] ?? ''), true);
+        $horariosExperiencia = is_array($horariosDecodificados) ? normalizar_horarios_experiencia($horariosDecodificados, $opcionesExperiencia) : [];
+        $minutosSeleccionados = ((int) substr($hora, 0, 2) * 60 + (int) substr($hora, 3, 2));
+        $horarioDisponible = true;
+        foreach (array_unique($indicesOpcionesSeleccionadas) as $indiceOpcion) {
+            $rangoHorario = $horariosExperiencia[$indiceOpcion][$fecha] ?? null;
+            $minutosInicio = is_array($rangoHorario) ? ((int) substr($rangoHorario['inicio'], 0, 2) * 60 + (int) substr($rangoHorario['inicio'], 3, 2)) : -1;
+            $minutosFin = is_array($rangoHorario) ? ((int) substr($rangoHorario['fin'], 0, 2) * 60 + (int) substr($rangoHorario['fin'], 3, 2)) : -1;
+            if (!is_array($rangoHorario) || $minutosSeleccionados < $minutosInicio || $minutosSeleccionados > $minutosFin
+                || ($minutosSeleccionados - $minutosInicio) % 30 !== 0) {
+                $horarioDisponible = false;
+                break;
+            }
+        }
+        if (!$horarioDisponible || ($fecha === date('Y-m-d') && $hora <= date('H:i'))) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'El horario no está disponible para ese día. Elige uno de los horarios publicados.']);
+        }
+
+        asegurar_esquema_agenda_experiencias($conexion);
 
         $stmt = $conexion->prepare(
-            "INSERT INTO agenda_actividad (actividad, fecha_agenda, hora_agenda, nombre_contacto, correo_contacto, id_usu_agenda)
-             VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO agenda_actividad (actividad, opcion_actividad, selecciones_personas_json, fecha_agenda, hora_agenda,
+                                           nombre_contacto, correo_contacto, id_usu_agenda, monto_experiencia, precios_personas_json, cod_res_agenda)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param('sssssi', $actividad, $fecha, $hora, $nombre, $correo, $idUsuario);
+        $actividad = (string) $experiencia['nombre'];
+        $stmt->bind_param('sssssssissi', $actividad, $opcionResumen, $seleccionesJson, $fecha, $hora, $nombre, $correo, $idUsuario, $montoExperiencia, $preciosJson, $idReservaExperiencia);
         $stmt->execute();
         $stmt->close();
 
         jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Experiencia programada correctamente.']);
     } catch (Throwable $error) {
+        error_log('Error al registrar solicitud de experiencia: ' . $error->getMessage());
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible guardar la experiencia.']);
     }
 }
@@ -304,9 +391,35 @@ $usuarioSesion = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
 $usuarioId = (int) ($usuarioSesion['id_usuario'] ?? 0);
 $usuarioNombre = (string) ($usuarioSesion['nombre_usuario'] ?? '');
 $usuarioAutenticado = $usuarioId > 0 && ((int) ($usuarioSesion['rol_usuario'] ?? 0) === 6);
+$usuarioTieneReserva = false;
+$reservasEstanciaExperiencia = [];
 
 $historialReservas = [];
+$historialExperiencias = [];
 if ($usuarioAutenticado) {
+    asegurar_esquema_agenda_experiencias($conexion);
+    $historialExperiencias = obtener_historial_experiencias($conexion, $usuarioId);
+
+    $stmtReservasEstancia = $conexion->prepare(
+        "SELECT DATE(fec_ent_res) AS fecha_inicio, DATE(fec_sal_res) AS fecha_fin
+         FROM reservas
+         WHERE id_usu_res = ?
+           AND est_res NOT IN ('Cancelada', 'Cancelado')
+           AND DATE(fec_sal_res) > CURDATE()
+         ORDER BY fec_ent_res ASC"
+    );
+    $stmtReservasEstancia->bind_param('i', $usuarioId);
+    $stmtReservasEstancia->execute();
+    $resultadoReservasEstancia = $stmtReservasEstancia->get_result();
+    while ($reservaEstancia = $resultadoReservasEstancia->fetch_assoc()) {
+        $reservasEstanciaExperiencia[] = [
+            'inicio' => (string) $reservaEstancia['fecha_inicio'],
+            'fin' => (string) $reservaEstancia['fecha_fin'],
+        ];
+    }
+    $stmtReservasEstancia->close();
+    $usuarioTieneReserva = $reservasEstanciaExperiencia !== [];
+
     $sqlHistorial = "SELECT r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
                             h.num_hab, h.tipo_hab
                      FROM reservas r
@@ -340,7 +453,7 @@ if ($usuarioAutenticado) {
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300;400;500;700" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -356,7 +469,7 @@ if ($usuarioAutenticado) {
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=3">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=12">
     <script>const WOMPI_PUBLIC_KEY = <?php echo json_encode(WOMPI_PUBLIC_KEY); ?>; const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>; const RECAPTCHA_SITE_KEY = <?php echo json_encode($recaptchaSiteKey); ?>;</script>
 </head>
 <body>
@@ -368,7 +481,6 @@ if ($usuarioAutenticado) {
                 
                 </span>
                 <div>
-                    
                     <p class="font-display text-2xl leading-none text-white">Hotel Aurora</p>
                 </div>
             </a>
@@ -379,9 +491,8 @@ if ($usuarioAutenticado) {
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
             </div>
 
-            <?php include __DIR__ . "/includes/translate.php";?>
-            
             <div class="flex items-center gap-3">
+                <?php include __DIR__ . "/includes/translate.php";?>
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
                         Hola, <?php echo ($usuarioNombre); ?>
@@ -403,12 +514,12 @@ if ($usuarioAutenticado) {
     </nav>
 
     <header id="inicio" class="hero-shell relative flex min-h-fit items-center px-4 pb-20 pt-36 md:px-6">
-        <div class="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end" >
+        <div class="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
             <div class="reveal">
                 <p class="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-[#ffe3aa]">
                     Reservas premium frente al mar
                 </p>
-               <h1 class="font-display max-w-3xl text-5xl leading-tight text-white md:text-7xl">
+                <h1 class="font-display max-w-3xl text-5xl leading-tight text-white md:text-7xl">
                     Reserva tu próxima estancia con una experiencia visual impecable.
                 </h1>
                 <p class="hero-copy mt-6 max-w-2xl text-lg leading-8 text-white md:text-xl">
@@ -600,11 +711,48 @@ if ($usuarioAutenticado) {
             <div class="grid gap-6 lg:grid-cols-3">
                 <?php foreach ($experiencias as $indice => $experiencia): ?>
                     <article class="room-card">
-                        <img src="<?php echo e(experienciaImagen($experiencia['categoria'], $indice)); ?>" alt="<?php echo e($experiencia['nombre']); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                        <img src="<?php echo e(experienciaImagen($experiencia['categoria'], $indice, $experiencia['imagen'])); ?>" alt="<?php echo e($experiencia['nombre']); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
                         <div class="p-6">
                             <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($experiencia['categoria']); ?></p>
                             <h3 class="card-title mt-3 text-2xl font-black text-white"><?php echo e($experiencia['nombre']); ?></h3>
                             <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
+                            <?php
+                                $fechasConfiguradas = [];
+                                foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
+                                    foreach (array_keys($experiencia['horarios'][(string) ($indiceOpcion + 1)] ?? []) as $fechaProgramada) {
+                                        if (is_string($fechaProgramada) && $fechaProgramada >= date('Y-m-d')) {
+                                            $fechasConfiguradas[$fechaProgramada] = true;
+                                        }
+                                    }
+                                }
+                                $fechasConfiguradas = array_keys($fechasConfiguradas);
+                                sort($fechasConfiguradas, SORT_STRING);
+                                $horariosConfigurados = $fechasConfiguradas !== [];
+                            ?>
+                            <div class="mt-5">
+                                <div class="mb-3 flex flex-wrap gap-2">
+                                    <?php foreach ($experiencia['opciones'] as $indiceOpcion => $opcion): ?>
+                                        <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-white/85">
+                                            <?php echo e($opcion); ?> · <?php echo $experiencia['precios'][$indiceOpcion] === null ? 'Sin precio' : '$' . number_format((float) $experiencia['precios'][$indiceOpcion], 0, ',', '.') . ' COP'; ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php if ($horariosConfigurados): ?>
+                                    <p class="mb-3 text-xs text-white/70">Fechas disponibles: <?php echo e(implode(', ', array_map(static fn(string $fechaProgramada): string => date('d/m/Y', strtotime($fechaProgramada)), $fechasConfiguradas))); ?></p>
+                                <?php endif; ?>
+                                <button
+                                    type="button"
+                                    class="experience-select-button w-full rounded-xl border border-white/30 bg-white/15 px-4 py-3 text-left text-sm font-bold text-white transition hover:border-white/60 hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                    data-experience-id="<?php echo (int) $experiencia['id']; ?>"
+                                    data-experience-name="<?php echo e($experiencia['nombre']); ?>"
+                                    data-experience-options="<?php echo e(json_encode($experiencia['opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                    data-experience-prices="<?php echo e(json_encode($experiencia['precios'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                    data-experience-schedule="<?php echo e(json_encode($experiencia['horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
+                                    data-reservation-stays="<?php echo e(json_encode($reservasEstanciaExperiencia, JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                    <?php echo $experiencia['opciones'] === [] || !$horariosConfigurados || !$usuarioAutenticado || !$usuarioTieneReserva ? 'disabled' : ''; ?>>
+                                    <?php echo !$usuarioAutenticado ? 'Inicia sesión para programar' : (!$usuarioTieneReserva ? 'Reserva primero para programar' : 'Elegir esta experiencia'); ?>
+                                </button>
+                            </div>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -618,35 +766,52 @@ if ($usuarioAutenticado) {
                     <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Agenda tu estancia</p>
                     <h2 class="section-title font-display mt-3 text-4xl text-white">Solicita una experiencia antes de llegar.</h2>
                     <p class="muted-light mt-4 max-w-2xl text-base leading-8">
-                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación.
+                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación. La fecha debe estar dentro de tu estancia reservada.
                     </p>
                 </div>
 
+                <?php if (!$usuarioAutenticado): ?>
+                    <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
+                        <h3 class="text-xl font-black text-white">Inicia sesión para programar</h3>
+                        <p class="muted-light mt-2 text-sm leading-6">Para solicitar una experiencia, primero inicia sesión con tu cuenta de huésped y realiza una reserva.</p>
+                        <a href="interfaz/loggins/index_usu.php" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Iniciar sesión</a>
+                    </div>
+                <?php elseif (!$usuarioTieneReserva): ?>
+                    <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
+                        <h3 class="text-xl font-black text-white">Haz tu reserva primero</h3>
+                        <p class="muted-light mt-2 text-sm leading-6">Cuando tengas una reserva activa, podrás elegir la experiencia, las opciones por persona y el horario.</p>
+                        <a href="#habitaciones" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Ver habitaciones</a>
+                    </div>
+                <?php else: ?>
                 <form id="activityForm" class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                     <div class="grid gap-4 md:grid-cols-2">
                         <div class="md:col-span-2">
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="actividad">Experiencia</label>
-                            <select id="actividad" name="actividad" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
-                                <?php if ($experiencias === []): ?>
-                                    <option value="Spa privado">Spa privado</option>
-                                    <option value="Cena de autor">Cena de autor</option>
-                                    <option value="Paseo náutico">Paseo náutico</option>
-                                <?php else: ?>
-                                    <?php foreach ($experiencias as $experiencia): ?>
-                                        <option value="<?php echo e(mb_substr($experiencia['nombre'], 0, 120)); ?>"><?php echo e($experiencia['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </select>
+                            <p class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Selección</p>
+                            <div id="seleccionExperiencia" class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/70">Elige una experiencia en una de las tarjetas.</div>
+                            <input id="experienciaIdActividad" name="experiencia_id" type="hidden">
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="cantidadPersonasActividad">Personas</label>
+                            <input id="cantidadPersonasActividad" name="cantidad_personas" type="number" min="1" max="20" value="1" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                            <div id="opcionesPorPersona" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+                            <input id="participantesActividad" name="participantes" type="hidden">
+                            <p id="resumenPrecioExperiencia" class="mt-3 text-sm font-bold text-white/85" aria-live="polite">Elige las opciones por persona para consultar el precio.</p>
                         </div>
 
                         <div>
                             <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="fechaActividad">Fecha</label>
-                            <input id="fechaActividad" name="fecha" type="date" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
+                            <select id="fechaActividad" name="fecha" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                                <option value="">Primero elige una experiencia</option>
+                            </select>
                         </div>
 
                         <div>
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="horaActividad">Hora</label>
-                            <input id="horaActividad" name="hora" type="time" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
+                            <p id="etiquetaHoraActividad" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Hora</p>
+                            <input id="horaActividad" name="hora" type="hidden">
+                            <div id="listaHorasActividad" class="experience-time-list mt-2 rounded-2xl border border-white/20 bg-white/90 p-2 text-slate-900" role="listbox" aria-labelledby="etiquetaHoraActividad" aria-disabled="true">
+                                <p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>
+                            </div>
                         </div>
 
                         <div>
@@ -664,6 +829,7 @@ if ($usuarioAutenticado) {
                         Programar experiencia
                     </button>
                 </form>
+                <?php endif; ?>
             </div>
         </section>
 
@@ -729,6 +895,79 @@ if ($usuarioAutenticado) {
         <?php endif; ?>
     </div>
 </section>
+<section id="historial-experiencias" class="mx-auto mt-8 max-w-7xl reveal">
+    <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
+        <div class="mb-6 flex items-center justify-between gap-4">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
+                <h2 class="mt-2 text-3xl font-black text-white">Experiencias programadas</h2>
+            </div>
+            <span class="rounded-full border border-slate-200 bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800">
+                <?php echo count($historialExperiencias); ?> registros
+            </span>
+        </div>
+
+        <?php if ($historialExperiencias === []): ?>
+            <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
+                <span class="material-symbols-outlined text-4xl text-emerald-700">event_note</span>
+                <p class="mt-3 text-lg font-black text-slate-800">Aún no has programado experiencias.</p>
+                <p class="mt-2 text-sm text-slate-600">Tus solicitudes aparecerán aquí cuando programes una experiencia.</p>
+            </div>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-separate border-spacing-y-3 text-left">
+                    <thead>
+                        <tr class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+                            <th class="px-4 py-2">Experiencia</th>
+                            <th class="px-4 py-2">Opciones por persona</th>
+                            <th class="px-4 py-2">Fecha</th>
+                            <th class="px-4 py-2">Hora</th>
+                            <th class="px-4 py-2">Precio estimado</th>
+                            <th class="px-4 py-2">Estado</th>
+                            <th class="px-4 py-2">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($historialExperiencias as $solicitudExperiencia): ?>
+                            <?php
+                            $puedeCancelarExperiencia = (int) ($solicitudExperiencia['puede_cancelar'] ?? 0) === 1;
+                            ?>
+                            <tr class="bg-emerald-950/50 text-sm text-white shadow-sm transition-colors hover:bg-emerald-700">
+                                <td class="rounded-l-2xl px-4 py-4 font-black text-white"><?php echo e((string) $solicitudExperiencia['actividad']); ?></td>
+                                <td class="px-4 py-4 text-emerald-100">
+                                    <?php foreach ($solicitudExperiencia['selecciones_personas'] as $indicePersona => $opcionPersona): ?>
+                                        <span class="block"><?php echo e((string) $opcionPersona); ?>
+                                            <?php if (isset($solicitudExperiencia['precios_personas'][$indicePersona]) && $solicitudExperiencia['precios_personas'][$indicePersona] !== null): ?>
+                                                · $<?php echo number_format((float) $solicitudExperiencia['precios_personas'][$indicePersona], 0, ',', '.'); ?> COP
+                                            <?php else: ?>
+                                                · Sin precio
+                                            <?php endif; ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </td>
+                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $solicitudExperiencia['fecha_agenda']); ?></td>
+                                <td class="px-4 py-4 text-emerald-100"><?php echo e(substr((string) $solicitudExperiencia['hora_agenda'], 0, 5)); ?></td>
+                                <td class="px-4 py-4 text-emerald-100"><?php echo $solicitudExperiencia['monto_experiencia'] === null ? 'No definido' : '$' . number_format((float) $solicitudExperiencia['monto_experiencia'], 0, ',', '.') . ' COP'; ?></td>
+                                <td class="rounded-r-2xl px-4 py-4">
+                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>">
+                                        <?php echo e((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <?php if ($puedeCancelarExperiencia): ?>
+                                        <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (5 min)</button>
+                                    <?php else: ?>
+                                        <span class="text-xs text-white/50"><?php echo ($solicitudExperiencia['estado_agenda'] ?? '') === 'Cancelada' ? 'Cancelada' : 'No disponible'; ?></span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</section>
 <?php endif; ?>
     </main>
 
@@ -743,8 +982,8 @@ if ($usuarioAutenticado) {
             <div>
                 <ul class="space-y-3 text-white/70">
                     <li><a href="interfaz/institucional/quienes_somos.php" class="hover:text-white">¿Quiénes somos?</a></li>
-                    <li><a href="interfaz/legal/politica_privacidad.php" class="hover:text-white">Protección de datos personales</a></li>
-                    <li><a href="interfaz/legal/politica_cookies.php" class="hover:text-white">Cookies</a></li>
+                    <li><a href="#politica-privacidad" class="hover:text-white" data-open-privacy-policy>Protección de datos personales</a></li>
+                    <li><a href="#politica-cookies" class="hover:text-white" data-open-cookie-policy>Cookies</a></li>
                 </ul>
             </div>
 
@@ -988,7 +1227,15 @@ if ($usuarioAutenticado) {
             window.addEventListener('resize', updateNavState);
             carousel.addEventListener('scroll', updateNavState, { passive: true });
 
-            const step = () => Math.round(carousel.clientWidth * 0.8) || 380;
+            const step = () => {
+                if (window.matchMedia('(max-width: 767px)').matches) {
+                    const card = Array.from(carousel.querySelectorAll('[data-room-card]'))
+                        .find(item => item.style.display !== 'none' && !item.classList.contains('hidden'));
+                    const gap = parseFloat(getComputedStyle(carousel).columnGap) || 0;
+                    return (card?.getBoundingClientRect().width || carousel.clientWidth) + gap;
+                }
+                return Math.round(carousel.clientWidth * 0.8) || 380;
+            };
 
             prev.addEventListener('click', () => {
                 carousel.scrollBy({ left: -step(), behavior: 'smooth' });
@@ -1489,8 +1736,23 @@ async function processReservationPayment() {
     async function submitActivityForm(event) {
         event.preventDefault();
         const form = event.currentTarget;
+        const cantidadPersonas = Number(document.getElementById('cantidadPersonasActividad').value);
+        const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
+        if (!document.getElementById('experienciaIdActividad').value
+            || !Number.isInteger(cantidadPersonas) || cantidadPersonas < 1 || cantidadPersonas > 20
+            || selecciones.length !== cantidadPersonas || selecciones.some(seleccion => !seleccion)
+            || !document.getElementById('horaActividad').value) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Completa las elecciones',
+                text: 'Elige una experiencia, una opción para cada persona y un horario.',
+                confirmButtonColor: '#17354f'
+            });
+            return;
+        }
         const formData = new FormData(form);
         formData.append('accion', 'agendar_actividad');
+        formData.append('csrf_token', CSRF_TOKEN);
 
         try {
             const response = await fetch('interfaz_usu.php', {
@@ -1506,6 +1768,21 @@ async function processReservationPayment() {
             }
 
             form.reset();
+            document.getElementById('experienciaIdActividad').value = '';
+            document.getElementById('participantesActividad').value = '';
+            document.getElementById('opcionesPorPersona').replaceChildren();
+            document.getElementById('cantidadPersonasActividad').value = '1';
+            document.getElementById('cantidadPersonasActividad').disabled = true;
+            document.getElementById('fechaActividad').disabled = true;
+            document.getElementById('fechaActividad').innerHTML = '<option value="">Primero elige una experiencia</option>';
+            document.getElementById('horaActividad').value = '';
+            document.getElementById('listaHorasActividad').setAttribute('aria-disabled', 'true');
+            document.getElementById('listaHorasActividad').innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>';
+            document.getElementById('seleccionExperiencia').textContent = 'Elige una experiencia en una de las tarjetas.';
+            window.opcionesExperienciaSeleccionada = [];
+            window.preciosExperienciaSeleccionada = [];
+            window.horariosExperienciaSeleccionada = {};
+            document.querySelectorAll('.experience-select-button').forEach(boton => boton.classList.remove('ring-2', 'ring-white'));
             await Swal.fire({
                 icon: 'success',
                 title: 'Solicitud enviada',
@@ -1521,6 +1798,281 @@ async function processReservationPayment() {
                 confirmButtonColor: '#0d3a1a'
             });
         }
+    }
+
+    async function cancelarSolicitudExperiencia(idSolicitud, boton) {
+        const confirmacion = await Swal.fire({
+            icon: 'warning',
+            title: '¿Cancelar esta experiencia?',
+            text: 'La solicitud quedará registrada como cancelada y no podrás reactivarla desde aquí.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'Volver',
+            confirmButtonColor: '#b91c1c',
+            cancelButtonColor: '#64748b'
+        });
+        if (!confirmacion.isConfirmed) return;
+
+        boton.disabled = true;
+        try {
+            const cuerpo = new URLSearchParams({
+                accion: 'cancelar_solicitud',
+                id_agenda: String(idSolicitud),
+                csrf_token: CSRF_TOKEN
+            });
+            const respuesta = await fetch('controladores/gestionar_experiencias.php', {
+                method: 'POST',
+                body: cuerpo,
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+            const resultado = await readJsonSafely(respuesta);
+            if (!respuesta.ok || resultado.status !== 'exito') {
+                throw new Error(resultado.mensaje || 'No se pudo cancelar la experiencia.');
+            }
+            await Swal.fire({
+                icon: 'success',
+                title: 'Experiencia cancelada',
+                text: resultado.mensaje,
+                confirmButtonColor: '#17354f'
+            });
+            window.location.reload();
+        } catch (error) {
+            boton.disabled = false;
+            await Swal.fire({
+                icon: 'error',
+                title: 'No se pudo cancelar',
+                text: error.message,
+                confirmButtonColor: '#17354f'
+            });
+        }
+    }
+
+    function actualizarHorariosExperiencia() {
+        const fecha = document.getElementById('fechaActividad');
+        const listaHoras = document.getElementById('listaHorasActividad');
+        const seleccionHora = document.getElementById('horaActividad');
+        if (!fecha || !listaHoras || !seleccionHora) return;
+        if (!fecha.value) {
+            seleccionHora.value = '';
+            listaHoras.setAttribute('aria-disabled', 'true');
+            listaHoras.innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Selecciona una fecha antes de elegir la hora.</p>';
+            return;
+        }
+        const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
+        const indicesOpciones = [...new Set(selecciones.map(opcion => window.opcionesExperienciaSeleccionada.indexOf(opcion) + 1))];
+        const rangos = indicesOpciones.map(indice => window.horariosExperienciaSeleccionada?.[String(indice)]?.[fecha.value]);
+        let franjas = [];
+        if (indicesOpciones.length > 0 && indicesOpciones.every(indice => indice > 0)
+            && rangos.every(rango => rango && typeof rango.inicio === 'string' && typeof rango.fin === 'string')) {
+            const minutosInicio = Math.max(...rangos.map(rango => {
+                const [hora, minuto] = rango.inicio.split(':').map(Number);
+                return hora * 60 + minuto;
+            }));
+            const minutosFin = Math.min(...rangos.map(rango => {
+                const [hora, minuto] = rango.fin.split(':').map(Number);
+                return hora * 60 + minuto;
+            }));
+            for (let minutos = minutosInicio; minutos <= minutosFin; minutos += 30) {
+                franjas.push(`${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`);
+            }
+        }
+        const ahora = new Date();
+        const fechaHoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+        if (fecha.value === fechaHoy) {
+            const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+            franjas = franjas.filter(horario => horario > horaActual);
+        }
+        seleccionHora.value = '';
+        listaHoras.scrollTop = 0;
+        listaHoras.setAttribute('aria-disabled', 'false');
+        listaHoras.innerHTML = '';
+        if (franjas.length === 0) {
+            listaHoras.setAttribute('aria-disabled', 'true');
+            listaHoras.innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">No hay horarios para esta fecha.</p>';
+            return;
+        }
+        listaHoras.setAttribute('aria-disabled', 'false');
+        listaHoras.tabIndex = 0;
+        franjas.forEach(horario => {
+            const botonHora = document.createElement('button');
+            botonHora.type = 'button';
+            botonHora.className = 'experience-time-option w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
+            botonHora.setAttribute('role', 'option');
+            botonHora.setAttribute('aria-selected', 'false');
+            botonHora.textContent = horario;
+            botonHora.addEventListener('click', () => {
+                seleccionHora.value = horario;
+                listaHoras.querySelectorAll('.experience-time-option').forEach(elemento => {
+                    const seleccionado = elemento === botonHora;
+                    elemento.classList.toggle('bg-primary', seleccionado);
+                    elemento.classList.toggle('text-white', seleccionado);
+                    elemento.setAttribute('aria-selected', String(seleccionado));
+                });
+            });
+            listaHoras.append(botonHora);
+        });
+    }
+
+    function actualizarSeleccionesPersonas() {
+        const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
+        document.getElementById('participantesActividad').value = JSON.stringify(selecciones);
+        actualizarResumenPrecioExperiencia(selecciones);
+        actualizarFechasExperiencia();
+    }
+
+    function actualizarResumenPrecioExperiencia(selecciones) {
+        const resumen = document.getElementById('resumenPrecioExperiencia');
+        if (!resumen) return;
+        if (selecciones.length === 0 || selecciones.some(opcion => !opcion)) {
+            resumen.textContent = 'Elige las opciones por persona para consultar el precio.';
+            return;
+        }
+        const precios = window.preciosExperienciaSeleccionada || [];
+        const importes = selecciones.map(opcion => {
+            const indice = window.opcionesExperienciaSeleccionada.indexOf(opcion);
+            return indice < 0 ? null : precios[indice];
+        });
+        const detalle = selecciones.map((opcion, indice) => {
+            const precio = importes[indice];
+            const importeTexto = precio === null || precio === undefined
+                ? 'sin precio'
+                : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(precio));
+            return `Persona ${indice + 1}: ${opcion} (${importeTexto})`;
+        });
+        if (importes.some(precio => precio === null || precio === undefined)) {
+            resumen.textContent = `${detalle.join(' · ')}. Total no disponible porque hay opciones sin precio definido.`;
+            return;
+        }
+        const total = importes.reduce((suma, precio) => suma + Number(precio), 0);
+        const totalTexto = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total);
+        resumen.textContent = `${detalle.join(' · ')}. Total estimado: ${totalTexto} COP.`;
+    }
+
+    function actualizarFechasExperiencia() {
+        const selectorFecha = document.getElementById('fechaActividad');
+        const seleccionAnterior = selectorFecha.value;
+        const selecciones = [...document.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
+        selectorFecha.replaceChildren(new Option('Selecciona las opciones para ver fechas comunes', ''));
+        document.getElementById('horaActividad').value = '';
+        if (selecciones.length === 0 || selecciones.some(opcion => !opcion)) {
+            selectorFecha.disabled = true;
+            actualizarHorariosExperiencia();
+            return;
+        }
+
+        const indicesOpciones = [...new Set(selecciones.map(opcion => window.opcionesExperienciaSeleccionada.indexOf(opcion) + 1))];
+        if (indicesOpciones.some(indice => indice < 1)) {
+            selectorFecha.disabled = true;
+            actualizarHorariosExperiencia();
+            return;
+        }
+
+        const ahora = new Date();
+        const fechaHoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+        const fechasBase = Object.keys(window.horariosExperienciaSeleccionada?.[String(indicesOpciones[0])] || {});
+        const fechasComunes = fechasBase.filter(fecha => {
+            if (fecha < fechaHoy) return false;
+            const duranteEstancia = (window.reservasEstanciaExperiencia || []).some(estancia =>
+                fecha >= estancia.inicio && fecha < estancia.fin
+            );
+            if (!duranteEstancia) return false;
+            const rangos = indicesOpciones.map(indice => window.horariosExperienciaSeleccionada?.[String(indice)]?.[fecha]);
+            if (rangos.some(rango => !rango || typeof rango.inicio !== 'string' || typeof rango.fin !== 'string')) return false;
+            const inicioComun = Math.max(...rangos.map(rango => {
+                const [hora, minuto] = rango.inicio.split(':').map(Number);
+                return hora * 60 + minuto;
+            }));
+            const finComun = Math.min(...rangos.map(rango => {
+                const [hora, minuto] = rango.fin.split(':').map(Number);
+                return hora * 60 + minuto;
+            }));
+            return inicioComun <= finComun;
+        }).sort();
+        fechasComunes.forEach(fecha => {
+            const [anio, mes, dia] = fecha.split('-').map(Number);
+            selectorFecha.add(new Option(new Date(anio, mes - 1, dia).toLocaleDateString('es-CO', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            }), fecha));
+        });
+        selectorFecha.disabled = fechasComunes.length === 0;
+        if (fechasComunes.length === 0) {
+            selectorFecha.replaceChildren(new Option('No hay fechas comunes para esas opciones', ''));
+        } else if (fechasComunes.includes(seleccionAnterior)) {
+            selectorFecha.value = seleccionAnterior;
+        }
+        actualizarHorariosExperiencia();
+    }
+
+    function renderizarOpcionesPorPersona() {
+        const cantidad = Number(document.getElementById('cantidadPersonasActividad').value);
+        const opciones = window.opcionesExperienciaSeleccionada || [];
+        const contenedor = document.getElementById('opcionesPorPersona');
+        if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20 || opciones.length === 0) {
+            contenedor.replaceChildren();
+            document.getElementById('participantesActividad').value = '';
+            actualizarFechasExperiencia();
+            return;
+        }
+
+        const seleccionesAnteriores = [...contenedor.querySelectorAll('[data-seleccion-persona]')].map(selector => selector.value);
+        contenedor.replaceChildren();
+        for (let indice = 0; indice < cantidad; indice++) {
+            const etiqueta = document.createElement('label');
+            etiqueta.className = 'text-xs font-black uppercase tracking-[0.12em] text-white/70';
+            etiqueta.textContent = `Persona ${indice + 1}`;
+            const selector = document.createElement('select');
+            selector.className = 'mt-2 w-full rounded-2xl border-white/20 bg-white/90 text-slate-900';
+            selector.required = true;
+            selector.dataset.seleccionPersona = 'true';
+            const opcionInicial = document.createElement('option');
+            opcionInicial.value = '';
+            opcionInicial.textContent = 'Elige una opción';
+            selector.append(opcionInicial);
+            opciones.forEach(opcion => {
+                const elemento = document.createElement('option');
+                elemento.value = opcion;
+                const precio = window.preciosExperienciaSeleccionada?.[opciones.indexOf(opcion)];
+                elemento.textContent = precio === null || precio === undefined
+                    ? `${opcion} · Sin precio`
+                    : `${opcion} · ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(precio))} COP`;
+                selector.append(elemento);
+            });
+            if (seleccionesAnteriores[indice] && opciones.includes(seleccionesAnteriores[indice])) {
+                selector.value = seleccionesAnteriores[indice];
+            }
+            selector.addEventListener('change', actualizarSeleccionesPersonas);
+            etiqueta.append(selector);
+            contenedor.append(etiqueta);
+        }
+        actualizarSeleccionesPersonas();
+    }
+
+    function seleccionarExperiencia(boton) {
+        const idExperiencia = document.getElementById('experienciaIdActividad');
+        const seleccion = document.getElementById('seleccionExperiencia');
+        const fecha = document.getElementById('fechaActividad');
+        const selectorHora = document.getElementById('horaActividad');
+        idExperiencia.value = boton.dataset.experienceId;
+        seleccion.textContent = boton.dataset.experienceName;
+        window.opcionesExperienciaSeleccionada = JSON.parse(boton.dataset.experienceOptions || '[]');
+        window.preciosExperienciaSeleccionada = JSON.parse(boton.dataset.experiencePrices || '[]');
+        window.horariosExperienciaSeleccionada = JSON.parse(boton.dataset.experienceSchedule || '{}');
+        window.reservasEstanciaExperiencia = JSON.parse(boton.dataset.reservationStays || '[]');
+        document.querySelectorAll('.experience-select-button').forEach(elemento => elemento.classList.remove('ring-2', 'ring-white'));
+        boton.classList.add('ring-2', 'ring-white');
+        document.getElementById('cantidadPersonasActividad').disabled = false;
+        document.getElementById('opcionesPorPersona').replaceChildren();
+        renderizarOpcionesPorPersona();
+        fecha.innerHTML = '<option value="">Selecciona tus opciones por persona</option>';
+        fecha.disabled = true;
+        selectorHora.value = '';
+        document.getElementById('listaHorasActividad').setAttribute('aria-disabled', 'true');
+        document.getElementById('listaHorasActividad').innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Elige una opción para cada persona para ver fechas comunes.</p>';
+        document.getElementById('planner').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function attachLogoutFlow() {
@@ -1650,11 +2202,38 @@ async function processReservationPayment() {
         if ($('childrenMinus')) $('childrenMinus').addEventListener('click', () => changeGuest('children', -1));
         if ($('childrenPlus')) $('childrenPlus').addEventListener('click', () => changeGuest('children', 1));
         if ($('btnBuscarDisponibilidad')) $('btnBuscarDisponibilidad').addEventListener('click', () => searchAvailability(true));
-        if ($('activityForm')) $('activityForm').addEventListener('submit', submitActivityForm);
+        if ($('activityForm')) {
+            $('activityForm').addEventListener('submit', submitActivityForm);
+            $('fechaActividad').addEventListener('change', actualizarHorariosExperiencia);
+            $('cantidadPersonasActividad').addEventListener('input', renderizarOpcionesPorPersona);
+            document.querySelectorAll('.experience-select-button:not(:disabled)').forEach(boton => {
+                boton.addEventListener('click', () => seleccionarExperiencia(boton));
+            });
+        }
+        const historialExperiencias = $('tablaHistorialExperiencias');
+        if (historialExperiencias) {
+            historialExperiencias.querySelectorAll('[data-cancelar-experiencia]').forEach(boton => {
+                const segundosRestantes = Number(boton.dataset.segundosCancelacion);
+                if (segundosRestantes <= 0) {
+                    boton.remove();
+                    return;
+                }
+                window.setTimeout(() => boton.remove(), segundosRestantes * 1000);
+            });
+            historialExperiencias.addEventListener('click', evento => {
+                const boton = evento.target.closest('[data-cancelar-experiencia]');
+                if (boton) cancelarSolicitudExperiencia(boton.dataset.cancelarExperiencia, boton);
+            });
+        }
     });
 </script>
  <?php require_once 'includes/banner_cookies.php'; ?>
 <!-- Modal y lógica de inactividad -->
+<?php
+$privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
+$privacyPolicyUrl = 'interfaz/legal/politica_privacidad.php';
+include __DIR__ . '/includes/privacy_policy_modal.php';
+?>
 <?php if (!empty($_SESSION['user_auth'])): ?>
     <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
     <script src="assets/js/inactividad.js?v=3"></script>

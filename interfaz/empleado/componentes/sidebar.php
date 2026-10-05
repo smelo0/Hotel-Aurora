@@ -1,5 +1,10 @@
 <!-- // Corrección: Se sincronizó el layout y la posición de los botones con el diseño del Panel de Administrador según referencia visual. -->
-<aside class="empleado-sidebar fixed left-0 top-0 h-full py-8 w-64 flex flex-col z-40">
+<aside id="empleadoSidebar" class="empleado-sidebar fixed left-0 top-0 h-full overflow-y-auto py-8 w-64 flex flex-col z-40">
+    <div class="empleado-sidebar-toggle-wrap">
+        <button id="empleadoSidebarToggle" type="button" onclick="alternarSidebarEmpleado()" class="empleado-sidebar-toggle" aria-label="Contraer menú" aria-expanded="true" title="Contraer menú">
+            <span class="material-symbols-outlined">left_panel_close</span>
+        </button>
+    </div>
     <div class="empleado-brand mb-12 px-8">
         <img src="../../assets/images/logo.jpeg" alt="Logo Hotel Aurora" class="empleado-brand-logo">
         <h1 class="text-xl font-black tracking-tighter text-primary">HOTEL AURORA</h1>
@@ -7,22 +12,22 @@
     </div>
     
     <nav class="flex-1 flex flex-col">
-        <button onclick="navegar('dashboard', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button onclick="navegar('dashboard', this)" aria-label="Panel Hoy" title="Panel Hoy" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">dashboard</span><span class="text-sm font-bold">Panel Hoy</span>
         </button>
-        <button onclick="navegar('habitaciones', this)" class="nav-item active-nav relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button onclick="navegar('habitaciones', this)" aria-label="Habitaciones" title="Habitaciones" class="nav-item active-nav relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">hotel</span><span class="text-sm font-bold">Habitaciones</span>
         </button>
-        <button onclick="navegar('limpieza', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button onclick="navegar('limpieza', this)" aria-label="Limpieza" title="Limpieza" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">cleaning_services</span><span class="text-sm font-bold">Limpieza</span>
         </button>
-        <button onclick="navegar('huespedes', this)" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+        <button onclick="navegar('huespedes', this)" aria-label="Huéspedes" title="Huéspedes" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">group</span><span class="text-sm font-bold">Huéspedes</span>
         </button>
 
         <!-- Modificación: Nueva Tarea y Cerrar Sesión quedan juntos en la sección inferior, igual que en el sidebar del administrador. -->
-        <div class="px-6 mt-auto pb-8 pt-10 border-t border-slate-100 space-y-3">
-            <button type="button" onclick="abrirModal()" class="w-full py-4 bg-primary text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all">
+        <div class="empleado-sidebar-footer px-6 mt-auto pb-8 pt-10 border-t border-slate-100 space-y-3">
+            <button type="button" onclick="abrirModal()" aria-label="Nueva Tarea" title="Nueva Tarea" class="w-full py-4 bg-primary text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all">
                 <span class="text-xs uppercase tracking-widest">Nueva Tarea</span>
                 <span class="material-symbols-outlined text-sm">add</span>
             </button>

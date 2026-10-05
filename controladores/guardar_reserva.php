@@ -55,6 +55,9 @@ function normalizarMetodoPago(string $metodo): string
     if (str_contains($normalizado, 'recepcion')) {
         return 'Recepción';
     }
+    if (str_contains($normalizado, 'efectivo')) {
+        return 'Efectivo';
+    }
     if (str_contains($normalizado, 'transferencia') || str_contains($normalizado, 'pse')) {
         return 'Transferencia';
     }
@@ -81,10 +84,11 @@ $notasReserva = trim((string) ($_POST['notas_reserva'] ?? ''));
 $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
 $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
+$esPersonal = isset($_SESSION['emp_auth']['id_usuario']);
+$accion = trim((string) ($_POST['accion'] ?? ''));
 
-// El personal puede registrar una reserva pendiente para pago en recepción.
 $metodoRecibido = trim((string) ($_POST['metodo_pago'] ?? ''));
-if ($metodoRecibido === '' && isset($_SESSION['emp_auth'])) {
+if ($esPersonal && $accion === 'guardar') {
     $metodoRecibido = 'Recepción';
 }
 $metodoPago = normalizarMetodoPago($metodoRecibido);
@@ -92,7 +96,16 @@ $wompiTransactionId = trim((string) ($_POST['wompi_transaction_id'] ?? ''));
 $porcentajePago = (int) ($_POST['porcentaje_pago'] ?? 100);
 $porcentajePago = in_array($porcentajePago, [50, 100], true) ? $porcentajePago : 100;
 
-if (!in_array($metodoPago, ['Wompi', 'Recepción'], true)) {
+$metodosPersonal = ['Efectivo', 'Tarjeta', 'Transferencia'];
+if ($esPersonal) {
+    if (!in_array($accion, ['guardar', 'cobrar'], true)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona si deseas guardar la reserva o cobrarla.']);
+    }
+    if (($accion === 'cobrar' && !in_array($metodoPago, $metodosPersonal, true))
+        || ($accion === 'guardar' && $metodoPago !== 'Recepción')) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido para esta acción.']);
+    }
+} elseif (!in_array($metodoPago, ['Wompi', 'Recepción'], true)) {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido.']);
 }
 
@@ -101,7 +114,6 @@ $secretkey = trim((string) (
     ?: ($_ENV['RECAPTCHA_SECRET_KEY'] ?? $_SERVER['RECAPTCHA_SECRET_KEY'] ?? '')
 ));
 $recapchatoken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
-$esPersonal = isset($_SESSION['emp_auth']);
 $sitekey = trim((string) (
     getenv('RECAPTCHA_SITE_KEY')
     ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
@@ -168,7 +180,6 @@ $notasCompletas = trim(
     ($notasReserva !== '' ? "\n{$notasReserva}" : '')
 );
 
-// Solo una transacción aprobada por Wompi puede confirmar una reserva.
 $estadoInicial = ($metodoPago === 'Recepción') ? 'Pendiente' : 'Confirmada';
 $estadoPago = ($metodoPago === 'Recepción') ? 'Pendiente' : 'Aprobado';
 $idUsuarioFinal = 0;
@@ -180,13 +191,56 @@ try {
     $idUsuarioSesion = (int) ($usuarioSesion['id_usuario'] ?? 0);
     $rolUsuarioSesion = (int) ($usuarioSesion['rol_usuario'] ?? 0);
 
-    if (
-        isset($_SESSION['user_auth']['id_usuario'])
-        && $rolUsuarioSesion === 6
-    ) {
+    if (isset($_SESSION['user_auth']['id_usuario']) && $rolUsuarioSesion === 6) {
         $idUsuarioFinal = $idUsuarioSesion;
-    } elseif ($idUsuarioSesion > 0 && ($tipoHuesped === '' || $rolUsuarioSesion === 6)) {
-        $idUsuarioFinal = $idUsuarioSesion;
+    } elseif (isset($_SESSION['emp_auth']['id_usuario'])) {
+        if ($tipoHuesped !== 'nuevo' && ctype_digit($tipoHuesped) && (int) $tipoHuesped > 0) {
+            $idHuespedSeleccionado = (int) $tipoHuesped;
+            $rolHuesped = 6;
+            $stmtHuesped = $conexion->prepare(
+                'SELECT id_usu FROM usuario WHERE id_usu = ? AND cod_rol_usu = ? AND est_usu = 1 LIMIT 1'
+            );
+            $stmtHuesped->bind_param('ii', $idHuespedSeleccionado, $rolHuesped);
+            $stmtHuesped->execute();
+            $stmtHuesped->bind_result($idHuespedEncontrado);
+            if ($stmtHuesped->fetch()) {
+                $idUsuarioFinal = (int) $idHuespedEncontrado;
+            }
+            $stmtHuesped->close();
+        } elseif ($tipoHuesped === 'nuevo') {
+            $nombreNuevo = trim((string) ($_POST['nuevo_nombre'] ?? ''));
+            $correoNuevo = trim((string) ($_POST['nuevo_correo'] ?? ''));
+
+            if ($nombreNuevo === '' || !filter_var($correoNuevo, FILTER_VALIDATE_EMAIL)) {
+                throw new RuntimeException('datos_huesped_invalidos');
+            }
+
+            $sqlUsuarioExistente = 'SELECT id_usu, cod_rol_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
+            $stmtUsuarioExistente = $conexion->prepare($sqlUsuarioExistente);
+            $stmtUsuarioExistente->bind_param('s', $correoNuevo);
+            $stmtUsuarioExistente->execute();
+            $stmtUsuarioExistente->bind_result($idUsuarioEncontrado, $rolEncontrado);
+
+            if ($stmtUsuarioExistente->fetch()) {
+                $stmtUsuarioExistente->close();
+                if ((int) $rolEncontrado !== 6) {
+                    throw new RuntimeException('datos_huesped_invalidos');
+                }
+                $idUsuarioFinal = (int) $idUsuarioEncontrado;
+            } else {
+                $stmtUsuarioExistente->close();
+                $passwordGenerica = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT);
+                $rolHuesped = 6;
+                $sqlNuevoUsuario = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu) VALUES (?, ?, ?, ?)';
+                $stmtNuevoUsuario = $conexion->prepare($sqlNuevoUsuario);
+                $stmtNuevoUsuario->bind_param('sssi', $nombreNuevo, $correoNuevo, $passwordGenerica, $rolHuesped);
+                $stmtNuevoUsuario->execute();
+                $idUsuarioFinal = (int) $conexion->insert_id;
+                $stmtNuevoUsuario->close();
+            }
+        } else {
+            throw new RuntimeException('datos_huesped_invalidos');
+        }
     } else {
         $nombreNuevo = trim((string) ($_POST['nuevo_nombre'] ?? ''));
         $correoNuevo = trim((string) ($_POST['nuevo_correo'] ?? ''));
@@ -195,21 +249,22 @@ try {
             throw new RuntimeException('datos_huesped_invalidos');
         }
 
-        $sqlUsuarioExistente = 'SELECT id_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
+        $sqlUsuarioExistente = 'SELECT id_usu, cod_rol_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
         $stmtUsuarioExistente = $conexion->prepare($sqlUsuarioExistente);
         $stmtUsuarioExistente->bind_param('s', $correoNuevo);
         $stmtUsuarioExistente->execute();
-        $stmtUsuarioExistente->store_result();
+        $stmtUsuarioExistente->bind_result($idUsuarioEncontrado, $rolEncontrado);
 
-        if ($stmtUsuarioExistente->num_rows > 0) {
-            $stmtUsuarioExistente->bind_result($idUsuarioEncontrado);
-            $stmtUsuarioExistente->fetch();
-            $idUsuarioFinal = (int) $idUsuarioEncontrado;
+        if ($stmtUsuarioExistente->fetch()) {
             $stmtUsuarioExistente->close();
+            if ((int) $rolEncontrado !== 6) {
+                throw new RuntimeException('datos_huesped_invalidos');
+            }
+            $idUsuarioFinal = (int) $idUsuarioEncontrado;
         } else {
             $stmtUsuarioExistente->close();
 
-            $passwordGenerica = password_hash('Aurora2026', PASSWORD_BCRYPT);
+            $passwordGenerica = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT);
             $rolHuesped = 6;
             $sqlNuevoUsuario = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu) VALUES (?, ?, ?, ?)';
             $stmtNuevoUsuario = $conexion->prepare($sqlNuevoUsuario);
@@ -223,6 +278,16 @@ try {
     if ($idUsuarioFinal <= 0) {
         throw new RuntimeException('usuario_invalido');
     }
+
+    $stmtDatosHuesped = $conexion->prepare('SELECT nom_usu, corr_usu FROM usuario WHERE id_usu = ? LIMIT 1');
+    $stmtDatosHuesped->bind_param('i', $idUsuarioFinal);
+    $stmtDatosHuesped->execute();
+    $stmtDatosHuesped->bind_result($nombreHuespedFactura, $correoHuespedFactura);
+    if (!$stmtDatosHuesped->fetch()) {
+        $stmtDatosHuesped->close();
+        throw new RuntimeException('usuario_invalido');
+    }
+    $stmtDatosHuesped->close();
 
     $sqlRoom = 'SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab, est_hab FROM habitacion WHERE cod_hab = ? LIMIT 1 FOR UPDATE';
     $stmtRoom = $conexion->prepare($sqlRoom);
@@ -317,6 +382,7 @@ try {
     $stmtPago = $conexion->prepare($sqlPago);
     $stmtPago->bind_param('idsss', $idReservaNueva, $montoFinal, $metodoPago, $refFinal, $estadoPago);
     $stmtPago->execute();
+    $idPagoNuevo = (int) $conexion->insert_id;
     $stmtPago->close();
 
     // 4. Actualizar Estado de la Habitación si corresponde
@@ -337,6 +403,7 @@ try {
         'mensaje' => 'Reserva creada correctamente.',
         'reserva' => [
             'cod_res' => $idReservaNueva,
+            'nom_usu' => (string) $nombreHuespedFactura,
             'fec_ent_res' => $checkinSql,
             'fec_sal_res' => $checkoutSql,
             'est_res' => $estadoInicial,
@@ -353,7 +420,21 @@ try {
                 'metodo' => $metodoPago,
                 'referencia' => $refFinal,
                 'estado' => $estadoPago
-            ]
+            ],
+            'factura' => $estadoPago === 'Aprobado' ? [
+                'folio' => 'FAC-' . $idPagoNuevo,
+                'cod_reserva' => $idReservaNueva,
+                'fecha' => date('Y-m-d H:i:s'),
+                'huesped' => (string) $nombreHuespedFactura,
+                'correo' => (string) $correoHuespedFactura,
+                'habitacion' => (string) $roomNumber,
+                'tipo_habitacion' => (string) $roomType,
+                'fecha_entrada' => $checkinSql,
+                'fecha_salida' => $checkoutSql,
+                'noches' => $noches,
+                'metodo_pago' => $metodoPago,
+                'monto' => $montoFinal,
+            ] : null,
         ],
     ]);
 } catch (Throwable $error) {

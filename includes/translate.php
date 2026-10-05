@@ -1,6 +1,10 @@
 <div class="language-switcher">
+    <svg class="language-switcher__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path>
+    </svg>
     <label id="language-select-label" for="language-select">Idioma</label>
-    <select id="language-select" onchange="cambiarIdioma(this.value)">
+    <select id="language-select" aria-labelledby="language-select-label" onchange="cambiarIdioma(this.value)">
         <option value="es">Español</option>
         <option value="en">English</option>
         <option value="pt">Português</option>
@@ -10,7 +14,7 @@
 </div>
 
 <div id="google_translate_element" style="display:none;"></div>
-<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 <script>
 function googleTranslateElementInit() {
@@ -38,6 +42,16 @@ function borrarCookieGoogtrans() {
 }
 
 function cambiarIdioma(lang) {
+    var privacyDialog = document.querySelector('.privacy-policy-dialog');
+    if (privacyDialog && privacyDialog.open) {
+        try {
+            var activePolicy = privacyDialog.querySelector('[data-policy-document]:not([hidden])');
+            sessionStorage.setItem('reopenPolicyDialogMode', activePolicy ? activePolicy.dataset.policyDocument : 'privacy');
+        } catch (error) {
+            console.error('No se pudo conservar el modal de políticas durante el cambio de idioma.', error);
+        }
+    }
+
     // 1. Siempre limpiamos rastros previos
     borrarCookieGoogtrans();
 
@@ -96,40 +110,74 @@ body > .skiptranslate,
 
 /* Estilos ajustados del contenedor */
 .language-switcher {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 80;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    gap: 0.35rem;
+    border: 1px solid rgba(226, 232, 240, 0.95);
     font-weight: 600;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
-    background-color: rgba(8, 59, 38, 0.85);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    color: #ffffff;
-    border-radius: 99px;
-    padding: 6px 16px;
-    font-size: 0.875rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    background-color: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #2c5e5e;
+    border-radius: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
 #language-select-label {
-    color: #ffffff;
-    font-weight: bold;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.language-switcher__icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: 0 0 auto;
+    color: #2c5e5e;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 #language-select {
-    background: transparent;
-    color: #ffffff;
+    width: auto;
+    min-width: 5rem;
+    padding: 0.25rem 1.25rem 0.25rem 0.25rem;
+    background-color: transparent;
+    color: #334155;
     border: none;
     outline: none;
-    font-weight: inherit;
+    font-weight: 700;
     font-size: inherit;
     cursor: pointer;
 }
 
 #language-select option {
-    background-color: #083b26;
-    color: #ffffff;
+    background-color: #ffffff;
+    color: #334155;
+}
+
+@media (max-width: 640px) {
+    .language-switcher {
+        top: 0.65rem;
+        right: 0.65rem;
+        padding: 0.2rem 0.35rem;
+    }
+    #language-select {
+        min-width: 4.5rem;
+    }
 }
 </style>

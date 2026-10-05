@@ -4,6 +4,7 @@
 
 // Reparacion: Se reemplazo window.onload por DOMContentLoaded para no pisar el arranque inline de index_ad.php.
 document.addEventListener('DOMContentLoaded', () => {
+    inicializarSidebarAdmin();
     inicializarPermisosAdmin();
     inicializarFechaAdmin();
     inicializarTogglesAdmin();
@@ -13,7 +14,36 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHousekeeping();
     iniciarSincronizacionHousekeeping();
     iniciarSincronizacionReservas();
+    inicializarCobroExperienciasReserva();
 });
+
+function inicializarSidebarAdmin() {
+    const sidebar = document.getElementById('adminSidebar');
+    if (!sidebar) return;
+    const guardado = localStorage.getItem('hotel_admin_sidebar_collapsed');
+    const colapsado = guardado === null
+        ? window.matchMedia('(max-width: 900px)').matches
+        : guardado === '1';
+    aplicarEstadoSidebarAdmin(colapsado);
+}
+
+function aplicarEstadoSidebarAdmin(colapsado) {
+    document.body.classList.toggle('admin-sidebar-collapsed', colapsado);
+    const boton = document.getElementById('adminSidebarToggle');
+    if (!boton) return;
+    boton.setAttribute('aria-expanded', String(!colapsado));
+    boton.setAttribute('aria-label', colapsado ? 'Expandir menú' : 'Contraer menú');
+    boton.title = colapsado ? 'Expandir menú' : 'Contraer menú';
+    boton.querySelector('.material-symbols-outlined').textContent = colapsado
+        ? 'left_panel_open'
+        : 'left_panel_close';
+}
+
+function alternarSidebarAdmin() {
+    const colapsado = !document.body.classList.contains('admin-sidebar-collapsed');
+    localStorage.setItem('hotel_admin_sidebar_collapsed', colapsado ? '1' : '0');
+    aplicarEstadoSidebarAdmin(colapsado);
+}
 
 function inicializarPermisosAdmin() {
     const permisos = Array.isArray(window.PERMISOS_USUARIO) ? window.PERMISOS_USUARIO : [];
@@ -125,20 +155,6 @@ function filtrarReservas() {
     if (noResultados) noResultados.style.display = resultados ? 'none' : 'block';
 }
 
-function generarFactura(btn) {
-    btn.disabled = true;
-    btn.classList.remove('bg-primary', 'hover:bg-heading');
-    btn.classList.add('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
-    btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Procesando...';
-
-    setTimeout(() => {
-        btn.classList.remove('bg-slate-300', 'text-slate-500');
-        btn.classList.add('bg-green-600', 'text-white');
-        btn.innerHTML = '<span class="material-symbols-outlined text-sm">check_circle</span> Factura Generada';
-        setTimeout(() => alert('Factura timbrada y enviada al correo del huésped exitosamente.'), 300);
-    }, 1800);
-}
-
 // =======================================================
 // MODALES Y HOUSEKEEPING ADMIN
 // =======================================================
@@ -157,6 +173,130 @@ function cerrarModalReserva() {
     if (!modal) return;
     modal.classList.remove('modal-reserva-visible');
     setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function imprimirFacturaReserva(factura, ventana) {
+    const escapar = valor => String(valor ?? '').replace(/[&<>"']/g, caracter => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[caracter]);
+    const moneda = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+    const fecha = valor => {
+        const texto = String(valor);
+        const fechaSolo = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+        const parsed = fechaSolo
+            ? new Date(Number(fechaSolo[1]), Number(fechaSolo[2]) - 1, Number(fechaSolo[3]))
+            : new Date(texto.replace(' ', 'T'));
+        return Number.isNaN(parsed.getTime()) ? escapar(valor) : escapar(parsed.toLocaleDateString('es-CO'));
+    };
+    const esExperiencia = factura.tipo === 'experiencia';
+    const filasFactura = esExperiencia
+        ? ((factura.opciones || []).length > 0 ? factura.opciones : [{ opcion: factura.experiencia, monto: factura.monto }]).map((item, indice) => `
+            <tr>
+                <td>Persona ${indice + 1}: ${escapar(item.opcion)}</td>
+                <td>${escapar(factura.metodo_pago)}</td>
+                <td>${item.monto === null ? 'Incluido' : moneda.format(Number(item.monto) || 0)}</td>
+            </tr>`).join('')
+        : `<tr><td>Alojamiento (${escapar(factura.noches)} noche(s), IVA incluido)</td><td>${escapar(factura.metodo_pago)}</td><td>${moneda.format(Number(factura.monto) || 0)}</td></tr>`;
+    const detalleFactura = esExperiencia
+        ? `<h2>Detalle de la experiencia</h2>
+           <p><strong>${escapar(factura.experiencia)}</strong></p>
+           ${factura.cod_reserva ? `<p>Vinculada a la reserva #${escapar(factura.cod_reserva)}. El cobro de alojamiento se factura por separado.</p>` : ''}
+           <p>${(factura.opciones || []).map(item => escapar(item.opcion)).join(' · ')}</p>
+           <p>Programada para el ${fecha(factura.fecha_experiencia)} a las ${escapar(String(factura.hora_experiencia || '').slice(0, 5))}</p>`
+        : `<h2>Detalle de la estancia</h2>
+           <p>Reserva #${escapar(factura.cod_reserva)} · Habitación ${escapar(factura.habitacion)} (${escapar(factura.tipo_habitacion)})</p>
+           <p>${fecha(factura.fecha_entrada)} al ${fecha(factura.fecha_salida)} · ${escapar(factura.noches)} noche(s)</p>`;
+
+    ventana.document.open();
+    ventana.document.write(`<!doctype html>
+        <html lang="es">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Factura ${escapar(factura.folio)}</title>
+            <style>
+                body{font-family:Arial,sans-serif;color:#172b3d;margin:0;padding:36px}
+                main{max-width:760px;margin:0 auto;border:1px solid #d8e0e8;padding:36px}
+                header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #17354f;padding-bottom:20px}
+                h1{margin:0 0 8px;font-size:26px}h2{margin:28px 0 12px;font-size:15px}
+                p{margin:6px 0;color:#475569}.folio{text-align:right}
+                table{width:100%;border-collapse:collapse;margin-top:28px}
+                th,td{text-align:left;padding:12px;border-bottom:1px solid #e2e8f0}
+                th:last-child,td:last-child{text-align:right}.total{font-size:19px;font-weight:bold}
+                footer{margin-top:32px;text-align:center;color:#64748b;font-size:12px}
+                @media print{body{padding:0}main{border:0;padding:12mm}}
+            </style>
+        </head>
+        <body>
+            <main>
+                <header>
+                    <div><h1>Hotel Aurora</h1><p>Factura / comprobante de pago</p></div>
+                    <div class="folio"><strong>${escapar(factura.folio)}</strong><p>Fecha: ${fecha(factura.fecha)}</p></div>
+                </header>
+                <h2>Huésped</h2>
+                <p><strong>${escapar(factura.huesped)}</strong></p>
+                <p>${escapar(factura.correo)}</p>
+                ${detalleFactura}
+                <table>
+                    <thead><tr><th>Concepto</th><th>Pago</th><th>Total</th></tr></thead>
+                    <tbody>${filasFactura}</tbody>
+                    <tfoot><tr><td colspan="2" class="total">Total pagado</td><td class="total">${moneda.format(Number(factura.monto) || 0)}</td></tr></tfoot>
+                </table>
+                <footer>Gracias por elegir Hotel Aurora.</footer>
+            </main>
+            <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));<\/script>
+        </body>
+        </html>`);
+    ventana.document.close();
+}
+
+function inicializarCobroExperienciasReserva() {
+    document.addEventListener('click', async event => {
+        const boton = event.target.closest('[data-cobrar-experiencia-reserva]');
+        if (!boton) return;
+
+        const contenedor = boton.closest('td');
+        const selectorMetodo = contenedor?.querySelector('[data-metodo-pago-experiencia]');
+        const error = contenedor?.querySelector('[data-error-cobro-experiencia]');
+        if (!selectorMetodo || !error) return;
+
+        const ventanaFactura = window.open('', '_blank');
+        if (!ventanaFactura) {
+            error.textContent = 'Permite las ventanas emergentes para imprimir la factura.';
+            error.classList.remove('hidden');
+            return;
+        }
+
+        boton.disabled = true;
+        error.classList.add('hidden');
+        try {
+            const respuesta = await fetch('../../controladores/gestionar_experiencias.php', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new URLSearchParams({
+                    accion: 'cobrar_experiencia',
+                    id_agenda: boton.dataset.idAgenda,
+                    metodo_pago: selectorMetodo.value,
+                    csrf_token: CSRF_TOKEN
+                })
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
+                throw new Error(datos.mensaje || 'No se pudo cobrar la experiencia');
+            }
+            imprimirFacturaReserva(datos.factura, ventanaFactura);
+            await refrescarTablaReservas();
+        } catch (errorPeticion) {
+            ventanaFactura.close();
+            error.textContent = errorPeticion.message;
+            error.classList.remove('hidden');
+            boton.disabled = false;
+        }
+    });
 }
 
 function toggleNuevoHuesped() {
@@ -890,7 +1030,7 @@ window.eliminarReservaEnVivo = async function(idReserva) {
             alert('Error: ' + (res.mensaje || 'No se pudo eliminar'));
         }
     } catch (err) {
-        alert('Error critico de conexion con la base de datos.');
+        alert(err instanceof Error ? err.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.');
     }
 };
 
@@ -905,7 +1045,9 @@ document.addEventListener('submit', async function(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    const btn = form.querySelector('button[type="submit"]');
+    const btn = e.submitter instanceof HTMLButtonElement
+        ? e.submitter
+        : form.querySelector('button[type="submit"]');
     if (!btn) return;
 
     // Evita doble envio por listeners duplicados
@@ -915,6 +1057,8 @@ document.addEventListener('submit', async function(e) {
     const originalText = btn.innerHTML;
     btn.innerHTML = 'Guardando...';
     btn.disabled = true;
+    const accionReserva = e.submitter?.value === 'cobrar' ? 'cobrar' : 'guardar';
+    let ventanaFactura = null;
 
     try {
         if (esFormCrear && !form.querySelector('[name="tipo_huesped"]')?.value) {
@@ -922,13 +1066,38 @@ document.addEventListener('submit', async function(e) {
             return;
         }
 
+        if (accionReserva === 'cobrar') {
+            ventanaFactura = window.open('', '_blank');
+            if (!ventanaFactura) {
+                alert('Permite las ventanas emergentes para poder imprimir la factura.');
+                return;
+            }
+        }
+
+        const datosFormulario = new FormData(form);
+        datosFormulario.set('accion', accionReserva);
+        if (esFormCrear) {
+            datosFormulario.set(
+                'metodo_pago',
+                accionReserva === 'cobrar' ? form.elements.namedItem('metodo_pago').value : 'Recepción'
+            );
+        }
+
         const response = await fetch(form.action, {
             method: 'POST',
-            body: new FormData(form)
+            body: datosFormulario
         });
         const res = await response.json();
 
         if (res.status === 'exito') {
+            if (accionReserva === 'cobrar') {
+                if (res.reserva?.factura) {
+                    imprimirFacturaReserva(res.reserva.factura, ventanaFactura);
+                } else {
+                    ventanaFactura?.close();
+                    alert('El cobro se registró, pero el servidor no devolvió los datos de la factura.');
+                }
+            }
             if (esFormEditar && typeof cerrarModalEditar === 'function') cerrarModalEditar();
             if (esFormCrear && typeof cerrarModalReserva === 'function') cerrarModalReserva();
             if (esFormCrear) {
@@ -943,19 +1112,18 @@ document.addEventListener('submit', async function(e) {
                     while (Number(document.getElementById('cantAdultosReserva')?.value || 1) > 1) cambiarHuespedesAdmin('adultos', -1);
                     while (Number(document.getElementById('cantNinosReserva')?.value || 0) > 0) cambiarHuespedesAdmin('ninos', -1);
                 }
+                if (typeof actualizarTotalReservaPreview === 'function') actualizarTotalReservaPreview();
             }
 
-            if (res.reserva) {
-                actualizarFilaReserva(res.reserva);
-            } else {
-                await refrescarTablaReservas();
-            }
+            await refrescarTablaReservas();
             notificarCambioReservas();
         } else {
+            ventanaFactura?.close();
             alert('Error: ' + (res.mensaje || 'No se pudo procesar la reserva'));
         }
     } catch (err) {
-        alert('Error critico de conexion con la base de datos.');
+        ventanaFactura?.close();
+        alert(err instanceof Error ? err.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.');
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;

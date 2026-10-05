@@ -18,8 +18,11 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     <!-- Sidebar lateral -->
     <?php include __DIR__ . '/componentes/sidebar.php'; ?>
 
+    <!-- Panel lateral de tareas, antes del área desplazable para mantener su barra al extremo derecho. -->
+    <?php include __DIR__ . '/componentes/aside_tareas.php'; ?>
+
     <!-- Contenedor central -->
-    <div class="empleado-main ml-64 flex-1 flex flex-col h-full overflow-hidden min-w-0">
+    <div id="empleadoMain" class="empleado-main flex-1 flex flex-col h-full overflow-hidden min-w-0">
         
         <!-- Topbar -->
         <?php include __DIR__ . '/componentes/topbar.php'; ?>
@@ -34,9 +37,6 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 
         </main>
     </div>
-
-    <!-- Panel lateral derecho de tareas -->
-    <?php include __DIR__ . '/componentes/aside_tareas.php'; ?>
 
     <!-- Modales -->
     <?php include __DIR__ . '/componentes/modal_tarea.php'; ?>
@@ -54,7 +54,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
         )); ?>;
     </script>
 
-    <script src="js/panel.js"></script>
+    <script src="js/panel.js?v=2"></script>
     <?php
     $ayudaSistemaRol = 'empleado';
     require_once __DIR__ . '/../../includes/system_help.php';

@@ -73,6 +73,7 @@ if ($stmtReservas) {
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800">
+    <?php include __DIR__ . '/../../includes/translate.php'; ?>
     <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center border-b border-slate-200">
         <div class="text-xl font-bold text-teal-700 flex items-center gap-2">
             <span class="material-symbols-outlined">hotel</span>

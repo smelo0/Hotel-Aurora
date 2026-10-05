@@ -21,7 +21,7 @@ body {
     background-attachment: fixed; 
     min-height: 100vh;
     margin: 0;
-        
+    font-family: 'Manrope', sans-serif;
 }
 
 .logo {
@@ -36,7 +36,9 @@ body {
 }
  
 .font-display {
-    font-family: 'Playfair Display', serif
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-weight: 600;
+    letter-spacing: -0.025em;
 }
 
 .site-nav {
@@ -45,6 +47,67 @@ body {
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.site-nav .language-switcher {
+    position: static;
+    z-index: auto;
+    gap: 0.1rem;
+    height: 1.75rem;
+    padding: 0.1rem 0.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.6rem;
+    line-height: 1;
+    box-shadow: none;
+    flex: 0 0 auto;
+}
+
+.site-nav .language-switcher__icon {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.site-nav #language-select {
+    width: 3.65rem;
+    min-width: 0;
+    height: 1.4rem;
+    padding: 0.05rem 0.75rem 0.05rem 0.05rem;
+    font-size: inherit;
+}
+
+.experience-time-list {
+    max-height: 9.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #64748b #e2e8f0;
+}
+
+.experience-time-list::-webkit-scrollbar {
+    width: 16px;
+}
+
+.experience-time-list::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+}
+
+.experience-time-list::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    background: #64748b;
+    border: 3px solid #e2e8f0;
+    border-radius: 999px;
+}
+
+.experience-time-list:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.experience-time-option[aria-selected="true"] {
+    background: #2c5e5e;
+    color: #ffffff;
 }
 
 .glass-card {
@@ -197,7 +260,7 @@ body {
 }
 
 .hero-button {
-    border-radius: 18px;
+    border-radius: 8px;
     font-weight: 800;
     transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
     will-change: transform;
@@ -257,6 +320,10 @@ body {
 .hero-copy,
 .light-text {
     color: var(--text-primary);
+}
+
+.room-card__title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
 .section-kicker {
@@ -438,12 +505,43 @@ body {
 
 @media (max-width: 767px) {
     .booking-bar {
-    transform: translateY(-8px);
+        transform: translateY(-8px);
     }
+
     .guest-popover {
         left: 0;
         right: auto;
         width: min(340px, calc(100vw - 48px));
+    }
+
+    .rooms-carousel {
+        gap: 1rem;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        scroll-padding-inline: 0.25rem;
+    }
+
+    .rooms-carousel > [data-room-card] {
+        flex: 0 0 100%;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        scroll-snap-align: center;
+        overflow: hidden;
+    }
+
+    .rooms-carousel > [data-room-card] > div > .flex.items-start.justify-between {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .rooms-carousel > [data-room-card] > div > .mt-6 {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rooms-carousel > [data-room-card] [data-room-select] {
+        width: 100%;
     }
 }
 .inactivity-modal-overlay {

@@ -159,6 +159,34 @@ function navegar(sec, btn) {
     }
 }
 
+function inicializarSidebarEmpleado() {
+    const sidebar = document.getElementById('empleadoSidebar');
+    if (!sidebar) return;
+    const guardado = localStorage.getItem('hotel_empleado_sidebar_collapsed');
+    const colapsado = guardado === null
+        ? window.matchMedia('(max-width: 900px)').matches
+        : guardado === '1';
+    aplicarEstadoSidebarEmpleado(colapsado);
+}
+
+function aplicarEstadoSidebarEmpleado(colapsado) {
+    document.body.classList.toggle('sidebar-collapsed', colapsado);
+    const boton = document.getElementById('empleadoSidebarToggle');
+    if (!boton) return;
+    boton.setAttribute('aria-expanded', String(!colapsado));
+    boton.setAttribute('aria-label', colapsado ? 'Expandir menú' : 'Contraer menú');
+    boton.title = colapsado ? 'Expandir menú' : 'Contraer menú';
+    boton.querySelector('.material-symbols-outlined').textContent = colapsado
+        ? 'left_panel_open'
+        : 'left_panel_close';
+}
+
+function alternarSidebarEmpleado() {
+    const colapsado = !document.body.classList.contains('sidebar-collapsed');
+    localStorage.setItem('hotel_empleado_sidebar_collapsed', colapsado ? '1' : '0');
+    aplicarEstadoSidebarEmpleado(colapsado);
+}
+
 function abrirModal() {
     const modal = document.getElementById('modalTarea');
     if (modal) {
@@ -347,6 +375,7 @@ function actualizarContadorTareas() {
 }
 
 function abrirColaTareas() {
+    const boton = document.getElementById('botonColaTareas');
     const panel = document.getElementById('panelTareasDerecho');
     const cabecera = document.getElementById('cabeceraColaTareas');
     const titulo = document.getElementById('tituloColaTareas');
@@ -361,10 +390,14 @@ function abrirColaTareas() {
     flecha.classList.remove('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
     contenedor.classList.remove('opacity-0', 'pointer-events-none');
     contenedor.classList.add('opacity-100');
+    boton?.setAttribute('aria-expanded', 'true');
+    boton?.setAttribute('aria-label', 'Cerrar cola de tareas');
+    boton?.setAttribute('title', 'Cola de tareas abierta');
 }
 
 function cerrarColaTareas(event) {
     if (event) event.stopPropagation();
+    const boton = document.getElementById('botonColaTareas');
     const panel = document.getElementById('panelTareasDerecho');
     const cabecera = document.getElementById('cabeceraColaTareas');
     const titulo = document.getElementById('tituloColaTareas');
@@ -379,6 +412,9 @@ function cerrarColaTareas(event) {
     flecha.classList.add('opacity-0', 'w-0', 'overflow-hidden', 'pointer-events-none');
     contenedor.classList.add('opacity-0', 'pointer-events-none');
     contenedor.classList.remove('opacity-100');
+    boton?.setAttribute('aria-expanded', 'false');
+    boton?.setAttribute('aria-label', 'Abrir cola de tareas');
+    boton?.setAttribute('title', 'Abrir cola de tareas');
 }
 
 function abrirGestionHabitacion(id, numero, estadoActual) {
@@ -434,7 +470,14 @@ function toggleDescripcionMantenimiento() {
 }
 
 function enlazarEventosEmpleado() {
-    document.querySelector('[data-action="abrir-cola"]')?.addEventListener('click', abrirColaTareas);
+    const botonColaTareas = document.getElementById('botonColaTareas');
+    botonColaTareas?.addEventListener('click', evento => {
+        if (botonColaTareas.getAttribute('aria-expanded') === 'true') {
+            cerrarColaTareas(evento);
+        } else {
+            abrirColaTareas();
+        }
+    });
     document.querySelector('[data-action="cerrar-cola"]')?.addEventListener('click', cerrarColaTareas);
     document.querySelector('[data-action="cerrar-modal-hab"]')?.addEventListener('click', cerrarModalHabitacion);
     document.getElementById('estadoHabitacionModal')?.addEventListener('change', toggleDescripcionMantenimiento);
@@ -490,6 +533,7 @@ function enlazarEventosEmpleado() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    inicializarSidebarEmpleado();
     const fecha = document.getElementById('fechaHoy');
     if (fecha) fecha.innerText = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
     enlazarEventosEmpleado();

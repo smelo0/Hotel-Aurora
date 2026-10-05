@@ -68,7 +68,7 @@ if ($token === '') {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Restablecer contraseña | Hotel Aurora</title>
-    <link rel="stylesheet" href="../../assets/css/index_usu.css">
+    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=2">
 </head>
 <body>
     <div class="form-card">
@@ -100,16 +100,7 @@ if ($token === '') {
         <?php endif; ?>
        
     </div>
-    <div class="login-layouts">
-        <?php include __DIR__ . "../../../includes/translate.php";?>
-        <?php require_once __DIR__ . "../../../includes/system_help.php"?>
-    </div>
-    <style>
-        .login-layouts {
-            position: absolute;
-            right: 100px;
-            bottom: 50px;
-        }
-    </style>
+    <?php include __DIR__ . '/../../includes/translate.php'; ?>
+    <?php require_once __DIR__ . '/../../includes/system_help.php'; ?>
 </body>
 </html>

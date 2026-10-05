@@ -6,8 +6,8 @@
     <title>HOTEL AURORA - Admin Pro</title>
     
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏨</text></svg>">
@@ -22,19 +22,28 @@
                         "secondary": "#4A8B8B", 
                         "accent": "#E6F2F2",    
                         "heading": "#1A3B3B",   
-                        // Modificación: Se sincronizó el fondo del panel administrador con el tono gris del panel empleado.
-                        "surface": "#DDE6E6", 
+                        "surface": "#F8FAFC",
                     },
                     // Modificación: Se igualó la escala de bordes del administrador con la configuración visual del panel empleado.
                     borderRadius: { "lg": "1rem", "xl": "2rem", "full": "9999px" },
-                    fontFamily: { "headline": ["Plus Jakarta Sans"], "body": ["Manrope"] }
+                    fontFamily: { "headline": ["Inter", "Arial", "sans-serif"], "body": ["Inter", "Arial", "sans-serif"] }
                 },
             },
         }
     </script>
     <style>
+        body,
+        body.font-body { font-family: 'Inter', Arial, sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        #adminMain,
+        #adminMain .font-body,
+        #adminMain .font-headline,
+        #adminMain h1,
+        #adminMain h2,
+        #adminMain h3,
+        #adminMain h4,
+        #adminSidebar .admin-brand h1 { font-family: 'Inter', Arial, sans-serif !important; }
         /* Modificación: Se aplicó el mismo estado activo del panel empleado al menú del administrador. */
         .active-nav { color: #2C5E5E !important; font-weight: 800; position: relative; }
         /* Modificación: Se agregó la barra lateral activa igual a la navegación del panel empleado. */
@@ -211,5 +220,59 @@
         /* Traductor de emergencia para el modal del Administrador */
         .modal-oculto { opacity: 0; pointer-events: none; visibility: hidden; }
         .modal-visible { opacity: 1; pointer-events: auto; visibility: visible; }
+    </style>
+    <style>
+        .admin-sidebar-toggle-wrap { display: flex; justify-content: flex-end; padding: 0 1rem; margin-bottom: 1rem; }
+        .admin-sidebar-toggle { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; color: #2c5e5e; transition: background-color .18s ease, color .18s ease; }
+        .admin-sidebar-toggle:hover { background: #e6f2f2; }
+        #adminSidebar .admin-brand { display: flex; align-items: center; gap: .75rem; min-height: 3.5rem; margin: 0 0 2.5rem; padding: 0 1.5rem; }
+        #adminSidebar .admin-brand-mark { display: grid; flex: 0 0 2.875rem; width: 2.875rem; height: 2.875rem; place-items: center; overflow: hidden; border: 1px solid rgba(215, 176, 106, .55); border-radius: .9rem; background: #102d2d; box-shadow: 0 5px 14px rgba(16, 45, 45, .14); }
+        #adminSidebar .admin-brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        #adminSidebar .admin-brand-copy { min-width: 0; }
+        #adminSidebar .admin-brand h1 { margin: 0; color: #1a3b3b; font-family: 'Inter', Arial, sans-serif !important; font-size: .95rem; font-weight: 600; letter-spacing: .035em; line-height: 1.2; white-space: nowrap; }
+        #adminSidebar .admin-brand p { margin: .28rem 0 0; color: #94a3b8; font-size: .59rem; font-weight: 800; letter-spacing: .16em; line-height: 1; text-transform: uppercase; }
+        #adminSidebar .admin-sidebar-footer,
+        #adminSidebar .nav-item { flex-shrink: 0; }
+        body.admin-sidebar-collapsed #adminSidebar { width: 5rem; }
+        body.admin-sidebar-collapsed #adminMain { margin-left: 5rem; }
+        body.admin-sidebar-collapsed #adminSidebar > div:not(.admin-sidebar-toggle-wrap) { padding-left: .5rem; padding-right: .5rem; margin-bottom: 2rem; text-align: center; }
+        body.admin-sidebar-collapsed #adminSidebar > div:not(.admin-sidebar-toggle-wrap) h1,
+        body.admin-sidebar-collapsed #adminSidebar > div:not(.admin-sidebar-toggle-wrap) p,
+        body.admin-sidebar-collapsed #adminSidebar .admin-brand-copy,
+        body.admin-sidebar-collapsed #adminSidebar .nav-item > span:last-child,
+        body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer > a > span:last-child,
+        body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer > button > span:first-child { display: none; }
+        body.admin-sidebar-collapsed #adminSidebar .admin-brand { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+        body.admin-sidebar-collapsed #adminSidebar .nav-item { justify-content: center; gap: 0; padding-left: .75rem; padding-right: .75rem; }
+        body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer { padding-left: .5rem; padding-right: .5rem; }
+        body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer > a,
+        body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer > button { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+        @media (max-width: 900px) {
+            #adminSidebar { width: 5rem; }
+            #adminMain { margin-left: 5rem; }
+            #adminSidebar > div:not(.admin-sidebar-toggle-wrap) { padding-left: .5rem; padding-right: .5rem; margin-bottom: 2rem; text-align: center; }
+            #adminSidebar > div:not(.admin-sidebar-toggle-wrap) h1,
+            #adminSidebar > div:not(.admin-sidebar-toggle-wrap) p,
+            #adminSidebar .admin-brand-copy,
+            #adminSidebar .nav-item > span:last-child,
+            #adminSidebar .admin-sidebar-footer > a > span:last-child,
+            #adminSidebar .admin-sidebar-footer > button > span:first-child { display: none; }
+            #adminSidebar .admin-brand { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+            #adminSidebar .nav-item { justify-content: center; gap: 0; padding-left: .75rem; padding-right: .75rem; }
+            #adminSidebar .admin-sidebar-footer { padding-left: .5rem; padding-right: .5rem; }
+            #adminSidebar .admin-sidebar-footer > a,
+            #adminSidebar .admin-sidebar-footer > button { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar { width: 16rem; z-index: 60; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar > div:not(.admin-sidebar-toggle-wrap) { padding-left: 2rem; padding-right: 2rem; text-align: left; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar > div:not(.admin-sidebar-toggle-wrap) h1,
+            body:not(.admin-sidebar-collapsed) #adminSidebar > div:not(.admin-sidebar-toggle-wrap) p,
+            body:not(.admin-sidebar-collapsed) #adminSidebar .admin-brand-copy,
+            body:not(.admin-sidebar-collapsed) #adminSidebar .nav-item > span:last-child,
+            body:not(.admin-sidebar-collapsed) #adminSidebar .admin-sidebar-footer > a > span:last-child,
+            body:not(.admin-sidebar-collapsed) #adminSidebar .admin-sidebar-footer > button > span:first-child { display: initial; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar .admin-brand { justify-content: flex-start; padding-left: 2rem; padding-right: 2rem; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar .nav-item { justify-content: flex-start; gap: 1rem; padding-left: 2rem; padding-right: 2rem; }
+            body:not(.admin-sidebar-collapsed) #adminSidebar .admin-sidebar-footer { padding-left: 1.5rem; padding-right: 1.5rem; }
+        }
     </style>
 </head>

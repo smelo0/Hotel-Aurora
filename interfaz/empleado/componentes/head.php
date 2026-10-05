@@ -23,8 +23,8 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#03271B",     /* Verde esmeralda dominante oficial */
-                        "primary-hover": "#021C13",
+                        "primary": "#2C5E5E",
+                        "primary-hover": "#1A3B3B",
                         "gold": "#D7B06A",        /* Dorado de identidad */
                         "gold-light": "#F0D39A",
                         "dark": "#111111",        /* Negro Profundo */
@@ -39,7 +39,7 @@
     </script>
 
     <!-- Hojas de estilo locales -->
-    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="css/estilos.css?v=8">
     
     <!-- Favicon SVG Funcional con Isotipo en Dorado/Verde -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%2303271B'/><text x='50%' y='55%' font-size='60' text-anchor='middle' dominant-baseline='middle' fill='%23D7B06A' font-family='sans-serif' font-weight='bold'>A</text></svg>">

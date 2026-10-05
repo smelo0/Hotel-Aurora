@@ -29,14 +29,46 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `agenda_actividad` (
   `id_agenda` bigint(20) NOT NULL,
-  `actividad` varchar(120) NOT NULL,
+  `actividad` varchar(150) NOT NULL,
+  `opcion_actividad` varchar(100) NOT NULL DEFAULT '',
+  `selecciones_personas_json` text DEFAULT NULL,
+  `monto_experiencia` decimal(12,2) DEFAULT NULL,
+  `precios_personas_json` text DEFAULT NULL,
   `fecha_agenda` date NOT NULL,
   `hora_agenda` time NOT NULL,
   `nombre_contacto` varchar(140) NOT NULL,
   `correo_contacto` varchar(140) NOT NULL,
   `id_usu_agenda` bigint(20) DEFAULT NULL,
   `estado_agenda` varchar(30) DEFAULT 'Pendiente',
-  `creado_en` datetime DEFAULT current_timestamp()
+  `estado_pago_experiencia` varchar(20) NOT NULL DEFAULT 'Pendiente',
+  `fecha_pago_experiencia` datetime DEFAULT NULL,
+  `metodo_pago_experiencia` varchar(30) DEFAULT NULL,
+  `cod_res_agenda` bigint(20) DEFAULT NULL,
+  `creado_en` datetime DEFAULT current_timestamp(),
+  KEY `idx_agenda_reserva` (`cod_res_agenda`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `experiencias`
+--
+
+CREATE TABLE `experiencias` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `categoria` varchar(50) NOT NULL,
+  `nombre` varchar(150) NOT NULL,
+  `descripcion` text NOT NULL,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
+  `imagen` varchar(255) DEFAULT NULL,
+  `opcion_1` varchar(100) NOT NULL DEFAULT '',
+  `opcion_2` varchar(100) NOT NULL DEFAULT '',
+  `opcion_3` varchar(100) NOT NULL DEFAULT '',
+  `precio_opcion_1` decimal(12,2) DEFAULT NULL,
+  `precio_opcion_2` decimal(12,2) DEFAULT NULL,
+  `precio_opcion_3` decimal(12,2) DEFAULT NULL,
+  `horarios_json` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

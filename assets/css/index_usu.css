@@ -33,7 +33,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Tarjeta principal estilo Glassmorphism */
 .form-card {
   width: 100%;
   max-width: 440px;
@@ -47,7 +46,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Contenedor del Logo */
 .flex-logo {
   display: flex;
   justify-content: center;
@@ -63,7 +61,6 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
-/* Encabezados */
 h1 {
   font-family: 'DM Serif Display', 'Playfair Display', serif;
   font-size: 2rem;
@@ -74,7 +71,6 @@ h1 {
   letter-spacing: 0.5px;
 }
 
-/* Formulario e Inputs */
 form {
   display: flex;
   flex-direction: column;
@@ -122,7 +118,6 @@ input[type="text"]:focus {
   transform: translateY(-1px);
 }
 
-/* Botón Submit Estilo Esmeralda */
 input[type="submit"] {
   margin-top: 0.75rem;
   width: 100%;
@@ -144,7 +139,6 @@ input[type="submit"]:hover {
   box-shadow: 0 18px 32px rgba(3, 39, 27, 0.55);
 }
 
-/* Enlaces e Intercambio de Paneles */
 .link-switch {
   display: block;
   text-align: center;
@@ -160,7 +154,6 @@ input[type="submit"]:hover {
   text-decoration: underline;
 }
 
-/* ReCAPTCHA y Google Sign-In Integración */
 .captcha-wrap {
   display: flex;
   justify-content: center;
@@ -173,7 +166,6 @@ input[type="submit"]:hover {
   margin: 0.5rem 0;
 }
 
-/* Consentimiento de Tratamiento de Datos */
 .consent-label {
   display: flex !important;
   align-items: flex-start;
@@ -188,7 +180,6 @@ input[type="submit"]:hover {
   color: #000;
   background-color: white;
   border-radius: 14px;
-  
 }
 
 .consent-label input[type="checkbox"] {
@@ -199,7 +190,6 @@ input[type="submit"]:hover {
   cursor: pointer;
 }
 
-/* Mensajes de Alerta */
 .error-msg,
 .success-msg {
   padding: 0.75rem 1rem;
@@ -221,7 +211,6 @@ input[type="submit"]:hover {
   color: #86efac;
 }
 
-/* Animaciones */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -236,5 +225,3 @@ input[type="submit"]:hover {
     transform: translateY(0);
   }
 }
-
-

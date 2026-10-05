@@ -54,6 +54,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     <th class="p-4">Fechas</th>
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
+                    <th class="p-4">Experiencias y cobros</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
@@ -61,11 +62,37 @@ if (!function_exists('separar_notas_reserva_admin')) {
             <tbody id="tablaReservas" class="divide-y divide-slate-100 text-sm font-semibold">
                 <?php
                 require_once __DIR__ . '/../../../configuracion/conexion.php';
+                require_once __DIR__ . '/../../../configuracion/permiso.php';
+                require_once __DIR__ . '/../../../includes/experiencias.php';
 
-                $sql_reservas = "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res, d.cod_hab_det
+                asegurar_esquema_agenda_experiencias($conexion);
+                $experienciasPorReserva = [];
+                $resultadoExperienciasReserva = $conexion->query(
+                    "SELECT id_agenda, cod_res_agenda, actividad, fecha_agenda, hora_agenda,
+                            estado_agenda, estado_pago_experiencia, monto_experiencia
+                     FROM agenda_actividad
+                     WHERE cod_res_agenda IS NOT NULL
+                     ORDER BY fecha_agenda, hora_agenda, id_agenda"
+                );
+                while ($experienciaReserva = $resultadoExperienciasReserva->fetch_assoc()) {
+                    $experienciasPorReserva[(int) $experienciaReserva['cod_res_agenda']][] = $experienciaReserva;
+                }
+                $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
+                    && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
+
+                $sql_reservas = "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res, d.cod_hab_det,
+                                        COALESCE(
+                                            (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
+                                            GREATEST(
+                                                COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
+                                                - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
+                                                0
+                                            )
+                                        ) AS saldo_pendiente
                                  FROM reservas r
                                  INNER JOIN usuario u ON r.id_usu_res = u.id_usu
                                  LEFT JOIN detalle d ON r.cod_res = d.cod_res_det
+                                 LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
                                  ORDER BY r.cod_res DESC";
 
                 $resultado = $conexion->query($sql_reservas);
@@ -96,6 +123,41 @@ if (!function_exists('separar_notas_reserva_admin')) {
                         $id_reserva = (int) $reserva['cod_res'];
                         $notas_seguras = htmlspecialchars($notas_db, ENT_QUOTES, 'UTF-8');
                         $hab_segura = htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8');
+                        $saldo_pendiente = number_format((float) $reserva['saldo_pendiente'], 2, '.', '');
+                        $experienciasTabla = '';
+                        foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
+                            $idAgenda = (int) $experienciaReserva['id_agenda'];
+                            $nombreExperiencia = htmlspecialchars((string) $experienciaReserva['actividad'], ENT_QUOTES, 'UTF-8');
+                            $fechaExperiencia = htmlspecialchars(
+                                date('d M Y', strtotime((string) $experienciaReserva['fecha_agenda'])) . ' · ' . substr((string) $experienciaReserva['hora_agenda'], 0, 5),
+                                ENT_QUOTES,
+                                'UTF-8'
+                            );
+                            $estadoExperiencia = htmlspecialchars((string) ($experienciaReserva['estado_agenda'] ?: 'Pendiente'), ENT_QUOTES, 'UTF-8');
+                            $estadoPagoExperiencia = (string) ($experienciaReserva['estado_pago_experiencia'] ?? 'Pendiente');
+                            $montoExperiencia = $experienciaReserva['monto_experiencia'] === null
+                                ? 'Sin precio'
+                                : '$' . number_format((float) $experienciaReserva['monto_experiencia'], 0, ',', '.');
+                            $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
+                                . '<p class="font-black text-slate-700">' . $nombreExperiencia . '</p>'
+                                . '<p class="mt-1 text-xs text-slate-500">' . $fechaExperiencia . ' · ' . $estadoExperiencia . '</p>'
+                                . '<p class="mt-1 text-xs font-bold text-slate-600">Experiencia: ' . htmlspecialchars($montoExperiencia, ENT_QUOTES, 'UTF-8')
+                                . ' · Pago: ' . htmlspecialchars($estadoPagoExperiencia, ENT_QUOTES, 'UTF-8') . '</p>';
+                            if ($puedeCobrarExperienciasReserva && $estadoPagoExperiencia === 'Pendiente'
+                                && $experienciaReserva['monto_experiencia'] !== null
+                                && (float) $experienciaReserva['monto_experiencia'] > 0
+                                && $estadoExperiencia !== 'Cancelada') {
+                                $experienciasTabla .= '<div class="mt-2 flex flex-wrap items-center gap-2">'
+                                    . '<select data-metodo-pago-experiencia class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold">'
+                                    . '<option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option></select>'
+                                    . '<button type="button" data-cobrar-experiencia-reserva data-id-agenda="' . $idAgenda . '" class="ui-action rounded-md bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-heading">Cobrar y facturar</button>'
+                                    . '</div><p data-error-cobro-experiencia class="mt-1 hidden text-xs text-rose-600"></p>';
+                            }
+                            $experienciasTabla .= '</div>';
+                        }
+                        if ($experienciasTabla === '') {
+                            $experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias vinculadas</span>';
+                        }
 
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
                         echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . htmlspecialchars($reserva['nom_usu']) . '</td>';
@@ -103,19 +165,20 @@ if (!function_exists('separar_notas_reserva_admin')) {
                         echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in) . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out) . '</span></div></td>';
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado) . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
+                        echo '<td class="py-5 px-4 align-middle min-w-64">' . $experienciasTabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
-                        echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
+                        echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
                         echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
                         echo '</div>';
                         echo '</td>';
                         echo '</tr>';
                     }
                 } else {
-                    echo '<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
+                    echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
                 // Mejora: listado para searchable select.
-                $sql_huespedes_reserva = 'SELECT id_usu, nom_usu, corr_usu FROM usuario ORDER BY nom_usu ASC';
+                $sql_huespedes_reserva = 'SELECT id_usu, nom_usu, corr_usu FROM usuario WHERE cod_rol_usu = 6 AND est_usu = 1 ORDER BY nom_usu ASC';
                 $resultado_huespedes_reserva = $conexion->query($sql_huespedes_reserva);
                 $huespedes_reserva = [];
                 if ($resultado_huespedes_reserva && $resultado_huespedes_reserva->num_rows > 0) {
@@ -125,7 +188,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
                 }
 
                 // Mejora: selector de habitaciones solo disponibles.
-                $sql_habitaciones_disponibles = "SELECT cod_hab, num_hab, tipo_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC LIMIT 20";
+                $sql_habitaciones_disponibles = "SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC";
                 $resultado_hab_disponibles = $conexion->query($sql_habitaciones_disponibles);
                 $habitaciones_disponibles = [];
                 if ($resultado_hab_disponibles && $resultado_hab_disponibles->num_rows > 0) {
@@ -219,11 +282,30 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     <select name="id_habitacion" id="selectorHabitacionDisponible" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
                         <option value="" selected disabled>Seleccionar habitacion disponible...</option>
                         <?php foreach ($habitaciones_disponibles as $hab): ?>
-                            <option value="<?php echo (int) $hab['cod_hab']; ?>">
+                            <?php $precioBase = (float) $hab['pre_hab'] ?: (float) $hab['precio_hab'] ?: 0; ?>
+                            <option value="<?php echo (int) $hab['cod_hab']; ?>" data-price="<?php echo htmlspecialchars((string) $precioBase, ENT_QUOTES, 'UTF-8'); ?>">
                                 Habitacion <?php echo (int) $hab['num_hab']; ?> - <?php echo htmlspecialchars($hab['tipo_hab'], ENT_QUOTES, 'UTF-8'); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+
+                    <div class="rounded-xl border border-primary/10 bg-white p-4">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Total a pagar</p>
+                                <p id="totalReservaPreview" class="mt-1 text-2xl font-black text-primary">$0</p>
+                            </div>
+                            <div class="w-1/2">
+                                <label for="metodoPagoReserva" class="mb-2 block text-[11px] font-semibold text-slate-500">Método de pago al cobrar</label>
+                                <select id="metodoPagoReserva" name="metodo_pago" class="reserva-field w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p id="detalleTotalReservaPreview" class="mt-2 text-xs text-slate-400">Selecciona una habitación y las fechas para calcular el total con IVA incluido.</p>
+                    </div>
 
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 mb-2">Peticiones Especiales (Opcional)</label>
@@ -233,7 +315,8 @@ if (!function_exists('separar_notas_reserva_admin')) {
 
                 <div class="flex flex-col sm:flex-row gap-3 pt-1">
                     <button type="button" onclick="cerrarModalReserva()" class="ui-action flex-1 text-slate-500 font-semibold py-3 rounded-xl hover:bg-slate-100">Cancelar</button>
-                    <button type="submit" class="ui-action flex-1 bg-primary text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg">Guardar Reserva</button>
+                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-slate-700">Guardar sin cobrar</button>
+                    <button type="submit" name="accion" value="cobrar" class="ui-action flex-1 bg-primary text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg">Cobrar y generar factura</button>
                 </div>
             </form>
         </div>
@@ -284,9 +367,21 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     <textarea name="notas" id="edit_notas" rows="3" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none resize-none"></textarea>
                 </div>
 
+                <div id="editPagoControles" class="hidden rounded-xl border border-primary/10 bg-primary/5 p-4">
+                    <label for="edit_metodo_pago" class="mb-2 block text-xs font-black uppercase tracking-widest text-slate-500">Método de pago recibido</label>
+                    <select name="metodo_pago" id="edit_metodo_pago" class="reserva-field w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                    <p class="mt-2 text-sm font-black text-primary">Saldo a cobrar: <span id="editMontoCobro">$0</span></p>
+                    <p class="mt-2 text-xs text-slate-500">Al cobrar, se registrará el pago pendiente y la reserva pasará a Confirmada.</p>
+                </div>
+
                 <div class="flex gap-3 pt-4 border-t border-slate-100 mt-6">
                     <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-lg hover:bg-slate-50">Cancelar</button>
-                    <button type="submit" class="ui-action flex-1 bg-amber-400 text-white font-bold py-3 rounded-lg shadow-md hover:bg-amber-500 hover:shadow-lg">Guardar Cambios</button>
+                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-slate-700">Actualizar reserva</button>
+                    <button type="submit" id="editAccionCobrar" name="accion" value="cobrar" class="hidden ui-action flex-1 bg-primary text-white font-bold py-3 rounded-lg shadow-md hover:bg-heading">Cobrar y confirmar</button>
                 </div>
             </form>
         </div>
@@ -295,6 +390,39 @@ if (!function_exists('separar_notas_reserva_admin')) {
     <script>
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const huespedesAdminState = { adultos: 1, ninos: 0 };
+        const formatoMonedaReserva = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+        function actualizarTotalReservaPreview() {
+            const form = document.getElementById('formCrearReserva');
+            const habitacion = document.getElementById('selectorHabitacionDisponible');
+            const entrada = form?.elements.namedItem('fecha_in')?.value;
+            const salida = form?.elements.namedItem('fecha_out')?.value;
+            const precio = Number(habitacion?.selectedOptions[0]?.dataset.price || 0);
+            const totalElement = document.getElementById('totalReservaPreview');
+            const detalleElement = document.getElementById('detalleTotalReservaPreview');
+            if (!totalElement || !detalleElement) return;
+
+            if (!entrada || !salida || !habitacion?.value || !Number.isFinite(precio) || precio <= 0) {
+                totalElement.textContent = formatoMonedaReserva.format(0);
+                detalleElement.textContent = 'Selecciona una habitación y las fechas para calcular el total con IVA incluido.';
+                return;
+            }
+
+            const noches = Math.round((Date.parse(`${salida}T00:00:00`) - Date.parse(`${entrada}T00:00:00`)) / 86400000);
+            if (noches <= 0) {
+                totalElement.textContent = formatoMonedaReserva.format(0);
+                detalleElement.textContent = 'La fecha de salida debe ser posterior al check-in.';
+                return;
+            }
+
+            const total = Math.round(precio * noches * 1.19 * 100) / 100;
+            totalElement.textContent = formatoMonedaReserva.format(total);
+            detalleElement.textContent = `${noches} noche(s) · tarifa por noche ${formatoMonedaReserva.format(precio)} · IVA incluido. El total definitivo lo calcula el servidor.`;
+        }
+
+        document.getElementById('formCrearReserva')?.querySelectorAll('[name="fecha_in"], [name="fecha_out"], #selectorHabitacionDisponible')
+            .forEach(campo => campo.addEventListener('change', actualizarTotalReservaPreview));
+        actualizarTotalReservaPreview();
 
         function confirmarEliminacion(idReserva) {
             if (typeof confirmarEliminacionReservaPremium === 'function') {
@@ -405,11 +533,16 @@ if (!function_exists('separar_notas_reserva_admin')) {
             const estado = boton.getAttribute('data-estado');
             const habitacion = boton.getAttribute('data-habitacion');
             const notas = boton.getAttribute('data-notas');
+            const saldoPendiente = Number(boton.getAttribute('data-saldo-pendiente') || 0);
 
             document.getElementById('edit_cod_res').value = id;
             document.getElementById('edit_estado').value = estado;
             document.getElementById('edit_habitacion').value = (habitacion === 'Sin asignar') ? '' : habitacion;
             document.getElementById('edit_notas').value = (notas === 'Ninguna' ? '' : notas);
+            const permiteCobrar = estado === 'Pendiente';
+            document.getElementById('editPagoControles').classList.toggle('hidden', !permiteCobrar);
+            document.getElementById('editAccionCobrar').classList.toggle('hidden', !permiteCobrar);
+            document.getElementById('editMontoCobro').textContent = formatoMonedaReserva.format(saldoPendiente);
 
             const modal = document.getElementById('modalEditarReserva');
             modal.classList.remove('hidden');
