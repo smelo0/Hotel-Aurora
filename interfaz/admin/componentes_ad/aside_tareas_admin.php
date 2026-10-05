@@ -1,5 +1,5 @@
 <!-- Cola de Tareas Desplegable del Administrador (idéntica al empleado) -->
-<aside id="panelTareasDerechoAdmin" class="w-16 bg-[#f3f7f7] border-l border-primary/10 px-3 transition-all duration-300 ease-out flex flex-col h-screen shadow-[-8px_0_30px_rgba(3,39,27,0.05)]">
+<aside id="panelTareasDerechoAdmin" class="admin-task-panel w-16 border-l px-3 transition-all duration-300 ease-out flex flex-col h-screen shadow-[-8px_0_30px_rgba(3,39,27,0.05)]">
     
     <div id="cabeceraColaTareasAdmin" class="flex items-center justify-between mb-3 border-b border-primary/10 pb-1 pt-3 transition-all flex-col gap-0">
         <button id="botonColaTareasAdmin" onclick="toggleColaTareasAdmin()" class="flex items-center gap-3 text-left transition-all">

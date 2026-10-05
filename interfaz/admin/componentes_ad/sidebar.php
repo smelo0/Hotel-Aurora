@@ -1,5 +1,5 @@
 <!-- Modificación: Se sincronizó el contenedor lateral del administrador con la estética del sidebar del panel empleado. -->
-<aside class="fixed left-0 top-0 h-full py-8 bg-[#f7fafa] w-64 flex flex-col z-40 border-r border-primary/15 shadow-[8px_0_30px_rgba(3,39,27,0.06)]">
+<aside class="admin-sidebar fixed left-0 top-0 h-full py-8 w-64 flex flex-col z-40 border-r shadow-[8px_0_30px_rgba(3,39,27,0.06)]">
     <!-- Modificación: Se ajustó el espaciado del encabezado para coincidir con el panel empleado. -->
     <div class="mb-12 px-8">
         <h1 class="text-xl font-black tracking-tighter text-primary">HOTEL AURORA</h1>

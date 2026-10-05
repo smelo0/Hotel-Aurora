@@ -47,7 +47,7 @@ if ($permisos_usuario === []) {
 
 ?>
 
-<body class="bg-surface font-body text-heading antialiased flex min-h-screen overflow-hidden">
+<body class="admin-body font-body text-heading antialiased flex min-h-screen overflow-hidden">
 
     <?php 
     require_once 'componentes_ad/sidebar.php'; 

@@ -1,5 +1,5 @@
 <!-- Modificación: Se mantiene la cabecera del administrador sin botón duplicado de salida. -->
-<header class="flex-1 min-w-full flex items-center justify-between px-12 h-24 bg-[#f8fbfb]/90 backdrop-blur-md sticky top-0 z-30 border-b border-primary/10 shadow-sm">
+<header class="admin-topbar flex-1 min-w-full flex items-center justify-between px-12 h-24 backdrop-blur-md sticky top-0 z-30 border-b shadow-sm">
     <div>
         <h2 class="font-headline font-black text-primary text-2xl tracking-tight">
             Hola, <?php echo explode(' ', $_SESSION['emp_auth']['nombre_usuario'])[0]; ?>
