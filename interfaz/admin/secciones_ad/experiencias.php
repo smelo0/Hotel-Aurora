@@ -52,13 +52,13 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                 </div>
             </div>
             <fieldset>
-                <legend class="mb-2 text-[10px] font-black uppercase text-slate-500">Opciones y precios (opcional)</legend>
-                <p class="mb-3 text-xs text-slate-400">Puedes asignar un precio en pesos colombianos a cada opción. Déjalo vacío si no tiene precio.</p>
+                <legend class="mb-2 text-[10px] font-black uppercase text-slate-500">Opciones y precios</legend>
+                <p class="mb-3 text-xs text-slate-400">La primera opción es obligatoria; las opciones 2 y 3 son opcionales. Puedes asignar un precio en pesos colombianos o dejarlo vacío.</p>
                 <div class="grid gap-3 md:grid-cols-3">
                     <?php foreach ([1, 2, 3] as $numeroOpcion): ?>
                         <div class="space-y-2 rounded-lg border border-slate-200 p-3">
                             <label for="opcionExperiencia<?php echo $numeroOpcion; ?>" class="block text-xs font-bold text-slate-600">Opción <?php echo $numeroOpcion; ?></label>
-                            <input type="text" id="opcionExperiencia<?php echo $numeroOpcion; ?>" maxlength="100" required placeholder="<?php echo ['1' => 'Ej. Menú degustación', '2' => 'Ej. Plato especial', '3' => 'Ej. Cena privada'][$numeroOpcion]; ?>" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+                            <input type="text" id="opcionExperiencia<?php echo $numeroOpcion; ?>" maxlength="100" <?php echo $numeroOpcion === 1 ? 'required' : ''; ?> placeholder="<?php echo ['1' => 'Ej. Menú degustación', '2' => 'Opcional: Ej. Plato especial', '3' => 'Opcional: Ej. Cena privada'][$numeroOpcion]; ?>" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
                             <label for="precioOpcionExperiencia<?php echo $numeroOpcion; ?>" class="block text-xs font-bold text-slate-600">Precio (COP)</label>
                             <input type="number" id="precioOpcionExperiencia<?php echo $numeroOpcion; ?>" min="0" max="9999999999" step="1" inputmode="numeric" placeholder="Sin precio" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
                         </div>
@@ -72,7 +72,7 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                     <select id="opcionHorarioExperiencia" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></select>
                 </label>
                 <div class="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                    <label class="text-xs font-bold text-slate-600" for="fechaHorarioExperiencia">Fecha<input id="fechaHorarioExperiencia" type="date" min="<?php echo htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                    <label class="text-xs font-bold text-slate-600" for="fechaHorarioExperiencia">Fecha<input id="fechaHorarioExperiencia" type="date" min="<?php echo htmlspecialchars((new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                     <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                     <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                     <button id="agregarHorarioExperiencia" type="button" class="self-end rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir fecha</button>
@@ -120,20 +120,30 @@ let horariosExperienciaBorrador = {};
 function escaparExperiencias(valor) { return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter])); }
 function fechaExperienciaLegible(fecha) { const [anio, mes, dia] = fecha.split('-').map(Number); return new Date(anio, mes - 1, dia).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }); }
 function precioExperienciaLegible(precio) { return precio === null || precio === undefined || precio === '' ? 'Sin precio' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(precio)); }
+function numerosOpcionesExperienciaDefinidas() {
+    return [1, 2, 3].filter(numero => document.getElementById(`opcionExperiencia${numero}`).value.trim() !== '');
+}
 function renderizarSelectorOpcionHorario() {
     const selector = document.getElementById('opcionHorarioExperiencia');
     const seleccionAnterior = selector.value || '1';
-    selector.innerHTML = [1, 2, 3].map(numero => {
-        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim() || `Opción ${numero}`;
+    const opcionesDefinidas = numerosOpcionesExperienciaDefinidas();
+    selector.innerHTML = opcionesDefinidas.map(numero => {
+        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim();
         return `<option value="${numero}">${escaparExperiencias(nombre)}</option>`;
     }).join('');
-    selector.value = seleccionAnterior;
+    selector.value = opcionesDefinidas.includes(Number(seleccionAnterior))
+        ? seleccionAnterior
+        : String(opcionesDefinidas[0] || '');
 }
 function renderizarHorariosExperiencia() {
     const lista = document.getElementById('listaHorariosExperiencia');
-    const opciones = [1, 2, 3];
+    const opciones = numerosOpcionesExperienciaDefinidas();
+    if (opciones.length === 0) {
+        lista.innerHTML = '<p class="text-xs text-slate-400">Añade al menos una opción para configurar sus fechas y horarios.</p>';
+        return;
+    }
     lista.innerHTML = opciones.map(numero => {
-        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim() || `Opción ${numero}`;
+        const nombre = document.getElementById(`opcionExperiencia${numero}`).value.trim();
         const fechas = Object.keys(horariosExperienciaBorrador[String(numero)] || {}).sort();
         const filas = fechas.map(fecha => {
             const rango = horariosExperienciaBorrador[String(numero)][fecha];
@@ -305,8 +315,22 @@ document.getElementById('formExperiencia').addEventListener('submit', async even
         cuerpo.append(`opcion_${numero}`, document.getElementById(`opcionExperiencia${numero}`).value.trim());
         cuerpo.append(`precio_opcion_${numero}`, document.getElementById(`precioOpcionExperiencia${numero}`).value.trim());
     });
+<<<<<<< HEAD
+    const opcionesDefinidas = numerosOpcionesExperienciaDefinidas();
+    if (opcionesDefinidas.length === 0) {
+        mostrarMensajeExperiencias('Define al menos una opción para la experiencia.', true);
+        return;
+    }
+    if (opcionesDefinidas.some((numero, indice) => numero !== indice + 1)) {
+        mostrarMensajeExperiencias('Completa las opciones en orden, sin dejar espacios entre ellas.', true);
+        return;
+    }
+    if (opcionesDefinidas.some(numero => Object.keys(horariosExperienciaBorrador[String(numero)] || {}).length === 0)) {
+        mostrarMensajeExperiencias('Configura al menos una fecha y un horario para cada opción definida.', true);
+=======
     if ([1, 2, 3].some(numero => Object.keys(horariosExperienciaBorrador[String(numero)] || {}).length === 0)) {
         mostrarErrorFormularioExperiencia('Configura al menos una fecha y un horario para cada opción.');
+>>>>>>> 5e3348b9c14dfceda52231c3b04767be5145f18c
         return;
     }
     cuerpo.append('horarios', JSON.stringify({ opciones: horariosExperienciaBorrador }));

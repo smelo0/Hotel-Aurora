@@ -718,9 +718,10 @@ if ($usuarioAutenticado) {
                             <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
                             <?php
                                 $fechasConfiguradas = [];
+                                $fechaHoyExperiencia = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
                                 foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
                                     foreach (array_keys($experiencia['horarios'][(string) ($indiceOpcion + 1)] ?? []) as $fechaProgramada) {
-                                        if (is_string($fechaProgramada) && $fechaProgramada >= date('Y-m-d')) {
+                                        if (is_string($fechaProgramada) && $fechaProgramada >= $fechaHoyExperiencia) {
                                             $fechasConfiguradas[$fechaProgramada] = true;
                                         }
                                     }

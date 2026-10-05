@@ -213,7 +213,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </div>
 
             <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="px-7 pb-7 space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                     <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Huésped</label>
                     <div id="contenedorBuscadorHuespedReserva" class="relative">
@@ -344,7 +344,7 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </div>
 
             <form id="formEditarReserva" action="../../controladores/editar_reserva.php" method="POST" class="p-6 space-y-4">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="cod_res" id="edit_cod_res">
 
                 <div>
