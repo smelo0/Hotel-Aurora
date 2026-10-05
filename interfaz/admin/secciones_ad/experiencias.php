@@ -35,6 +35,7 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
             <button type="button" onclick="cerrarModalExperiencia()" class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button>
         </div>
         <form id="formExperiencia" class="space-y-5" enctype="multipart/form-data">
+            <div id="mensajeFormularioExperiencia" class="hidden rounded-lg px-4 py-3 text-sm font-bold" role="alert" aria-live="polite"></div>
             <input type="hidden" id="idExperiencia">
             <div class="grid gap-4 md:grid-cols-2">
                 <div><label for="categoriaExperiencia" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Categoría</label><input type="text" id="categoriaExperiencia" maxlength="50" required placeholder="Ej. Sabores exclusivos" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary"></div>
@@ -184,6 +185,8 @@ function agregarHorarioExperiencia() {
     document.getElementById('listaHorariosExperiencia').scrollTop = document.getElementById('listaHorariosExperiencia').scrollHeight;
 }
 function mostrarMensajeExperiencias(texto, error = false) { const mensaje = document.getElementById('mensajeExperiencias'); mensaje.textContent = texto; mensaje.className = `mb-5 rounded-lg px-4 py-3 text-sm font-bold ${error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`; mensaje.classList.remove('hidden'); }
+function mostrarErrorFormularioExperiencia(texto) { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = texto; mensaje.className = 'rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-600'; }
+function limpiarErrorFormularioExperiencia() { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = ''; mensaje.className = 'hidden rounded-lg px-4 py-3 text-sm font-bold'; }
 async function cargarExperiencias() { try { const respuesta = await fetch(`${ENDPOINT_EXPERIENCIAS}?accion=listar`, { headers: { Accept: 'application/json' } }); const datos = await respuesta.json(); if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las experiencias'); datosExperiencias = datos; document.getElementById('btnNuevaExperiencia').classList.toggle('hidden', !datos.puede_gestionar); renderizarExperiencias(); renderizarHistorialExperiencias(); } catch (error) { mostrarMensajeExperiencias(error.message, true); } }
 function renderizarExperiencias() {
     document.getElementById('tablaExperiencias').innerHTML = datosExperiencias.experiencias.map(experiencia => {
@@ -253,6 +256,7 @@ function abrirEditarExperiencia(id) { abrirModalExperiencia(datosExperiencias.ex
 function abrirModalExperiencia(experiencia) {
     const formulario = document.getElementById('formExperiencia');
     formulario.reset();
+    limpiarErrorFormularioExperiencia();
     document.getElementById('idExperiencia').value = experiencia?.id || '';
     document.getElementById('categoriaExperiencia').value = experiencia?.categoria || '';
     document.getElementById('nombreExperiencia').value = experiencia?.nombre || '';
@@ -297,6 +301,7 @@ async function confirmarEliminacionExperiencia(id) {
 }
 document.getElementById('formExperiencia').addEventListener('submit', async evento => {
     evento.preventDefault();
+    limpiarErrorFormularioExperiencia();
     const formulario = evento.currentTarget;
     const cuerpo = new FormData();
     cuerpo.append('accion', 'guardar');
@@ -310,6 +315,7 @@ document.getElementById('formExperiencia').addEventListener('submit', async even
         cuerpo.append(`opcion_${numero}`, document.getElementById(`opcionExperiencia${numero}`).value.trim());
         cuerpo.append(`precio_opcion_${numero}`, document.getElementById(`precioOpcionExperiencia${numero}`).value.trim());
     });
+<<<<<<< HEAD
     const opcionesDefinidas = numerosOpcionesExperienciaDefinidas();
     if (opcionesDefinidas.length === 0) {
         mostrarMensajeExperiencias('Define al menos una opción para la experiencia.', true);
@@ -321,6 +327,10 @@ document.getElementById('formExperiencia').addEventListener('submit', async even
     }
     if (opcionesDefinidas.some(numero => Object.keys(horariosExperienciaBorrador[String(numero)] || {}).length === 0)) {
         mostrarMensajeExperiencias('Configura al menos una fecha y un horario para cada opción definida.', true);
+=======
+    if ([1, 2, 3].some(numero => Object.keys(horariosExperienciaBorrador[String(numero)] || {}).length === 0)) {
+        mostrarErrorFormularioExperiencia('Configura al menos una fecha y un horario para cada opción.');
+>>>>>>> 5e3348b9c14dfceda52231c3b04767be5145f18c
         return;
     }
     cuerpo.append('horarios', JSON.stringify({ opciones: horariosExperienciaBorrador }));
@@ -336,7 +346,7 @@ document.getElementById('formExperiencia').addEventListener('submit', async even
         mostrarMensajeExperiencias(datos.mensaje);
         await cargarExperiencias();
     } catch (error) {
-        mostrarMensajeExperiencias(error.message, true);
+        mostrarErrorFormularioExperiencia(error.message);
     } finally {
         boton.disabled = false;
     }

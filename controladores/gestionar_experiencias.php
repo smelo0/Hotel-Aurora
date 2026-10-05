@@ -290,6 +290,18 @@ if ($accion === 'guardar') {
     }
     $horarios = json_decode($horariosTexto, true);
 
+    $horariosExistentes = [];
+    if ($id) {
+        $stmtHorarios = $conexion->prepare('SELECT horarios_json FROM experiencias WHERE id = ?');
+        $stmtHorarios->bind_param('i', $id);
+        $stmtHorarios->execute();
+        $stmtHorarios->bind_result($horariosExistentesJson);
+        if ($stmtHorarios->fetch()) {
+            $horariosExistentes = json_decode((string) $horariosExistentesJson, true) ?: [];
+        }
+        $stmtHorarios->close();
+    }
+
     if ($categoria === '' || mb_strlen($categoria) > 50) {
         responder_experiencias(422, 'La categoría es obligatoria y debe tener máximo 50 caracteres');
     }
@@ -345,8 +357,15 @@ if ($accion === 'guardar') {
         $horariosValidados[(string) $numeroOpcion] = [];
         foreach ($fechasOpcion as $fecha => $franjas) {
             $fecha = (string) $fecha;
+<<<<<<< HEAD
             $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $zonaHorariaHotel);
             if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < $fechaHoy) {
+=======
+            $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+            $fechaPasadaNueva = $fecha < date('Y-m-d')
+                && !isset($horariosExistentes[(string) $numeroOpcion][$fecha]);
+            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fechaPasadaNueva) {
+>>>>>>> 5e3348b9c14dfceda52231c3b04767be5145f18c
                 responder_experiencias(422, 'Selecciona fechas válidas, desde hoy en adelante');
             }
             $normalizados = normalizar_horarios_experiencia([(string) $numeroOpcion => [$fecha => $franjas]]);
