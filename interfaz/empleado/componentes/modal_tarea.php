@@ -10,7 +10,7 @@
             </select>
             <textarea id="descTarea" required class="w-full border-slate-200 bg-slate-50 rounded-lg p-4 focus:ring-1 focus:ring-primary outline-none" rows="3" placeholder="Detalles..."></textarea>
             <div class="flex gap-4 pt-4">
-                <button type="button" onclick="cerrarModal()" class="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
+                <button type="button" data-action="cancelar-tarea" class="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-100 rounded-lg transition-all">Cancelar</button>
                 <button type="submit" class="flex-1 py-4 bg-primary text-white font-bold rounded-lg shadow-lg hover:brightness-110">Confirmar</button>
             </div>
         </form>

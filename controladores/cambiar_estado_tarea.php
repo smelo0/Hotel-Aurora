@@ -1,5 +1,11 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use App\Empleado\EmpleadoRepository;
+
 header('Content-Type: application/json; charset=utf-8');
 
 function responder_tarea_json($payload, $codigo_http = 200) {
@@ -27,11 +33,17 @@ exigir_csrf();
 
 require_once __DIR__ . '/../configuracion/conexion.php';
 
-$id_tarea = isset($_POST['cod_tar']) ? (int) $_POST['cod_tar'] : 0;
-$nuevo_estado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
+$estadoRaw = $_POST['nuevo_estado'] ?? null;
+$id_tarea = filter_input(
+    INPUT_POST,
+    'cod_tar',
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
+$nuevo_estado = is_string($estadoRaw) ? trim($estadoRaw) : '';
 $estados_permitidos = ['Pendiente', 'Completada', 'Cancelada'];
 
-if ($id_tarea <= 0 || !in_array($nuevo_estado, $estados_permitidos, true)) {
+if (!is_int($id_tarea) || $id_tarea < 1 || !in_array($nuevo_estado, $estados_permitidos, true)) {
     responder_tarea_json([
         "status" => "error",
         "mensaje" => "Datos inválidos para actualizar la tarea"
@@ -39,23 +51,20 @@ if ($id_tarea <= 0 || !in_array($nuevo_estado, $estados_permitidos, true)) {
 }
 
 try {
-    $conexion->begin_transaction(); // Modificación: Rutina transaccional para actualizar estado de tarea.
-
-    $sql = "UPDATE tarea SET est_tar = ? WHERE cod_tar = ?";
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("si", $nuevo_estado, $id_tarea);
-    $stmt->execute();
-
-    if ($stmt->affected_rows < 1) {
-        $conexion->rollback(); // Modificación: Rutina transaccional para actualizar estado de tarea.
+    if (!$conexion->begin_transaction()) {
+        throw new RuntimeException('No se pudo iniciar la transacción para actualizar la tarea.');
+    }
+    if (!(new EmpleadoRepository())->updateTaskStatus($conexion, (int) $id_tarea, $nuevo_estado)) {
+        $conexion->rollback();
         responder_tarea_json([
             "status" => "error",
             "mensaje" => "La tarea no existe o ya fue procesada"
         ], 404);
     }
 
-    $conexion->commit(); // Modificación: Rutina transaccional para actualizar estado de tarea.
-    $stmt->close();
+    if (!$conexion->commit()) {
+        throw new RuntimeException('No se pudo confirmar la actualización de la tarea.');
+    }
     $conexion->close();
 
     responder_tarea_json([
@@ -65,7 +74,12 @@ try {
         "estado" => $nuevo_estado
     ]);
 } catch (Throwable $error) {
-    $conexion->rollback(); // Modificación: Rutina transaccional para actualizar estado de tarea.
+    try {
+        $conexion->rollback();
+    } catch (Throwable $rollbackError) {
+        error_log('No se pudo revertir la actualización de tarea: ' . $rollbackError->getMessage());
+    }
+    error_log('Error al actualizar estado de tarea: ' . $error->getMessage());
     responder_tarea_json([
         "status" => "error",
         "mensaje" => "No se pudo actualizar la tarea"

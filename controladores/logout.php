@@ -3,6 +3,14 @@
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
+// Se conserva GET para enlaces existentes de huésped y administración.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    exigir_csrf();
+} elseif ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    exit;
+}
+
 // Incluir tu clase Logger (ajusta la ruta según la ubicación real de tu archivo Logger.php)
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;

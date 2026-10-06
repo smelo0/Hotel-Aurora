@@ -14,20 +14,34 @@ async function actualizarInterfaz(habitacionesLocales = null) {
             DATA_HOTEL = await res.json();
         }
 
-        if (!Array.isArray(DATA_HOTEL)) {
-            console.warn("Los datos recibidos no son un arreglo válido:", DATA_HOTEL);
-            return;
-        }
+        if (!Array.isArray(DATA_HOTEL)) throw new Error('El servicio de habitaciones devolvió datos inválidos');
 
         habitacionesEmpleadoState = DATA_HOTEL;
 
         const ocupadas = DATA_HOTEL.filter(h => h.estado === 'Ocupada').length;
         const disponibles = DATA_HOTEL.filter(h => h.estado === 'Disponible' || h.estado === 'Limpio').length;
-        const huespedes = ocupadas; 
+        const totalHabitaciones = DATA_HOTEL.length;
+        const porcentajeOcupacion = totalHabitaciones > 0
+            ? Math.round((ocupadas / totalHabitaciones) * 100)
+            : 0;
 
         if (document.getElementById('dash-ocupadas')) document.getElementById('dash-ocupadas').innerText = ocupadas;
         if (document.getElementById('dash-disponibles')) document.getElementById('dash-disponibles').innerText = disponibles;
-        if (document.getElementById('dash-huespedes')) document.getElementById('dash-huespedes').innerText = huespedes;
+        if (document.getElementById('dash-ocupacion')) {
+            document.getElementById('dash-ocupacion').innerText = `${porcentajeOcupacion}%`;
+        }
+        if (document.getElementById('dash-ocupacion-porcentaje')) {
+            document.getElementById('dash-ocupacion-porcentaje').innerText = `${porcentajeOcupacion}%`;
+        }
+        if (document.getElementById('dash-ocupacion-barra')) {
+            document.getElementById('dash-ocupacion-barra').style.width = `${porcentajeOcupacion}%`;
+        }
+        if (document.getElementById('dash-resumen-ocupadas')) {
+            document.getElementById('dash-resumen-ocupadas').innerText = ocupadas;
+        }
+        if (document.getElementById('dash-total-habitaciones')) {
+            document.getElementById('dash-total-habitaciones').innerText = totalHabitaciones;
+        }
 
         // 1. Grid Habitaciones
         const gridHab = document.getElementById('gridHabitaciones');
@@ -43,10 +57,8 @@ async function actualizarInterfaz(habitacionesLocales = null) {
                 const prioridadColor = prioridadHab === 'Urgente' ? 'text-red-500 bg-red-50' : prioridadHab === 'Importante' ? 'text-orange-500 bg-orange-50' : 'text-green-600 bg-green-50';
                 const prioridadHabitacion = h.estado === 'Mantenimiento' ? `<span class="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${prioridadColor}"><span class="text-[7px] font-black leading-none">${prioridadIcono}</span><span class="text-[7px] font-black uppercase tracking-wide leading-none">${prioridadHab}</span></span>` : '';
 
-                const rolActivo = typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : 3;
-
-                const botonGestion = rolActivo === 3 
-                    ? `<button onclick="abrirGestionHabitacion(${h.id}, ${h.numero}, '${h.estado}')" class="w-full text-center bg-[#eef4f4] hover:bg-primary hover:text-white text-primary font-bold text-[10px] py-2 rounded-lg uppercase tracking-widest transition-colors">
+                const botonGestion = PUEDE_EDITAR_HABITACIONES
+                    ? `<button type="button" data-action="gestionar-habitacion" data-room-id="${Number(h.id)}" data-room-number="${escaparHTML(h.numero)}" data-room-state="${escaparHTML(h.estado)}" class="w-full text-center bg-[#eef4f4] hover:bg-primary hover:text-white text-primary font-bold text-[10px] py-2 rounded-lg uppercase tracking-widest transition-colors">
                         Cambiar Estado
                        </button>`
                     : `<div class="w-full text-center py-2 text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-slate-50 rounded-lg">
@@ -146,6 +158,26 @@ function alternarSidebarEmpleado() {
     aplicarEstadoSidebarEmpleado(colapsado);
 }
 
+function abrirModalLogoutEmpleado() {
+    const modal = document.getElementById('modalLogoutEmpleado');
+    const caja = document.getElementById('cajaLogoutEmpleado');
+    if (!modal || !caja) return;
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        caja.classList.remove('scale-95', 'opacity-0');
+        caja.classList.add('scale-100', 'opacity-100');
+    });
+}
+
+function cerrarModalLogoutEmpleado() {
+    const modal = document.getElementById('modalLogoutEmpleado');
+    const caja = document.getElementById('cajaLogoutEmpleado');
+    if (!modal || !caja) return;
+    caja.classList.remove('scale-100', 'opacity-100');
+    caja.classList.add('scale-95', 'opacity-0');
+    window.setTimeout(() => modal.classList.add('hidden'), 200);
+}
+
 function abrirModal() {
     const modal = document.getElementById('modalTarea');
     if (modal) {
@@ -177,7 +209,7 @@ function escaparHTML(valor) {
 }
 
 function redirigirDesdeDash(sec) {
-    const boton = document.querySelector(`.nav-item[onclick*="${sec}"]`);
+    const boton = document.querySelector(`.nav-item[data-section="${sec}"]`);
     if (boton) navegar(sec, boton);
 }
 
@@ -228,9 +260,12 @@ function crearDetalleHuespedEmpleado(habitacion) {
     return `<div class="space-y-2"><div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-slate-500"><span>${escaparHTML(habitacion.tipo)}</span>${fechas}</div><span class="inline-flex w-fit px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estado)}">${escaparHTML(estado)}</span></div>`;
 }
 
+let cargaTareasEmpleadoEnCurso = false;
+
 async function cargarTareasEmpleado() {
     const contenedor = document.getElementById('contenedorTareas');
-    if (!contenedor) return;
+    if (!contenedor || cargaTareasEmpleadoEnCurso) return;
+    cargaTareasEmpleadoEnCurso = true;
     try {
         const respuesta = await fetch('../../controladores/obtener_tareas.php', { cache: 'no-store', headers: { Accept: 'application/json' } });
         const tareas = await respuesta.json();
@@ -241,6 +276,8 @@ async function cargarTareasEmpleado() {
         actualizarContadorTareas();
     } catch (error) {
         console.error('Error al cargar las tareas:', error);
+    } finally {
+        cargaTareasEmpleadoEnCurso = false;
     }
 }
 
@@ -252,12 +289,13 @@ function insertarTareaEmpleadoDesdeServidor(tarea) {
 
 function anadirTareaHTML(id, titulo, categoria, descripcion, creadorFormateado = '') {
     const contenedor = document.getElementById('contenedorTareas');
-    if (!contenedor) return;
+    const idTarea = Number(id);
+    if (!contenedor || !Number.isSafeInteger(idTarea) || idTarea < 1) return;
     const categoriaNormalizada = String(categoria || 'GENERAL').toUpperCase();
     const borde = categoriaNormalizada === 'URGENTE' ? 'border-red-400 bg-red-50/70' : categoriaNormalizada === 'LIMPIEZA' ? 'border-amber-400 bg-amber-50/70' : 'border-primary bg-[#fbfdfd]';
     const texto = categoriaNormalizada === 'URGENTE' ? 'text-red-500 bg-red-100' : categoriaNormalizada === 'LIMPIEZA' ? 'text-amber-700 bg-amber-100' : 'text-primary bg-accent';
     const icono = categoriaNormalizada === 'URGENTE' ? '▲' : categoriaNormalizada === 'LIMPIEZA' ? '◆' : '●';
-    contenedor.insertAdjacentHTML('afterbegin', `<div id="tarea-${escaparHTML(id)}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${borde} shadow-md group relative transition-all duration-300 ease-out"><p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${texto}"><span>${icono}</span>${escaparHTML(categoriaNormalizada)}</p><h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4><p class="text-[10px] text-slate-400 mt-2">${escaparHTML(descripcion)}</p><p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p><button onclick="marcarTareaComoHecha(${Number(id)}, this)" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button></div>`);
+    contenedor.insertAdjacentHTML('afterbegin', `<div id="tarea-${idTarea}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${borde} shadow-md group relative transition-all duration-300 ease-out"><p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${texto}"><span>${icono}</span>${escaparHTML(categoriaNormalizada)}</p><h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4><p class="text-[10px] text-slate-400 mt-2">${escaparHTML(descripcion)}</p><p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p><button type="button" data-action="completar-tarea" data-task-id="${idTarea}" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button></div>`);
     initDragAndDrop();
 }
 
@@ -294,8 +332,8 @@ function initDragAndDrop() {
         const siguiente = [...contenedor.querySelectorAll('.task-item:not(.dragging)')].find(elemento => evento.clientY <= elemento.getBoundingClientRect().top + elemento.offsetHeight / 2);
         siguiente ? contenedor.insertBefore(arrastrado, siguiente) : contenedor.appendChild(arrastrado);
     });
-    contenedor.addEventListener('dragstart', evento => evento.target.classList.add('dragging'));
-    contenedor.addEventListener('dragend', evento => evento.target.classList.remove('dragging'));
+    contenedor.addEventListener('dragstart', evento => evento.target.closest('.task-item')?.classList.add('dragging'));
+    contenedor.addEventListener('dragend', evento => evento.target.closest('.task-item')?.classList.remove('dragging'));
 }
 
 function actualizarContadorTareas() {
@@ -351,11 +389,17 @@ function cerrarColaTareas(event) {
 }
 
 function abrirGestionHabitacion(id, numero, estadoActual) {
-    document.getElementById('idHabitacionModal').value = id;
-    document.getElementById('tituloModalHab').innerText = `Habitación ${numero}`;
-    document.getElementById('estadoHabitacionModal').value = estadoActual;
-    document.getElementById('prioridadMantenimientoModal').value = 'No urgente';
-    document.getElementById('descripcionMantenimientoModal').value = '';
+    const idInput = document.getElementById('idHabitacionModal');
+    const titulo = document.getElementById('tituloModalHab');
+    const estado = document.getElementById('estadoHabitacionModal');
+    const prioridad = document.getElementById('prioridadMantenimientoModal');
+    const descripcion = document.getElementById('descripcionMantenimientoModal');
+    if (!idInput || !titulo || !estado || !prioridad || !descripcion) return;
+    idInput.value = id;
+    titulo.textContent = `Habitación ${numero}`;
+    estado.value = estadoActual;
+    prioridad.value = 'No urgente';
+    descripcion.value = '';
     actualizarPrioridadMantenimiento();
     toggleDescripcionMantenimiento();
     const modal = document.getElementById('modalHabitacion');
@@ -403,6 +447,15 @@ function toggleDescripcionMantenimiento() {
 }
 
 function enlazarEventosEmpleado() {
+    document.querySelectorAll('.empleado-sidebar [data-section]').forEach(boton => {
+        boton.addEventListener('click', () => navegar(boton.dataset.section, boton));
+    });
+    document.querySelector('[data-action="alternar-sidebar"]')?.addEventListener('click', alternarSidebarEmpleado);
+    document.querySelector('[data-action="nueva-tarea"]')?.addEventListener('click', abrirModal);
+    document.querySelector('[data-action="abrir-logout"]')?.addEventListener('click', abrirModalLogoutEmpleado);
+    document.querySelector('[data-action="cerrar-logout"]')?.addEventListener('click', cerrarModalLogoutEmpleado);
+    document.querySelector('[data-action="cancelar-tarea"]')?.addEventListener('click', cerrarModal);
+
     const botonColaTareas = document.getElementById('botonColaTareas');
     botonColaTareas?.addEventListener('click', evento => {
         if (botonColaTareas.getAttribute('aria-expanded') === 'true') {
@@ -413,6 +466,21 @@ function enlazarEventosEmpleado() {
     });
     document.querySelector('[data-action="cerrar-cola"]')?.addEventListener('click', cerrarColaTareas);
     document.querySelector('[data-action="cerrar-modal-hab"]')?.addEventListener('click', cerrarModalHabitacion);
+    document.querySelectorAll('[data-dashboard-link]').forEach(boton => {
+        boton.addEventListener('click', () => {
+            const seccion = boton.dataset.dashboardLink;
+            if (seccion) redirigirDesdeDash(seccion);
+        });
+    });
+    document.getElementById('gridHabitaciones')?.addEventListener('click', evento => {
+        const boton = evento.target.closest('[data-action="gestionar-habitacion"]');
+        if (!boton || !PUEDE_EDITAR_HABITACIONES) return;
+        abrirGestionHabitacion(boton.dataset.roomId, boton.dataset.roomNumber, boton.dataset.roomState);
+    });
+    document.getElementById('contenedorTareas')?.addEventListener('click', evento => {
+        const boton = evento.target.closest('[data-action="completar-tarea"]');
+        if (boton) marcarTareaComoHecha(boton.dataset.taskId, boton);
+    });
     document.getElementById('estadoHabitacionModal')?.addEventListener('change', toggleDescripcionMantenimiento);
     document.getElementById('prioridadMantenimientoModal')?.addEventListener('change', actualizarPrioridadMantenimiento);
     document.getElementById('descripcionMantenimientoModal')?.addEventListener('input', toggleDescripcionMantenimiento);
@@ -427,9 +495,6 @@ function enlazarEventosEmpleado() {
         datos.append('categoria', document.getElementById('categoriaTarea').value);
         datos.append('descripcion', document.getElementById('descTarea').value.trim());
         datos.append('csrf_token', CSRF_TOKEN);
-        datos.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
-        datos.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
-        datos.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');
         datos.append('panel_origen', 'empleado');
         try {
             if (boton) { boton.disabled = true; boton.innerHTML = 'Guardando...'; }
@@ -451,17 +516,26 @@ function enlazarEventosEmpleado() {
     const formHabitacion = document.getElementById('formGestionHabitacion');
     formHabitacion?.addEventListener('submit', async evento => {
         evento.preventDefault();
+        const boton = document.getElementById('guardarCambiosHabitacion');
         const datos = new FormData();
         datos.append('id_hab', document.getElementById('idHabitacionModal').value);
         datos.append('estado', document.getElementById('estadoHabitacionModal').value);
         datos.append('prioridad_mantenimiento', document.getElementById('prioridadMantenimientoModal').value);
         datos.append('descripcion_mantenimiento', document.getElementById('descripcionMantenimientoModal').value.trim());
         datos.append('csrf_token', CSRF_TOKEN);
-        const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
-        const resultado = await respuesta.json();
-        if (!respuesta.ok || resultado.status !== 'exito') { alert(resultado.mensaje || 'No se pudo actualizar la habitación.'); return; }
-        cerrarModalHabitacion();
-        actualizarInterfaz();
+        if (boton) boton.disabled = true;
+        try {
+            const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
+            const resultado = await respuesta.json();
+            if (!respuesta.ok || resultado.status !== 'exito') throw new Error(resultado.mensaje || 'No se pudo actualizar la habitación.');
+            cerrarModalHabitacion();
+            await actualizarInterfaz();
+            localStorage.setItem('habitaciones_actualizadas', Date.now().toString());
+        } catch (error) {
+            alert(error.message || 'No se pudo actualizar la habitación.');
+        } finally {
+            if (boton) boton.disabled = false;
+        }
     });
 }
 
@@ -472,7 +546,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     enlazarEventosEmpleado();
     await actualizarInterfaz();
     await cargarTareasEmpleado();
-    intervaloTareasEmpleado = setInterval(cargarTareasEmpleado, 3000);
+    intervaloTareasEmpleado = setInterval(cargarTareasEmpleado, 10000);
 });
 
 window.addEventListener('storage', evento => {

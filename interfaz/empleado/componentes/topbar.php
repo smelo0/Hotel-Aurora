@@ -1,7 +1,7 @@
 <header class="empleado-topbar flex-none w-full flex items-center justify-between gap-6 px-6 h-20 sticky top-0 z-30">
     <div>
         <h2 class="font-headline font-black text-primary text-xl tracking-tight">
-            Hola, <?php echo htmlspecialchars($_SESSION['emp_auth']['nombre_usuario']); ?>
+            Hola, <?php echo htmlspecialchars($_SESSION['emp_auth']['nombre_usuario'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
         </h2>
         <div class="flex items-center gap-2 mt-0.5">
             <p id="fechaHoy" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></p>

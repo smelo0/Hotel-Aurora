@@ -1,9 +1,16 @@
 ﻿<?php
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
-if (!isset($_SESSION['emp_auth'])) {
+if (
+    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+) {
     header("Location: ../../login.php");
     exit();
 }
+require_once __DIR__ . '/../../configuracion/conexion.php';
+require_once __DIR__ . '/../../configuracion/permiso.php';
+$puedeEditarHabitaciones = usuario_tiene_permiso($conexion, 'operaciones.editar');
+$conexion->close();
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -43,17 +50,11 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 
     <!-- Variables globales -->
     <script>
-        const ID_USUARIO_ACTIVO = <?php echo (int) ($_SESSION['emp_auth']['id_usuario'] ?? 0); ?>;
-        const ROL_USUARIO = <?php echo (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 3); ?>;
-        const CSRF_TOKEN = <?php echo json_encode(csrf_token()); ?>;
-        const FIRMA_USUARIO_ACTIVO = <?php echo json_encode(hash_hmac(
-            'sha256',
-            ((int) ($_SESSION['emp_auth']['id_usuario'] ?? 0)) . '|' . ((int) ($_SESSION['emp_auth']['rol_usuario'] ?? 3)),
-            'software_hotel_actor_panel_v1'
-        )); ?>;
+        const PUEDE_EDITAR_HABITACIONES = <?php echo $puedeEditarHabitaciones ? 'true' : 'false'; ?>;
+        const CSRF_TOKEN = <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 
-    <script src="js/panel.js?v=3"></script>
+    <script src="js/panel.js?v=4"></script>
     <?php
     $ayudaSistemaRol = 'empleado';
     require_once __DIR__ . '/../../includes/system_help.php';

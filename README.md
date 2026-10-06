@@ -129,3 +129,22 @@ disponibles en el entorno de PHP mediante Apache o la configuración del sistema
   no solicita ni envía datos de tarjeta.
 - Los enlaces nuevos para restablecer contraseñas guardan un hash del token en
   la base de datos y se invalidan tras un cambio exitoso.
+
+## Interfaz operativa del empleado
+
+- Las vistas operativas permanecen en `interfaz/empleado`; las consultas de
+  habitaciones y tareas se aíslan en `src/Empleado/EmpleadoRepository.php` y
+  las reglas de validación en `src/Empleado/EmpleadoService.php`.
+- Los endpoints JSON de habitaciones y tareas conservan sus rutas y formatos
+  para mantener la compatibilidad con los paneles de empleado y administrador.
+- El cierre de sesión del empleado usa POST con token CSRF. Los enlaces GET
+  existentes de huésped y administración siguen aceptándose mientras se
+  migran esos paneles.
+- El selector compartido de idioma mantiene sus idiomas y comportamiento, pero
+  carga su CSS y JavaScript desde `assets/` en lugar de definirlos inline.
+- La autoría de tareas se determina en el servidor a partir de la sesión; los
+  identificadores y firmas enviados por el navegador no determinan quién creó
+  la tarea.
+- La interfaz no implementa actualmente las transiciones de check-in o
+  check-out; el panel solo muestra el estado de habitaciones y reservas
+  disponible en el sistema.

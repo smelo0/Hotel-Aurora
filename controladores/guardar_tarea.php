@@ -1,163 +1,124 @@
 <?php
-// controladores/guardar_tarea.php
+declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
-require_once __DIR__ . '/../configuracion/conexion.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
-// 1. Incluimos el Logger
-require_once '../vendor/autoload.php';
+use App\Empleado\EmpleadoRepository;
+use App\Empleado\EmpleadoService;
 use App\Logger;
 
 header('Content-Type: application/json; charset=utf-8');
 
-function obtener_nombre_rol_tarea($codigo_rol) {
-    // Corrección: Formato de nombre y rol ajustado a [Nombre] - [Rol].
-    $roles = [
-        1 => 'Admin',
-        2 => 'Gestor',
-        3 => 'Recepcionista',
-        4 => 'Conserje',
-        5 => 'Limpieza'
-    ];
-
-    return $roles[(int) $codigo_rol] ?? 'Personal';
-}
-
-function limpiar_nombre_creador_tarea($nombre, $rol) {
-    // Corrección: Formato de nombre y rol ajustado a [Nombre] - [Rol], evitando duplicar el rol si viene pegado al nombre.
-    $nombre_limpio = trim((string) $nombre);
-    $rol_limpio = trim((string) $rol);
-
-    if ($rol_limpio !== '') {
-        $nombre_limpio = preg_replace('/\s+' . preg_quote($rol_limpio, '/') . '$/iu', '', $nombre_limpio);
-    }
-
-    return trim($nombre_limpio) !== '' ? trim($nombre_limpio) : 'Usuario';
-}
-
-function firma_actor_panel_tarea($id_usuario, $rol_usuario) {
-    // Correccion definitiva: Misma firma emitida por cada panel para validar el autor real aunque la cookie de sesion se comparta entre pestañas.
-    return hash_hmac('sha256', ((int) $id_usuario) . '|' . ((int) $rol_usuario), 'software_hotel_actor_panel_v1');
-}
-
-if (!isset($_SESSION['emp_auth']['id_usuario'])) {
+if (
+    !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+) {
     Logger::registrarLog('WARNING', 'Intento de guardar tarea sin sesión activa', []);
-    http_response_code(401); // Transaccion: Codigo HTTP real para que el frontend no actualice la UI en errores.
-    echo json_encode(["status" => "error", "mensaje" => "No estás autorizado"]);
+    http_response_code(401);
+    echo json_encode(['status' => 'error', 'mensaje' => 'No estás autorizado'], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    Logger::registrarLog('WARNING', 'Intento de acceso por método no permitido al guardar tarea', ['metodo' => $_SERVER["REQUEST_METHOD"]]);
-    http_response_code(405); // Transaccion: Codigo HTTP real para metodos invalidos.
-    echo json_encode(["status" => "error", "mensaje" => "Método no permitido"]);
+require_once __DIR__ . '/../configuracion/conexion.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    Logger::registrarLog('WARNING', 'Intento de acceso por método no permitido al guardar tarea', ['metodo' => $_SERVER['REQUEST_METHOD']]);
+    http_response_code(405);
+    echo json_encode(['status' => 'error', 'mensaje' => 'Método no permitido'], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
 exigir_csrf();
 
-$titulo = trim($_POST['titulo'] ?? '');
-$categoria = trim($_POST['categoria'] ?? '');
-$descripcion = trim($_POST['descripcion'] ?? '');
-$id_sesion = (int) $_SESSION['emp_auth']['id_usuario'];
-$id_creador_panel = isset($_POST['id_creador_panel']) ? (int) $_POST['id_creador_panel'] : 0;
-$rol_creador_panel = isset($_POST['rol_creador_panel']) ? (int) $_POST['rol_creador_panel'] : 0;
-$firma_creador_panel = trim($_POST['firma_creador_panel'] ?? '');
-$panel_origen = trim($_POST['panel_origen'] ?? '');
-// Solo se acepta el usuario del panel si su firma coincide; si no, se usa la sesion PHP activa.
-$firma_panel_valida = $id_creador_panel > 0
-    && $rol_creador_panel > 0
-    && hash_equals(firma_actor_panel_tarea($id_creador_panel, $rol_creador_panel), $firma_creador_panel);
-$id_creador_tarea = $firma_panel_valida ? $id_creador_panel : $id_sesion;
-$estado = "Pendiente";
-$fecha = date('Y-m-d H:i:s');
-
-if ($titulo === '' || $categoria === '' || $descripcion === '') {
-    Logger::registrarLog('WARNING', 'Intento de guardar tarea con campos incompletos', ['usuario_id' => $id_sesion]);
-    http_response_code(422); // Transaccion: Validacion de entrada antes de tocar la base de datos.
-    echo json_encode(["status" => "error", "mensaje" => "Completa todos los campos de la tarea"]);
+$tituloRaw = $_POST['titulo'] ?? null;
+$categoriaRaw = $_POST['categoria'] ?? null;
+$descripcionRaw = $_POST['descripcion'] ?? null;
+if (!is_string($tituloRaw) || !is_string($categoriaRaw) || !is_string($descripcionRaw)) {
+    http_response_code(422);
+    echo json_encode(['status' => 'error', 'mensaje' => 'Datos inválidos para crear la tarea'], JSON_UNESCAPED_UNICODE);
     exit();
 }
 
+$titulo = trim($tituloRaw);
+$categoria = trim($categoriaRaw);
+$descripcion = trim($descripcionRaw);
+$id_sesion = (int) $_SESSION['emp_auth']['id_usuario'];
+$panelOrigen = $_POST['panel_origen'] ?? '';
+$panelOrigen = is_string($panelOrigen) && in_array($panelOrigen, ['empleado', 'admin'], true)
+    ? $panelOrigen
+    : 'empleado';
+$fecha = date('Y-m-d H:i:s');
+
 try {
-    $conexion->begin_transaction(); // Modificación: Rutina transaccional para crear tarea y mantener sincronizada la interfaz.
+    EmpleadoService::validarDatosTarea($titulo, $categoria, $descripcion);
+} catch (\InvalidArgumentException $error) {
+    Logger::registrarLog('WARNING', 'Intento de guardar tarea con campos incompletos', ['usuario_id' => $id_sesion]);
+    http_response_code(422);
+    echo json_encode(['status' => 'error', 'mensaje' => $error->getMessage()], JSON_UNESCAPED_UNICODE);
+    exit();
+}
 
-    // Corrección: Obtenemos nombre y rol reales del creador desde la BD para evitar inconsistencia con datos de sesión.
-    $sql_usuario = "SELECT u.nom_usu, u.cod_rol_usu, r.des_rol FROM usuario u LEFT JOIN rol r ON u.cod_rol_usu = r.cod_rol WHERE u.id_usu = ?";
-    $stmt_usuario = $conexion->prepare($sql_usuario);
-    $stmt_usuario->bind_param("i", $id_creador_tarea);
-    $stmt_usuario->execute();
-    $resultado_usuario = $stmt_usuario->get_result();
-    $datos_usuario = $resultado_usuario->fetch_assoc();
-    $stmt_usuario->close();
-
+$repository = new EmpleadoRepository();
+try {
+    if (!$conexion->begin_transaction()) {
+        throw new RuntimeException('No se pudo iniciar la transacción para crear la tarea.');
+    }
+    $datos_usuario = $repository->fetchCreadorTarea($conexion, $id_sesion);
     if (!$datos_usuario) {
-        $conexion->rollback(); // Transaccion: No se crea la tarea si no se puede confirmar el autor real.
-        Logger::registrarLog('WARNING', 'Fallo al guardar tarea: No se pudo confirmar el creador en la base de datos', ['creador_id_intentado' => $id_creador_tarea]);
+        $conexion->rollback();
+        Logger::registrarLog('WARNING', 'Fallo al guardar tarea: No se pudo confirmar el creador en la base de datos', ['usuario_id' => $id_sesion]);
         http_response_code(422);
-        echo json_encode(["status" => "error", "mensaje" => "No se pudo confirmar el creador de la tarea"]);
+        echo json_encode(['status' => 'error', 'mensaje' => 'No se pudo confirmar el creador de la tarea'], JSON_UNESCAPED_UNICODE);
         exit();
     }
 
-    $nombre_creador_bd = $datos_usuario['nom_usu'] ?? 'Usuario';
-    $cod_rol_bd = $datos_usuario['cod_rol_usu'] ?? null;
-    $rol_nombre_bd = $datos_usuario['des_rol'] ?? obtener_nombre_rol_tarea($cod_rol_bd);
+    $rolNombre = trim((string) ($datos_usuario['des_rol'] ?? '')) ?: 'Personal';
+    $nombreCreador = trim((string) ($datos_usuario['nom_usu'] ?? '')) ?: 'Usuario';
+    $nombreCreador = trim((string) preg_replace(
+        '/\s+-?\s*' . preg_quote($rolNombre, '/') . '$/iu',
+        '',
+        $nombreCreador
+    )) ?: 'Usuario';
 
-    if ($firma_panel_valida && (int) $cod_rol_bd !== $rol_creador_panel) {
-        $conexion->rollback(); // Correccion definitiva: La firma no puede apuntar a un rol distinto al que existe en la BD.
-        Logger::registrarLog('WARNING', 'Intento de manipulación de rol al guardar tarea (inconsistencia de firma)', ['usuario_id' => $id_creador_tarea, 'rol_esperado' => $rol_creador_panel, 'rol_bd' => $cod_rol_bd]);
-        http_response_code(409);
-        echo json_encode(["status" => "error", "mensaje" => "La identidad del creador no coincide con la base de datos"]);
-        exit();
+    $id_tarea = $repository->insertTarea($conexion, $titulo, $categoria, $descripcion, $fecha, $id_sesion);
+    if (!$conexion->commit()) {
+        throw new RuntimeException('No se pudo confirmar la creación de la tarea.');
     }
 
-    $creador_nombre = limpiar_nombre_creador_tarea($nombre_creador_bd, $rol_nombre_bd);
-    $rol_nombre = $rol_nombre_bd;
+    Logger::registrarLog('INFO', 'Tarea guardada exitosamente', ['usuario_id' => $id_sesion, 'tarea_id' => $id_tarea, 'titulo' => $titulo]);
 
-    $sql = "INSERT INTO tarea (tit_tar, cat_tar, des_tar, est_tar, fec_tar, cod_usu_tar) VALUES (?, ?, ?, ?, ?, ?)";
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("sssssi", $titulo, $categoria, $descripcion, $estado, $fecha, $id_creador_tarea);
-    $stmt->execute();
-
-    $id_tarea = $stmt->insert_id;
-    $conexion->commit(); // Modificación: Rutina transaccional para crear tarea y mantener sincronizada la interfaz.
-
-    Logger::registrarLog('INFO', 'Tarea guardada exitosamente', ['usuario_id' => $id_creador_tarea, 'tarea_id' => $id_tarea, 'titulo' => $titulo]);
-
-    http_response_code(201); // Transaccion: Creacion confirmada; la UI solo renderiza si recibe 201/200 exitoso.
+    http_response_code(201);
     echo json_encode([
-        "status" => "exito",
-        "mensaje" => "Tarea guardada correctamente en la Base de Datos",
-        "id_tarea" => $id_tarea,
-        "tarea" => [
-            "id" => $id_tarea,
-            "titulo" => $titulo,
-            "categoria" => $categoria,
-            "descripcion" => $descripcion,
-            "estado" => $estado,
-            "fecha" => $fecha,
-            "creador" => $creador_nombre, // Corrección: Formato de nombre y rol ajustado a [Nombre] - [Rol].
-            "creador_formateado" => $creador_nombre . " - " . $rol_nombre, // Correccion: Se entrega listo como [Nombre] - [Rol].
-            "rol" => $cod_rol_bd,
-            "rol_nombre" => $rol_nombre, // Corrección: Formato de nombre y rol ajustado a [Nombre] - [Rol].
-            "panel_origen" => $panel_origen,
-            "autor_validado_por" => $firma_panel_valida ? "firma_panel" : "sesion_php"
+        'status' => 'exito',
+        'mensaje' => 'Tarea guardada correctamente en la Base de Datos',
+        'id_tarea' => $id_tarea,
+        'tarea' => [
+            'id' => $id_tarea,
+            'titulo' => $titulo,
+            'categoria' => $categoria,
+            'descripcion' => $descripcion,
+            'estado' => 'Pendiente',
+            'fecha' => $fecha,
+            'creador' => $nombreCreador,
+            'creador_formateado' => $nombreCreador . ' - ' . $rolNombre,
+            'rol' => $datos_usuario['cod_rol_usu'],
+            'rol_nombre' => $rolNombre,
+            'panel_origen' => $panelOrigen,
+            'autor_validado_por' => 'sesion_php',
         ]
-    ]);
-
-    $stmt->close();
+    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 } catch (Throwable $error) {
     try {
-        $conexion->rollback(); // Modificación: Rutina transaccional para crear tarea y mantener sincronizada la interfaz.
+        $conexion->rollback();
     } catch (Throwable $rollback_error) {
-        // Transaccion: Si no habia transaccion activa, conservamos una respuesta JSON controlada.
+        error_log('No se pudo revertir la creación de la tarea: ' . $rollback_error->getMessage());
     }
     
-    // Logueamos el ERROR capturando el mensaje real de la excepción para debug interno
-    Logger::registrarLog('ERROR', 'Excepción crítica al guardar tarea', ['usuario_id' => $id_sesion ?? null, 'error_db' => $error->getMessage()]);
+    Logger::registrarLog('ERROR', 'Excepción crítica al guardar tarea', ['usuario_id' => $id_sesion, 'error_db' => $error->getMessage()]);
     
-    http_response_code(500); // Transaccion: Error de servidor para impedir actualizaciones optimistas en la UI.
-    echo json_encode(["status" => "error", "mensaje" => "Hubo un error al guardar la tarea"]);
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'mensaje' => 'Hubo un error al guardar la tarea'], JSON_UNESCAPED_UNICODE);
 }
 
 $conexion->close();

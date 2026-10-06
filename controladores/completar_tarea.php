@@ -1,15 +1,12 @@
 <?php
-// controladores/completar_tarea.php
-// Reparacion: Este endpoint ahora responde JSON y permite que la UI confirme exito antes de quitar la tarea.
+declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
-require_once __DIR__ . '/../configuracion/conexion.php';
-
-// Incluimos Composer y la clase Logger
 require_once __DIR__ . '/../vendor/autoload.php';
+
+use App\Empleado\EmpleadoRepository;
 use App\Logger;
 
-// Obtenemos el ID del empleado o usuario actual
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
 function responder_completar_tarea($payload, $codigo_http = 200) {
@@ -43,9 +40,14 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 exigir_csrf();
 
-$id_tarea = isset($_POST['id_tarea']) ? (int) $_POST['id_tarea'] : 0;
+$id_tarea = filter_input(
+    INPUT_POST,
+    'id_tarea',
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
 
-if ($id_tarea <= 0) {
+if (!is_int($id_tarea) || $id_tarea < 1) {
     Logger::registrarLog('WARN', 'Intento de completar tarea con ID inválido', [
         'id_usuario' => $idUsuarioLog,
         'id_tarea_enviado' => $_POST['id_tarea'] ?? null
@@ -56,16 +58,14 @@ if ($id_tarea <= 0) {
     ], 422);
 }
 
+require_once __DIR__ . '/../configuracion/conexion.php';
+
 try {
-    $conexion->begin_transaction(); // Transaccion: La tarea solo cambia de estado si MySQL confirma la actualizacion.
-
-    $sql = "UPDATE tarea SET est_tar = 'Completada' WHERE cod_tar = ? AND est_tar = 'Pendiente'";
-    $stmt = $conexion->prepare($sql);
-    $stmt->bind_param("i", $id_tarea);
-    $stmt->execute();
-
-    if ($stmt->affected_rows < 1) {
-        $conexion->rollback(); // Transaccion: Se revierte si la tarea no existe o ya fue procesada.
+    if (!$conexion->begin_transaction()) {
+        throw new RuntimeException('No se pudo iniciar la transacción para completar la tarea.');
+    }
+    if (!(new EmpleadoRepository())->completePendingTask($conexion, $id_tarea)) {
+        $conexion->rollback();
         
         Logger::registrarLog('WARN', 'Intento de completar tarea inexistente o que ya no estaba pendiente', [
             'id_usuario' => $idUsuarioLog,
@@ -78,8 +78,9 @@ try {
         ], 404);
     }
 
-    $stmt->close();
-    $conexion->commit(); // Transaccion: Confirmacion atomica para que el frontend actualice la cola.
+    if (!$conexion->commit()) {
+        throw new RuntimeException('No se pudo confirmar la finalización de la tarea.');
+    }
     $conexion->close();
 
     // LOG DE ÉXITO: Tarea marcada como completada correctamente
@@ -95,9 +96,9 @@ try {
     ], 200);
 } catch (Throwable $error) {
     try {
-        $conexion->rollback(); // Transaccion: Manejo de errores try/catch en el completado.
+        $conexion->rollback();
     } catch (Throwable $rollback_error) {
-        // Transaccion: Si no habia transaccion activa, mantenemos la respuesta JSON controlada.
+        error_log('No se pudo revertir la finalización de la tarea: ' . $rollback_error->getMessage());
     }
 
     // LOG DE ERROR: Captura de excepción crítica en base de datos o servidor
