@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 
-require_once '../../configuracion/conexion.php';
+require_once __DIR__ . '/../../configuracion/conexion.php';
+require_once __DIR__ . '/../../src/Usuario/PortalRepository.php';
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $usuario = $_SESSION['user_auth'] ?? [];
 if (!isset($usuario['id_usuario']) || (int) ($usuario['rol_usuario'] ?? 0) !== 6) {
@@ -41,26 +43,8 @@ function badge_estado_reserva($estado) {
 $idUsuarioActual = (int) $usuario['id_usuario'];
 $reservasUsuario = [];
 
-$sqlReservas = "SELECT r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res, d.cod_hab_det,
-                      h.num_hab, h.tipo_hab
-                FROM reservas r
-                LEFT JOIN detalle d ON d.cod_res_det = r.cod_res
-                LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
-                WHERE r.id_usu_res = ?
-                ORDER BY r.fec_ent_res DESC";
-/**@var mysqli $conexion */
-$stmtReservas = $conexion->prepare($sqlReservas);
-if ($stmtReservas) {
-    $stmtReservas->bind_param('i', $idUsuarioActual);
-    $stmtReservas->execute();
-    $resultadoReservas = $stmtReservas->get_result();
-
-    while ($fila = $resultadoReservas->fetch_assoc()) {
-        $reservasUsuario[] = $fila;
-    }
-
-    $stmtReservas->close();
-}
+$portalRepository = new \App\Usuario\PortalRepository();
+$reservasUsuario = $portalRepository->fetchReservationHistory($conexion, $idUsuarioActual);
 ?>
 <!DOCTYPE html>
 <html lang="es">

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../includes/sesion_seguridad.php';
+
 // Página de recuperación de contraseña
 $error = '';
 $message = '';
@@ -42,6 +44,7 @@ if (isset($_GET['error'])) {
             <p class="success-msg"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></p>
         <?php else: ?>
             <form method="POST" action="../../controladores/solicitar_restablecer.php">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <label for="email_rec">Correo</label>
                 <input id="email_rec" type="email" name="email" required placeholder="ejemplo@correo.com">
 

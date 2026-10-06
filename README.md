@@ -111,3 +111,21 @@ servidor Apache de XAMPP con los valores obtenidos y reinicia Apache.
 El archivo `.envexample` contiene los nombres de todas las variables esperadas.
 El proyecto no carga automáticamente archivos `.env`; las variables deben estar
 disponibles en el entorno de PHP mediante Apache o la configuración del sistema.
+
+## Acceso y reservas de huéspedes
+
+- Configura juntas `RECAPTCHA_SITE_KEY` y `RECAPTCHA_SECRET_KEY` cuando se use
+  reCAPTCHA. En producción es obligatorio configurarlas; en otros entornos,
+  si ambas están vacías queda deshabilitado. Si solo una está configurada, los
+  formularios protegidos rechazan el envío.
+- El registro con correo requiere aceptar el tratamiento de datos y una
+  contraseña de al menos 12 caracteres, con un máximo de 72 bytes (límite del
+  algoritmo bcrypt utilizado por las cuentas actuales).
+- El acceso con Google autentica cuentas de huésped ya registradas. Para crear
+  una cuenta, utiliza el formulario de registro que registra el consentimiento.
+  Para habilitar Google, configura `GOOGLE_CLIENT_ID` y `APP_BASE_URL` y registra
+  `${APP_BASE_URL}/controladores/callBack.php` como URI de redirección autorizada.
+- Los pagos de reservas se procesan con el widget de Wompi. El checkout antiguo
+  no solicita ni envía datos de tarjeta.
+- Los enlaces nuevos para restablecer contraseñas guardan un hash del token en
+  la base de datos y se invalidan tras un cambio exitoso.

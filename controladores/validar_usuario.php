@@ -3,43 +3,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
+use App\Recaptcha;
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
-require_once '../configuracion/conexion.php';
-
-function validar_recaptcha(string $token): bool
-{
-    $secretKey = trim((string) (getenv('RECAPTCHA_SECRET_KEY') ?: ($_ENV['RECAPTCHA_SECRET_KEY'] ?? '')));
-    $token = trim($token);
-
-    if ($secretKey === '' || $token === '') {
-        return false;
-    }
-
-    $payload = http_build_query([
-        'secret' => $secretKey,
-        'response' => $token,
-    ]);
-
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'POST',
-            'header' => "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($payload),
-            'content' => $payload,
-            'ignore_errors' => true,
-            'timeout' => 10,
-        ],
-    ]);
-
-    $respuesta = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, $context);
-    if ($respuesta === false) {
-        return false;
-    }
-
-    $datos = json_decode($respuesta, true);
-    return is_array($datos) && ($datos['success'] ?? false) === true;
-}
+require_once __DIR__ . '/../configuracion/conexion.php';
 
 function redirigir_login(string $query = ''): never
 {
@@ -62,10 +30,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     redirigir_login();
 }
 
+exigir_csrf();
+
 $correo = trim((string) ($_POST['correo'] ?? ''));
 $passwordIngresada = (string) ($_POST['password'] ?? '');
 $captchaToken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
-$captchaMarcado = (string) ($_POST['captcha'] ?? '');
 
 if ($correo === '' || $passwordIngresada === '') {
     redirigir_login('error=vacio');
@@ -75,11 +44,7 @@ if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
     redirigir_login('error=email');
 }
 
-if ($captchaMarcado !== 'on' && $captchaToken === '') {
-    redirigir_login('error=captcha');
-}
-
-if ($captchaToken !== '' && !validar_recaptcha($captchaToken)) {
+if (Recaptcha::isEnabled() && !Recaptcha::verify($captchaToken)) {
     redirigir_login('error=captcha');
 }
 

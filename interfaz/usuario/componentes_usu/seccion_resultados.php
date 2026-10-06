@@ -11,34 +11,28 @@
 
     <div class="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-none">
         <?php
-        // CONSULTA SQL: Extraer TODAS las habitaciones con estado 'Disponible' desde la base de datos
-        require __DIR__ . '/../../configuracion/conexion.php';
-        
-        $sqlHabitaciones = "SELECT cod_hab, num_hab, tipo_hab, pre_hab, est_hab, obs_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC LIMIT 20";
-        /**@var mysqli $conexion */
-        $resultadoHabitaciones = $conexion->query($sqlHabitaciones);
+        require_once __DIR__ . '/../../../configuracion/conexion.php';
+        require_once __DIR__ . '/../../../src/Usuario/PortalRepository.php';
+        mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-        
-        
-        // Verificar si la consulta fue exitosa
-        if ($resultadoHabitaciones && $resultadoHabitaciones->num_rows > 0) {
-            // Bucle FOREACH: Iterar sobre cada habitación disponible desde la BD
-            while ($habitacion = $resultadoHabitaciones->fetch_assoc()) {
-                $id_hab = htmlspecialchars($habitacion['cod_hab']);
-                $numero_hab = htmlspecialchars($habitacion['num_hab']);
-                $tipo_hab = htmlspecialchars($habitacion['tipo_hab']);
-                $precio_hab = number_format((float)$habitacion['pre_hab'], 2);
-                $obs_hab = htmlspecialchars($habitacion['obs_hab'] ?? 'Habitación premium con todas las comodidades');
-                
-                // Determinar imagen según tipo de habitación
+        $repository = new \App\Usuario\PortalRepository();
+        $habitacionesDisponibles = array_filter(
+            $repository->fetchRoomCatalog($conexion),
+            static fn(array $habitacion): bool => $habitacion['est_hab'] === 'Disponible'
+        );
+
+        if ($habitacionesDisponibles !== []) {
+            foreach ($habitacionesDisponibles as $habitacion) {
+                $numero_hab = (int) $habitacion['num_hab'];
+                $tipo_hab = (string) $habitacion['tipo_hab'];
+                $precio_hab = number_format((float) $habitacion['pre_hab'], 2);
+                $obs_hab = (string) $habitacion['obs_hab'];
                 $imagenes = [
                     'Suite' => 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&q=80&w=800',
                     'Doble' => 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&q=80&w=800',
                     'Sencilla' => 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&q=80&w=800'
                 ];
                 $imagen = $imagenes[$tipo_hab] ?? $imagenes['Doble'];
-                
-                // Determinar características según tipo de habitación
                 $caracteristicas = [
                     'Suite' => ['King', 'Balcón', 'Wi-Fi'],
                     'Doble' => ['Queen', 'Escritorio', 'Wi-Fi'],
@@ -75,24 +69,16 @@
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Precio por Noche</p>
                         <p class="text-4xl font-black text-primary leading-none">$<?php echo $precio_hab; ?><span class="text-sm text-slate-400 font-bold ml-1">USD</span></p>
                     </div>
-                    <button onclick="iniciarCheckout('Habitación <?php echo $numero_hab; ?> - <?php echo $tipo_hab; ?>', <?php echo (float)$habitacion['pre_hab']; ?>)" class="bg-primary text-white px-8 py-3.5 rounded-xl font-black text-sm hover:bg-secondary transition-all shadow-xl hover:-translate-y-1">Elegir</button>
+                    <button onclick="iniciarCheckout('Habitación <?php echo $numero_hab; ?> - <?php echo htmlspecialchars($tipo_hab, ENT_QUOTES, 'UTF-8'); ?>', <?php echo (float) $habitacion['pre_hab']; ?>)" class="bg-primary text-white px-8 py-3.5 rounded-xl font-black text-sm hover:bg-secondary transition-all shadow-xl hover:-translate-y-1">Elegir</button>
                 </div>
             </div>
         </div>
         
         <?php
-            } // Fin del bucle while
+            }
         } else {
-            // Si no hay habitaciones disponibles mostrar mensaje
             echo '<div class="col-span-full text-center py-12"><p class="text-slate-500 text-lg">No hay habitaciones disponibles en este momento.</p></div>';
         }
-        
-
-        /**@var mysqli $conexion
-         *
-         */
-        $conexion->close();
-
         ?>
     </div>
 </div>

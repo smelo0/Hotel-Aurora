@@ -4,6 +4,7 @@ declare(strict_types=1);
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 
 // Autoload (PHPMailer y phpdotenv via Composer) si está disponible
@@ -31,6 +32,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     redirectBack();
 }
 
+exigir_csrf();
+
 $email = trim((string) ($_POST['email'] ?? ''));
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     redirectBack('error=invalid_email');
@@ -49,13 +52,14 @@ $create = "CREATE TABLE IF NOT EXISTS password_resets (
 $conexion->query($create);
 
 $token = bin2hex(random_bytes(24));
+$tokenHash = hash('sha256', $token);
 $expires = date('Y-m-d H:i:s', time() + 3600); // Válido por 1 hora
 
 $stmt = $conexion->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)');
 if (!$stmt) {
     redirectBack('error=bd');
 }
-$stmt->bind_param('sss', $email, $token, $expires);
+$stmt->bind_param('sss', $email, $tokenHash, $expires);
 if (!$stmt->execute()) {
     $stmt->close();
     redirectBack('error=bd');

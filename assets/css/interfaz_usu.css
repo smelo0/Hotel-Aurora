@@ -110,6 +110,84 @@ body {
     color: #ffffff;
 }
 
+.activity-modal {
+    width: min(760px, calc(100% - 2rem));
+    max-width: none;
+    max-height: min(90vh, 860px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 28px;
+    color: #ffffff;
+    background: rgba(12, 35, 29, 0.96);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+}
+
+.activity-modal::backdrop {
+    background: rgba(7, 18, 15, 0.76);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.activity-modal__content {
+    padding: 1.5rem;
+}
+
+.activity-modal__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.activity-modal__close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+    transition: background-color 0.16s ease, transform 0.16s ease;
+}
+
+.activity-modal__close:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.activity-modal__form {
+    padding: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.activity-modal :focus-visible {
+    outline: 2px solid #d7b06a;
+    outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+    .activity-modal {
+        width: calc(100% - 1rem);
+        max-height: 94vh;
+        border-radius: 20px;
+    }
+
+    .activity-modal__content {
+        padding: 1rem;
+    }
+
+    .activity-modal__form {
+        padding: 1rem;
+    }
+}
+
 .glass-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
     border: 1px solid rgba(255, 255, 255, 0.16);

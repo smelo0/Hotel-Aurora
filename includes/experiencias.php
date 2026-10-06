@@ -71,11 +71,14 @@ function asegurar_esquema_agenda_experiencias(mysqli $conexion): void
     $nuevaRelacionReserva = false;
     foreach ($columnas as $columna => $sql) {
         $resultado = $conexion->query("SHOW COLUMNS FROM agenda_actividad LIKE '{$columna}'");
-        if ($resultado->num_rows === 0) {
+        $definicion = $resultado->fetch_assoc();
+        if ($definicion === null) {
             $conexion->query($sql);
             if ($columna === 'cod_res_agenda') {
                 $nuevaRelacionReserva = true;
             }
+        } elseif (in_array($columna, ['fecha_agenda', 'hora_agenda'], true) && $definicion['Null'] !== 'YES') {
+            $conexion->query($sql);
         }
     }
 
