@@ -1,5 +1,5 @@
 Options -Indexes
-
+DirectoryIndex interfaz_usu.php
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
