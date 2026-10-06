@@ -18,15 +18,14 @@ final class PortalService
         $userName = (string) ($user['nombre_usuario'] ?? '');
         $authenticated = $userId > 0 && (int) ($user['rol_usuario'] ?? 0) === 6;
 
-        asegurar_esquema_experiencias($connection);
-        $experiences = obtener_experiencias($connection);
+        $experienceRepository = new \App\Experiencia\ExperienceRepository();
+        $experiences = $experienceRepository->obtenerExperiencias($connection);
         $reservationStays = [];
         $reservationHistory = [];
         $experienceHistory = [];
 
         if ($authenticated) {
-            asegurar_esquema_agenda_experiencias($connection);
-            $experienceHistory = obtener_historial_experiencias($connection, $userId);
+            $experienceHistory = $experienceRepository->obtenerHistorial($connection, $userId);
             $reservationStays = $this->repository->fetchReservationStays($connection, $userId);
             $reservationHistory = $this->repository->fetchReservationHistory($connection, $userId);
         }

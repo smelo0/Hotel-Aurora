@@ -2,8 +2,6 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
-require_once __DIR__ . '/../includes/experiencias.php';
-
 header('Content-Type: application/json; charset=utf-8');
 
 function responder_experiencias($status, $mensaje, $datos = []) {
@@ -29,7 +27,6 @@ if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
         responder_experiencias(422, 'La solicitud que quieres cancelar no es válida');
     }
 
-    asegurar_esquema_agenda_experiencias($conexion);
     $sqlCancelar = "UPDATE agenda_actividad
                     SET estado_agenda = 'Cancelada'
                     WHERE id_agenda = ?
@@ -69,7 +66,6 @@ if ($metodo === 'POST' && $accion === 'actualizar_pago_experiencia') {
         responder_experiencias(422, 'El estado de pago de la experiencia no es válido');
     }
 
-    asegurar_esquema_agenda_experiencias($conexion);
     $sqlPago = "UPDATE agenda_actividad
                 SET estado_pago_experiencia = ?,
                     fecha_pago_experiencia = NULL,
@@ -113,7 +109,6 @@ if ($metodo === 'POST' && $accion === 'cobrar_experiencia') {
         responder_experiencias(422, 'Selecciona una experiencia y un método de pago válido');
     }
 
-    asegurar_esquema_agenda_experiencias($conexion);
     $transaccionIniciada = false;
     try {
         $conexion->begin_transaction();
@@ -218,17 +213,15 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) {
     responder_experiencias(403, 'No tienes permiso para consultar las experiencias');
 }
 
-asegurar_esquema_experiencias($conexion);
-
 if ($metodo === 'GET' && $accion === 'listar') {
     $puedeGestionar = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
+    $experienceRepository = new \App\Experiencia\ExperienceRepository();
     $historial = [];
     if ($puedeGestionar) {
-        asegurar_esquema_agenda_experiencias($conexion);
-        $historial = obtener_historial_experiencias($conexion);
+        $historial = $experienceRepository->obtenerHistorial($conexion);
     }
     responder_experiencias(200, 'Experiencias cargadas', [
-        'experiencias' => obtener_experiencias($conexion),
+        'experiencias' => $experienceRepository->obtenerExperiencias($conexion),
         'historial' => $historial,
         'puede_gestionar' => $puedeGestionar,
     ]);
@@ -350,13 +343,13 @@ if ($accion === 'guardar') {
         foreach ($fechasOpcion as $fecha => $franjas) {
             $fecha = (string) $fecha;
             $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $zonaHorariaHotel);
-            $horariosExistentesNormalizados = normalizar_horarios_experiencia($horariosExistentes);
+            $horariosExistentesNormalizados = \App\Experiencia\ExperienceSchedule::normalizar($horariosExistentes);
             $fechaPasadaNueva = $fecha < $fechaHoy
                 && !isset($horariosExistentesNormalizados[(string) $numeroOpcion][$fecha]);
             if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fechaPasadaNueva) {
                 responder_experiencias(422, 'Selecciona fechas válidas, desde hoy en adelante');
             }
-            $normalizados = normalizar_horarios_experiencia([(string) $numeroOpcion => [$fecha => $franjas]]);
+            $normalizados = \App\Experiencia\ExperienceSchedule::normalizar([(string) $numeroOpcion => [$fecha => $franjas]]);
             $rango = $normalizados[(string) $numeroOpcion][$fecha] ?? null;
             if ($rango === null) {
                 responder_experiencias(422, 'Define una hora de inicio y una de fin válidas, en intervalos de 30 minutos');

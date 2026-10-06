@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarSincronizacionHousekeeping();
     iniciarSincronizacionReservas();
     inicializarCobroExperienciasReserva();
+
+    if (new URLSearchParams(window.location.search).get('admin_seccion') === 'reservas') {
+        navegar('reservas', document.querySelector('[data-permiso="reservas.ver"]'));
+    }
 });
 
 function inicializarSidebarAdmin() {
@@ -938,7 +942,9 @@ function iniciarSincronizacionReservas() {
 
 async function refrescarTablaReservas() {
     try {
-        const respuesta = await fetch('../../interfaz/admin/secciones_ad/reservas.php', {
+        const parametros = new URLSearchParams(window.location.search);
+        parametros.set('reservas_fragmento', '1');
+        const respuesta = await fetch(`index_ad.php?${parametros.toString()}`, {
             cache: 'no-store',
             headers: { 'Accept': 'text/html' }
         });
@@ -948,8 +954,13 @@ async function refrescarTablaReservas() {
         const doc = parser.parseFromString(html, 'text/html');
         const nuevoBody = doc.querySelector('#tablaReservas');
         const bodyActual = document.querySelector('#tablaReservas');
+        const nuevaPaginacion = doc.querySelector('#reservasPaginacion');
+        const paginacionActual = document.querySelector('#reservasPaginacion');
         if (!nuevoBody || !bodyActual) throw new Error('Respuesta de reservas incompleta');
         bodyActual.innerHTML = nuevoBody.innerHTML;
+        if (nuevaPaginacion && paginacionActual) {
+            paginacionActual.innerHTML = nuevaPaginacion.innerHTML;
+        }
     } catch (error) {
         console.error('Error refrescando reservas:', error);
     }

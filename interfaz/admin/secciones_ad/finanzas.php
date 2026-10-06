@@ -1,75 +1,18 @@
 <?php
 require_once __DIR__ . '/../../../configuracion/conexion.php';
 require_once __DIR__ . '/../../../configuracion/permiso.php';
-require_once __DIR__ . '/../../../includes/experiencias.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
 
 /** @var mysqli $conexion */
 if (!usuario_tiene_permiso($conexion, 'finanzas.ver')) {
     return;
 }
 
-$pagosFinanzas = [];
-$totalesFinanzas = [];
-$resultadoPagos = $conexion->query(
-    "SELECT p.id_pago, p.cod_res_pago, p.monto, p.metodo_pago, p.estado_pago, p.fecha_pago,
-            r.id_usu_res, r.fec_ent_res, r.fec_sal_res,
-            u.nom_usu, u.corr_usu, COALESCE(habitaciones.descripcion, 'Sin habitación registrada') AS habitaciones
-     FROM pagos p
-     INNER JOIN reservas r ON r.cod_res = p.cod_res_pago
-     LEFT JOIN usuario u ON u.id_usu = r.id_usu_res
-     LEFT JOIN (
-         SELECT d.cod_res_det,
-                GROUP_CONCAT(DISTINCT CONCAT('Habitación ', h.num_hab, ' · ', h.tipo_hab) SEPARATOR ', ') AS descripcion
-         FROM detalle d
-         INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
-         GROUP BY d.cod_res_det
-     ) habitaciones ON habitaciones.cod_res_det = r.cod_res
-     ORDER BY p.fecha_pago DESC, p.id_pago DESC"
-);
-while ($pago = $resultadoPagos->fetch_assoc()) {
-    $pagosFinanzas[] = $pago;
-    $idUsuario = (int) ($pago['id_usu_res'] ?? 0);
-    $identificadorCliente = $idUsuario > 0
-        ? 'usuario:' . $idUsuario
-        : 'sin-cuenta:' . mb_strtolower(trim((string) ($pago['corr_usu'] ?? $pago['nom_usu'] ?? 'desconocido')), 'UTF-8');
-    if (!isset($totalesFinanzas[$identificadorCliente])) {
-        $totalesFinanzas[$identificadorCliente] = [
-            'nombre' => (string) ($pago['nom_usu'] ?? 'Huésped sin cuenta asociada'),
-            'correo' => (string) ($pago['corr_usu'] ?? ''),
-            'total_pagado' => 0.0,
-            'pagos_aprobados' => 0,
-        ];
-    }
-    if ($pago['estado_pago'] === 'Aprobado') {
-        $totalesFinanzas[$identificadorCliente]['total_pagado'] += (float) $pago['monto'];
-        $totalesFinanzas[$identificadorCliente]['pagos_aprobados']++;
-    }
-}
-asegurar_esquema_agenda_experiencias($conexion);
-$historialExperienciasFinanzas = obtener_historial_experiencias($conexion);
+$datosFinanzasAdmin = (new \App\Admin\AdminFinanceService($conexion))->obtenerDatos();
+$pagosFinanzas = $datosFinanzasAdmin['pagos'];
+$totalesFinanzas = $datosFinanzasAdmin['totales'];
+$movimientosExperienciasFinanzas = $datosFinanzasAdmin['movimientos_experiencias'];
 $puedeActualizarPagosExperiencia = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
-$movimientosExperienciasFinanzas = [];
-foreach ($historialExperienciasFinanzas as $solicitudExperiencia) {
-    $idUsuario = (int) ($solicitudExperiencia['id_usu_agenda'] ?? 0);
-    $identificadorCliente = $idUsuario > 0
-        ? 'usuario:' . $idUsuario
-        : 'sin-cuenta:' . mb_strtolower(trim((string) ($solicitudExperiencia['correo_cliente'] ?? $solicitudExperiencia['nombre_cliente'] ?? 'desconocido')), 'UTF-8');
-    if (!isset($totalesFinanzas[$identificadorCliente])) {
-        $totalesFinanzas[$identificadorCliente] = [
-            'nombre' => (string) ($solicitudExperiencia['nombre_cliente'] ?? 'Huésped sin cuenta asociada'),
-            'correo' => (string) ($solicitudExperiencia['correo_cliente'] ?? ''),
-            'total_pagado' => 0.0,
-            'pagos_aprobados' => 0,
-        ];
-    }
-    $solicitudExperiencia['estado_pago_experiencia'] = (string) ($solicitudExperiencia['estado_pago_experiencia'] ?? 'Pendiente');
-    if ($solicitudExperiencia['estado_pago_experiencia'] === 'Pagada' && $solicitudExperiencia['monto_experiencia'] !== null) {
-        $totalesFinanzas[$identificadorCliente]['total_pagado'] += (float) $solicitudExperiencia['monto_experiencia'];
-        $totalesFinanzas[$identificadorCliente]['pagos_aprobados']++;
-    }
-    $movimientosExperienciasFinanzas[] = $solicitudExperiencia;
-}
-uasort($totalesFinanzas, static fn(array $a, array $b): int => $b['total_pagado'] <=> $a['total_pagado']);
 
 $escaparFinanzas = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 $formatearMontoFinanzas = static fn($valor): string => '$' . number_format((float) $valor, 0, ',', '.');

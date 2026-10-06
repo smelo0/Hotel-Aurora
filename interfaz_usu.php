@@ -7,7 +7,6 @@ require_once __DIR__ . '/includes/sesion_seguridad.php';
 
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
-require_once __DIR__ . '/includes/experiencias.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
 

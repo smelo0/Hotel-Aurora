@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
-require_once __DIR__ . '/../includes/experiencias.php';
 require_once __DIR__ . '/../src/Usuario/PortalRepository.php';
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -104,7 +103,6 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
 
     try {
         if ($esPersonalizada) {
-            asegurar_esquema_agenda_experiencias($conexion);
             $actividadPersonalizada = $experienciaPersonalizada !== '' ? $experienciaPersonalizada : ($categoriaPersonalizada !== '' ? $categoriaPersonalizada : 'Solicitud personalizada');
             $seleccionesJson = json_encode(array_fill(0, $cantidadPersonas, 'Solicitud personalizada'), JSON_UNESCAPED_UNICODE);
             $preciosJson = json_encode(array_fill(0, $cantidadPersonas, null), JSON_UNESCAPED_UNICODE);
@@ -124,7 +122,6 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
             jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Tu solicitud personalizada fue enviada correctamente.']);
         }
 
-        asegurar_esquema_experiencias($conexion);
         $experiencia = $portalRepository->fetchExperienceForActivity($conexion, (int) $experienciaId);
         if (!$experiencia) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'La experiencia seleccionada ya no está disponible.']);
@@ -172,7 +169,9 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         $opcionResumen = count($seleccionesValidadas) . ' personas';
 
         $horariosDecodificados = json_decode((string) ($experiencia['horarios_json'] ?? ''), true);
-        $horariosExperiencia = is_array($horariosDecodificados) ? normalizar_horarios_experiencia($horariosDecodificados, array_values($opcionesExperiencia)) : [];
+        $horariosExperiencia = is_array($horariosDecodificados)
+            ? \App\Experiencia\ExperienceSchedule::normalizar($horariosDecodificados, array_values($opcionesExperiencia))
+            : [];
         $minutosSeleccionados = ((int) substr($hora, 0, 2) * 60 + (int) substr($hora, 3, 2));
         $horarioDisponible = true;
         foreach (array_unique($indicesOpcionesSeleccionadas) as $indiceOpcion) {
@@ -188,8 +187,6 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         if (!$horarioDisponible || ($fecha === date('Y-m-d') && $hora <= date('H:i'))) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'El horario no está disponible para ese día. Elige uno de los horarios publicados.']);
         }
-
-        asegurar_esquema_agenda_experiencias($conexion);
 
         $actividad = (string) $experiencia['nombre'];
         $portalRepository->insertScheduledActivity(

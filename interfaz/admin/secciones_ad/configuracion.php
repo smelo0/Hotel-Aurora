@@ -6,64 +6,14 @@
         <p class="text-xs text-slate-400 mb-8">Administra los permisos específicos para cada rol del sistema.</p>
         
         <div class="space-y-6">
-            
-            <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
-                
-                <div>
-                    <h4 class="font-black text-heading">Personal de Recepción</h4>
-                    <p class="text-xs text-slate-500 mt-1">Acceso a reservas, check-in y visualización de habitaciones.</p>
-                </div>
-                
-                <div class="flex gap-4">
-                    
-                    <label class="flex items-center cursor-pointer">
-                        <div class="relative">
-                            <input type="checkbox" class="sr-only toggle-checkbox" checked>
-                            
-                            <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors toggle-label"></div>
-                            
-                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform"></div>
-                        </div>
-                        <span class="ml-2 text-xs font-bold text-slate-500">Reservas</span>
-                    </label>
-                    
-                    <label class="flex items-center cursor-pointer">
-                        <div class="relative">
-                            <input type="checkbox" class="sr-only toggle-checkbox">
-                            <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors toggle-label"></div>
-                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform"></div>
-                        </div>
-                        <span class="ml-2 text-xs font-bold text-slate-500">Finanzas</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50">
-                <div>
-                    <h4 class="font-black text-heading">HouseKeeping (Limpieza)</h4>
-                    <p class="text-xs text-slate-500 mt-1">Acceso exclusivo a terminal operativa y cola de tareas.</p>
-                </div>
-                <div class="flex gap-4">
-                    
-                    <label class="flex items-center cursor-pointer">
-                        <div class="relative">
-                            <input type="checkbox" class="sr-only toggle-checkbox" checked>
-                            <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors toggle-label"></div>
-                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform"></div>
-                        </div>
-                        <span class="ml-2 text-xs font-bold text-slate-500">Cola Tareas</span>
-                    </label>
-                    
-                    <label class="flex items-center cursor-pointer">
-                        <div class="relative">
-                            <input type="checkbox" class="sr-only toggle-checkbox">
-                            <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors toggle-label"></div>
-                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform"></div>
-                        </div>
-                        <span class="ml-2 text-xs font-bold text-slate-500">Ver Huéspedes</span>
-                    </label>
-                    
-                </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <h4 class="font-black text-amber-900">Gestión de permisos</h4>
+                <p class="mt-1 text-xs text-amber-800">Los permisos se administran por rol y se verifican en el servidor.</p>
+                <?php if (usuario_tiene_permiso($conexion, 'roles.ver')): ?>
+                    <button type="button" onclick="navegar('roles', document.querySelector('[data-permiso=&quot;roles.ver&quot;]'))" class="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:brightness-110">
+                        Abrir gestión de roles
+                    </button>
+                <?php endif; ?>
             </div>
 
             <div class="p-6 border border-slate-200 rounded-xl bg-slate-50">

@@ -1,4 +1,28 @@
 <?php
+if (
+    realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== false
+    && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === realpath(__FILE__)
+) {
+    require_once __DIR__ . '/../../../includes/sesion_seguridad.php';
+    require_once __DIR__ . '/../../../configuracion/conexion.php';
+    require_once __DIR__ . '/../../../configuracion/permiso.php';
+
+    $rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
+    if (
+        !isset($_SESSION['emp_auth']['id_usuario'])
+        || !in_array($rolUsuario, [1, 2], true)
+    ) {
+        header('Location: /Hotel-Aurora/interfaz_usu.php');
+        exit();
+    }
+
+    exigir_permiso($conexion, 'reservas.ver');
+}
+
+if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
+    return;
+}
+
 if (!function_exists('formatear_fecha_reserva_admin')) {
     function formatear_fecha_reserva_admin($fecha) {
         if (empty($fecha)) return '';
@@ -25,6 +49,9 @@ if (!function_exists('separar_notas_reserva_admin')) {
         return $resultado;
     }
 }
+$paginaSolicitadaReservas = filter_input(INPUT_GET, 'admin_reservas_page', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$busquedaReservas = filter_input(INPUT_GET, 'admin_reservas_busqueda', FILTER_UNSAFE_RAW);
+$busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReservas, 0, 100, 'UTF-8')) : '';
 ?>
 <section id="sec-reservas" class="seccion-contenido hidden">
     <div class="bg-white rounded-xl p-8 border border-primary/10 shadow-sm">
@@ -35,10 +62,14 @@ if (!function_exists('separar_notas_reserva_admin')) {
             </div>
 
             <div class="flex items-center gap-4">
-                <div class="relative w-72">
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                    <input type="text" id="buscadorReservas" onkeyup="filtrarReservas()" placeholder="Filtrar por nombre..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-12 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20">
-                </div>
+                <form method="get" action="index_ad.php" class="flex items-center gap-2">
+                    <input type="hidden" name="admin_seccion" value="reservas">
+                    <div class="relative w-72">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input type="search" id="buscadorReservas" name="admin_reservas_busqueda" value="<?php echo htmlspecialchars($busquedaReservas, ENT_QUOTES, 'UTF-8'); ?>" maxlength="100" placeholder="Buscar huésped..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-12 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                    <button type="submit" class="rounded-lg border border-slate-200 px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50">Buscar</button>
+                </form>
 
                 <button type="button" onclick="abrirModalReserva()" class="ui-action bg-primary text-white px-5 py-3 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-heading focus-visible:ring-4 focus-visible:ring-primary/20 flex items-center gap-2 shadow-sm hover:shadow-md active:shadow-sm">
                     <span class="material-symbols-outlined text-sm">add_circle</span> Nuevo
@@ -61,44 +92,26 @@ if (!function_exists('separar_notas_reserva_admin')) {
 
             <tbody id="tablaReservas" class="divide-y divide-slate-100 text-sm font-semibold">
                 <?php
-                require_once __DIR__ . '/../../../configuracion/conexion.php';
-                require_once __DIR__ . '/../../../configuracion/permiso.php';
-                require_once __DIR__ . '/../../../includes/experiencias.php';
-
-                asegurar_esquema_agenda_experiencias($conexion);
-                $experienciasPorReserva = [];
-                $resultadoExperienciasReserva = $conexion->query(
-                    "SELECT id_agenda, cod_res_agenda, actividad, fecha_agenda, hora_agenda,
-                            estado_agenda, estado_pago_experiencia, monto_experiencia
-                     FROM agenda_actividad
-                     WHERE cod_res_agenda IS NOT NULL
-                     ORDER BY fecha_agenda, hora_agenda, id_agenda"
+                require_once __DIR__ . '/../../../vendor/autoload.php';
+                $datosReservasAdmin = (new \App\Admin\AdminReservationRepository($conexion))->obtenerDatos(
+                    is_int($paginaSolicitadaReservas) ? $paginaSolicitadaReservas : 1,
+                    $busquedaReservas
                 );
-                while ($experienciaReserva = $resultadoExperienciasReserva->fetch_assoc()) {
-                    $experienciasPorReserva[(int) $experienciaReserva['cod_res_agenda']][] = $experienciaReserva;
-                }
+                $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'];
                 $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
                     && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
+                $reservasAdmin = $datosReservasAdmin['reservas'];
+                $paginacionReservas = $datosReservasAdmin['paginacion'];
+                $consultaPaginacionReservas = static function (int $pagina) use ($busquedaReservas): string {
+                    return http_build_query(array_filter([
+                        'admin_seccion' => 'reservas',
+                        'admin_reservas_page' => $pagina,
+                        'admin_reservas_busqueda' => $busquedaReservas,
+                    ], static fn($valor): bool => $valor !== ''));
+                };
 
-                $sql_reservas = "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res, d.cod_hab_det,
-                                        COALESCE(
-                                            (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
-                                            GREATEST(
-                                                COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
-                                                - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
-                                                0
-                                            )
-                                        ) AS saldo_pendiente
-                                 FROM reservas r
-                                 INNER JOIN usuario u ON r.id_usu_res = u.id_usu
-                                 LEFT JOIN detalle d ON r.cod_res = d.cod_res_det
-                                 LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
-                                 ORDER BY r.cod_res DESC";
-
-                $resultado = $conexion->query($sql_reservas);
-
-                if ($resultado && $resultado->num_rows > 0) {
-                    while ($reserva = $resultado->fetch_assoc()) {
+                if ($reservasAdmin !== []) {
+                    foreach ($reservasAdmin as $reserva) {
                         $fecha_in = formatear_fecha_reserva_admin($reserva['fec_ent_res']);
                         $fecha_out = formatear_fecha_reserva_admin($reserva['fec_sal_res']);
 
@@ -177,29 +190,27 @@ if (!function_exists('separar_notas_reserva_admin')) {
                     echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
-                // Mejora: listado para searchable select.
-                $sql_huespedes_reserva = 'SELECT id_usu, nom_usu, corr_usu FROM usuario WHERE cod_rol_usu = 6 AND est_usu = 1 ORDER BY nom_usu ASC';
-                $resultado_huespedes_reserva = $conexion->query($sql_huespedes_reserva);
-                $huespedes_reserva = [];
-                if ($resultado_huespedes_reserva && $resultado_huespedes_reserva->num_rows > 0) {
-                    while ($huesped_reserva = $resultado_huespedes_reserva->fetch_assoc()) {
-                        $huespedes_reserva[] = $huesped_reserva;
-                    }
-                }
-
-                // Mejora: selector de habitaciones solo disponibles.
-                $sql_habitaciones_disponibles = "SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC";
-                $resultado_hab_disponibles = $conexion->query($sql_habitaciones_disponibles);
-                $habitaciones_disponibles = [];
-                if ($resultado_hab_disponibles && $resultado_hab_disponibles->num_rows > 0) {
-                    while ($hab = $resultado_hab_disponibles->fetch_assoc()) {
-                        $habitaciones_disponibles[] = $hab;
-                    }
-                }
+                $huespedes_reserva = $datosReservasAdmin['huespedes'];
+                $habitaciones_disponibles = $datosReservasAdmin['habitaciones_disponibles'];
                 ?>
             </tbody>
         </table>
 
+        <div id="reservasPaginacion" class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+            <p class="text-xs text-slate-500">
+                Mostrando <?php echo (int) $paginacionReservas['desde']; ?>-<?php echo (int) $paginacionReservas['hasta']; ?>
+                de <?php echo (int) $paginacionReservas['total']; ?> reservas
+            </p>
+            <nav class="flex items-center gap-2" aria-label="Paginación de reservas">
+                <?php if ($paginacionReservas['pagina'] > 1): ?>
+                    <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] - 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Anterior</a>
+                <?php endif; ?>
+                <span class="px-2 text-xs font-bold text-slate-500">Página <?php echo (int) $paginacionReservas['pagina']; ?> de <?php echo (int) $paginacionReservas['paginas']; ?></span>
+                <?php if ($paginacionReservas['pagina'] < $paginacionReservas['paginas']): ?>
+                    <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] + 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Siguiente</a>
+                <?php endif; ?>
+            </nav>
+        </div>
         <div id="noResultados" class="hidden text-center py-10 text-slate-400 text-sm font-bold">
             No se encontraron huéspedes con ese nombre.
         </div>

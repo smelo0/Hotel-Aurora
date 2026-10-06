@@ -57,7 +57,7 @@ async function cargarLogs() {
         const resultado = await respuesta.json();
 
         if (resultado.status !== 'exito') {
-            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Error: ${resultado.mensaje || 'No autorizado'}</td></tr>`;
+            mostrarEstadoLogs(`Error: ${resultado.mensaje || 'No autorizado'}`, 'p-8 text-center text-red-500');
             return;
         }
 
@@ -66,19 +66,30 @@ async function cargarLogs() {
 
     } catch (error) {
         console.error('Error de red:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-red-500">Error de conexión al cargar los logs.</td></tr>';
+        mostrarEstadoLogs('Error de conexión al cargar los logs.', 'p-8 text-center text-red-500');
     }
+}
+
+function mostrarEstadoLogs(mensaje, clases) {
+    const tbody = document.querySelector('#tablaLogs tbody');
+    const fila = document.createElement('tr');
+    const celda = document.createElement('td');
+    celda.colSpan = 5;
+    celda.className = clases;
+    celda.textContent = mensaje;
+    fila.appendChild(celda);
+    tbody.replaceChildren(fila);
 }
 
 function renderizarTabla(logs) {
     const tbody = document.querySelector('#tablaLogs tbody');
     
     if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">No hay eventos que coincidan con la búsqueda.</td></tr>';
+        mostrarEstadoLogs('No hay eventos que coincidan con la búsqueda.', 'p-8 text-center text-slate-500');
         return;
     }
 
-    tbody.innerHTML = '';
+    const filas = [];
     
     logs.forEach(log => {
         const tr = document.createElement('tr');
@@ -88,23 +99,44 @@ function renderizarTabla(logs) {
         if (log.level === 'WARNING') colorBadge = 'bg-yellow-100 text-yellow-800';
         if (log.level === 'ERROR') colorBadge = 'bg-red-100 text-red-800';
 
-        const contextoHtml = (log.context && Object.keys(log.context).length > 0) 
-            ? `<pre class="text-xs bg-slate-100 p-2 rounded text-slate-600 whitespace-pre-wrap break-all">${JSON.stringify(log.context, null, 2)}</pre>` 
-            : '<span class="text-slate-400 italic">Sin datos extra</span>';
+        const celdaFecha = document.createElement('td');
+        celdaFecha.className = 'p-4 whitespace-nowrap text-slate-500';
+        celdaFecha.textContent = log.timestamp ?? '';
 
-        tr.innerHTML = `
-            <td class="p-4 whitespace-nowrap text-slate-500">${log.timestamp}</td>
-            <td class="p-4">
-                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${colorBadge}">
-                    ${log.level}
-                </span>
-            </td>
-            <td class="p-4 text-slate-500 font-mono text-xs">${log.ip}</td>
-            <td class="p-4 font-medium text-slate-800">${log.message}</td>
-            <td class="p-4">${contextoHtml}</td>
-        `;
-        tbody.appendChild(tr);
+        const celdaNivel = document.createElement('td');
+        celdaNivel.className = 'p-4';
+        const badge = document.createElement('span');
+        badge.className = `px-2.5 py-1 rounded-full text-xs font-semibold ${colorBadge}`;
+        badge.textContent = log.level ?? '';
+        celdaNivel.appendChild(badge);
+
+        const celdaIp = document.createElement('td');
+        celdaIp.className = 'p-4 text-slate-500 font-mono text-xs';
+        celdaIp.textContent = log.ip ?? '';
+
+        const celdaMensaje = document.createElement('td');
+        celdaMensaje.className = 'p-4 font-medium text-slate-800';
+        celdaMensaje.textContent = log.message ?? '';
+
+        const celdaContexto = document.createElement('td');
+        celdaContexto.className = 'p-4';
+        if (log.context && Object.keys(log.context).length > 0) {
+            const contexto = document.createElement('pre');
+            contexto.className = 'text-xs bg-slate-100 p-2 rounded text-slate-600 whitespace-pre-wrap break-all';
+            contexto.textContent = JSON.stringify(log.context, null, 2);
+            celdaContexto.appendChild(contexto);
+        } else {
+            const sinDatos = document.createElement('span');
+            sinDatos.className = 'text-slate-400 italic';
+            sinDatos.textContent = 'Sin datos extra';
+            celdaContexto.appendChild(sinDatos);
+        }
+
+        tr.append(celdaFecha, celdaNivel, celdaIp, celdaMensaje, celdaContexto);
+        filas.push(tr);
     });
+
+    tbody.replaceChildren(...filas);
 }
 
 function aplicarFiltros() {

@@ -67,6 +67,8 @@ if ($metodo !== 'POST') {
     responder_roles(405, 'Método no permitido');
 }
 
+exigir_csrf();
+
 if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
     Logger::registrarLog('WARN', 'Intento no autorizado de gestionar roles (crear/editar/eliminar)', [
         'id_usuario' => $idUsuarioLog
@@ -75,12 +77,34 @@ if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
 }
 
 if ($accion === 'guardar') {
-    $codigo = filter_var($_POST['cod_rol'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    $nombre = trim($_POST['des_rol'] ?? '');
-    $detalle = trim($_POST['detalle_rol'] ?? '');
+    $codigoEntrada = $_POST['cod_rol'] ?? '';
+    $nombreEntrada = $_POST['des_rol'] ?? null;
+    $detalleEntrada = $_POST['detalle_rol'] ?? '';
     $permisos = $_POST['permisos'] ?? [];
 
-    if ($nombre === '' || mb_strlen($nombre) > 200 || mb_strlen($detalle) > 200 || !is_array($permisos)) {
+    if (!is_string($codigoEntrada)) {
+        responder_roles(422, 'El identificador del rol no es válido');
+    }
+    $codigo = null;
+    if ($codigoEntrada !== '') {
+        $codigo = filter_var($codigoEntrada, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    }
+    if (
+        ($codigoEntrada !== '' && !$codigo)
+        || !is_string($nombreEntrada)
+        || !is_string($detalleEntrada)
+        || !is_array($permisos)
+        || array_filter($permisos, static fn($permiso): bool => !is_string($permiso) || mb_strlen($permiso) > 60) !== []
+    ) {
+        Logger::registrarLog('WARN', 'Intento de guardar rol con formato de datos inválido', [
+            'id_usuario' => $idUsuarioLog
+        ]);
+        responder_roles(422, 'Los datos enviados para el rol no son válidos');
+    }
+
+    $nombre = trim($nombreEntrada);
+    $detalle = trim($detalleEntrada);
+    if ($nombre === '' || mb_strlen($nombre) > 200 || mb_strlen($detalle) > 200) {
         Logger::registrarLog('WARN', 'Intento de guardar rol con datos inválidos o vacíos', [
             'id_usuario' => $idUsuarioLog,
             'cod_rol' => $codigo

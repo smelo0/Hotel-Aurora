@@ -1,20 +1,32 @@
+<?php
+require_once __DIR__ . '/../../../configuracion/permiso.php';
+if (!usuario_tiene_permiso($conexion, 'dashboard.ver')) {
+    return;
+}
+
+require_once __DIR__ . '/../../../vendor/autoload.php';
+$dashboardRepository = new \App\Admin\AdminDashboardRepository($conexion);
+$resumenAdmin = $dashboardRepository->obtenerResumen();
+$eventosRecientesAdmin = $dashboardRepository->obtenerEventosRecientes();
+$escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
+?>
 <section id="sec-dashboard" class="seccion-contenido">
     
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         
         <div class="admin-card bg-white p-6 rounded-xl border-t-4 border-t-primary">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ocupación</p>
-            <h3 class="text-4xl font-black text-heading">84%</h3>
-            </div>
-        
-        <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Check-ins</p>
-            <h3 class="text-4xl font-black text-heading">12</h3>
+            <h3 class="text-4xl font-black text-heading"><?php echo $resumenAdmin['ocupacion']; ?>%</h3>
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ingresos Hoy</p>
-            <h3 class="text-4xl font-black text-heading">$4,250</h3>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Llegadas Hoy</p>
+            <h3 class="text-4xl font-black text-heading"><?php echo $resumenAdmin['check_ins_hoy']; ?></h3>
+        </div>
+        
+        <div class="admin-card bg-white p-6 rounded-xl">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Reservas Hoy</p>
+            <h3 class="text-4xl font-black text-heading">$<?php echo number_format($resumenAdmin['ingresos_hoy'], 0, ',', '.'); ?></h3>
         </div>
         
         <div onclick="mostrarVista('sec-tareas')" class="admin-card bg-white p-6 rounded-xl cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all">
@@ -23,64 +35,35 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <div class="lg:col-span-1 space-y-6">
-            <div class="bg-red-50 border border-red-100 rounded-xl p-6">
-                <h3 class="text-sm font-black text-red-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-xl">warning</span> Alertas Críticas
-                </h3>
-                
-                <div class="space-y-4">
-                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
-                        <h4 class="font-bold text-xs text-heading">Mantenimiento Urgente</h4>
-                        <p class="text-[10px] text-slate-500 mt-1">Fuga de agua detectada en tubería principal de Habitación 510.</p>
+    <div class="rounded-xl border border-primary/10 bg-white p-8">
+        <h3 class="text-xl font-black text-primary uppercase tracking-tighter">Actividad reciente del sistema</h3>
+        <div class="mt-5 space-y-3">
+            <?php if ($eventosRecientesAdmin === []): ?>
+                <p class="text-sm text-slate-500">Todavía no hay eventos recientes registrados.</p>
+            <?php else: ?>
+                <?php foreach ($eventosRecientesAdmin as $evento): ?>
+                    <div class="flex flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-3">
+                        <span class="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary"><?php echo $escaparDashboard($evento['level']); ?></span>
+                        <time class="text-xs text-slate-400"><?php echo $escaparDashboard($evento['timestamp']); ?></time>
+                        <p class="min-w-[220px] flex-1 text-sm text-slate-700"><?php echo $escaparDashboard($evento['message']); ?></p>
                     </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500">
-                        <h4 class="font-bold text-xs text-heading">Solicitud Especial</h4>
-                        <p class="text-[10px] text-slate-500 mt-1">Huésped VIP Hab 405 solicita cuna extra y botellas de agua antes del arribo.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="lg:col-span-2 bg-white rounded-xl p-8 border border-primary/10">
-            <h3 class="text-xl font-black text-primary uppercase tracking-tighter mb-6">Monitor Operativo Live</h3>
-            
-            <div class="space-y-4">
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
-                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[08:12]</strong> Check-out procesado: Habitación 302</p>
-                </div>
-                
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
-                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[08:05]</strong> Limpieza finalizada: Habitación 408</p>
-                </div>
-                
-                <div class="flex gap-4 items-center p-3 hover:bg-slate-50 rounded-lg">
-                    <span class="w-2 h-2 bg-primary rounded-full"></span>
-                    <p class="text-xs text-slate-600"><strong>[07:42]</strong> Check-in exitoso: Julianne Vance (Hab 405)</p>
-                </div>
-            </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
     <script>
         function actualizarContadorTareas() {
-            // Ajusta los ../ dependiendo de qué tan profundo esté este archivo en tus carpetas
             fetch('../../controladores/api_tareas_pendientes.php')
                 .then(response => response.text())
                 .then(data => {
                     const contador = document.getElementById('contador-tareas');
                     if(contador) {
-                        // Actualiza el número de la tarjeta mágicamente
                         contador.innerText = data;
                     }
                 })
                 .catch(error => console.error('Error al actualizar tareas:', error));
         }
 
-        // Arranca inmediatamente y luego consulta la BD cada 5 segundos
         actualizarContadorTareas();
         setInterval(actualizarContadorTareas, 5000); 
     </script>

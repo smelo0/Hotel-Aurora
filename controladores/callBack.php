@@ -70,7 +70,7 @@ if (!$email || ($payload['email_verified'] ?? false) !== true) {
 }
 
 $stmt = $conexion->prepare(
-    'SELECT id_usu, nom_usu, cod_rol_usu FROM usuario WHERE corr_usu = ? LIMIT 1'
+    'SELECT id_usu, nom_usu, cod_rol_usu, est_usu FROM usuario WHERE corr_usu = ? LIMIT 1'
 );
 if (!$stmt) {
     Logger::registrarLog('ERROR', 'No se pudo preparar la consulta de cuenta para el acceso Google', [
@@ -97,7 +97,7 @@ if ($stmt->num_rows !== 1) {
     redirectGoogleLogin('vista=registro&error=google_registro');
 }
 
-$stmt->bind_result($userId, $userName, $userRole);
+$stmt->bind_result($userId, $userName, $userRole, $userStatus);
 if (!$stmt->fetch()) {
     $stmt->close();
     $conexion->close();
@@ -105,6 +105,13 @@ if (!$stmt->fetch()) {
 }
 $stmt->close();
 $conexion->close();
+
+if ((int) $userStatus !== 1) {
+    Logger::registrarLog('WARN', 'Acceso Google rechazado para una cuenta inactiva', [
+        'id_usuario' => $userId,
+    ]);
+    redirectGoogleLogin('error=credenciales');
+}
 
 if ((int) $userRole !== 6) {
     Logger::registrarLog('WARN', 'Acceso Google rechazado por rol no autorizado', [

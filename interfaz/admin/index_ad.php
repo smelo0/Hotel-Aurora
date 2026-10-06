@@ -44,6 +44,15 @@ if ($permisos_usuario === []) {
         : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver', 'experiencias.ver', 'experiencias.gestionar'];
 }
 
+if (($_GET['reservas_fragmento'] ?? '') === '1') {
+    if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
+        http_response_code(403);
+        exit();
+    }
+    require 'secciones_ad/reservas.php';
+    exit();
+}
+
 ?>
 
 <body class="bg-surface font-body text-heading antialiased flex min-h-screen overflow-hidden">
@@ -127,7 +136,7 @@ if ($permisos_usuario === []) {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
-    <script src="js_ad/admin.js?v=10"></script>
+    <script src="js_ad/admin.js?v=11"></script>
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
     <script src="../../assets/js/inactividad.js?v=3"></script>

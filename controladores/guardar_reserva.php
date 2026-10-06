@@ -304,32 +304,9 @@ try {
     $stmtRoom->fetch();
     $stmtRoom->close();
 
-    if (in_array((string) $roomStatus, ['Mantenimiento', 'Sucia'], true)) {
-        throw new RuntimeException('habitacion_no_disponible');
-    }
-
     $checkinSql = $checkinAt->format('Y-m-d H:i:s');
     $checkoutSql = $checkoutAt->format('Y-m-d H:i:s');
-
-    $sqlOverlap = "SELECT r.cod_res
-                   FROM detalle d
-                   INNER JOIN reservas r ON r.cod_res = d.cod_res_det
-                   WHERE d.cod_hab_det = ?
-                     AND r.est_res NOT IN ('Cancelada', 'Cancelado', 'Finalizada')
-                     AND ? < r.fec_sal_res
-                     AND ? > r.fec_ent_res
-                   LIMIT 1";
-    $stmtOverlap = $conexion->prepare($sqlOverlap);
-    $stmtOverlap->bind_param('iss', $idHabitacion, $checkinSql, $checkoutSql);
-    $stmtOverlap->execute();
-    $stmtOverlap->store_result();
-
-    if ($stmtOverlap->num_rows > 0) {
-        $stmtOverlap->close();
-        throw new RuntimeException('habitacion_reservada');
-    }
-
-    $stmtOverlap->close();
+    \App\Reserva\RoomAvailabilityService::validar($conexion, $idHabitacion, $checkinAt, $checkoutAt);
 
     // 1. Insertar la Reserva
     $sqlReserva = 'INSERT INTO reservas (fec_ent_res, fec_sal_res, est_res, not_res, id_usu_res) VALUES (?, ?, ?, ?, ?)';

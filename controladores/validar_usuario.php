@@ -48,7 +48,7 @@ if (Recaptcha::isEnabled() && !Recaptcha::verify($captchaToken)) {
     redirigir_login('error=captcha');
 }
 
-$sql = 'SELECT id_usu, nom_usu, cod_rol_usu, psw_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
+$sql = 'SELECT id_usu, nom_usu, cod_rol_usu, psw_usu, est_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
 $stmt = $conexion->prepare($sql);
 
 if (!$stmt) {
@@ -72,7 +72,7 @@ if ($stmt->num_rows !== 1) {
     redirigir_login('error=credenciales');
 }
      
-$stmt->bind_result($idUsuario, $nombreUsuario, $rolUsuario, $hashAlmacenado);
+$stmt->bind_result($idUsuario, $nombreUsuario, $rolUsuario, $hashAlmacenado, $estadoUsuario);
 
 if (!$stmt->fetch()) {
     $stmt->close();
@@ -80,7 +80,11 @@ if (!$stmt->fetch()) {
     redirigir_login('error=bd_ejecucion');
 }
 
-if (!$hashAlmacenado || !password_verify($passwordIngresada, $hashAlmacenado)) {
+if (
+    !$hashAlmacenado
+    || !password_verify($passwordIngresada, $hashAlmacenado)
+    || (int) $estadoUsuario !== 1
+) {
     $stmt->close();
     $conexion->close();
     redirigir_login('error=credenciales');

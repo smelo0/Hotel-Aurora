@@ -70,6 +70,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('habitacion_invalida');
         }
 
+        if ($hab_final !== null) {
+            \App\Reserva\RoomAvailabilityService::validar(
+                $conexion,
+                (int) $hab_final,
+                new DateTimeImmutable((string) $reservaActual['fec_ent_res']),
+                new DateTimeImmutable((string) $reservaActual['fec_sal_res']),
+                (int) $cod_res,
+                (int) $hab_final === (int) ($reservaActual['cod_hab_det'] ?? 0)
+            );
+        }
+
         $estadoFinal = $accion === 'cobrar' ? 'Confirmada' : $estadoSolicitado;
         if (
             $accion === 'guardar'
@@ -253,6 +264,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'metodo_pago_invalido' => 'Selecciona un método de pago válido.',
             'estado_invalido' => 'Selecciona un estado válido.',
             'habitacion_invalida' => 'La habitación indicada no es válida.',
+            'habitacion_no_disponible' => 'La habitación no está disponible para las fechas de esta reserva.',
+            'habitacion_no_existe' => 'La habitación indicada no es válida.',
+            'habitacion_reservada' => 'La habitación ya está reservada para estas fechas.',
             'pago_no_confirmado' => 'No se puede confirmar la reserva sin un pago aprobado.',
             'sin_saldo_pendiente' => 'La reserva no tiene un saldo pendiente por cobrar.',
         ];
