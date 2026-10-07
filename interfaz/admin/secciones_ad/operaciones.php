@@ -16,12 +16,6 @@
                 <div class="w-4 h-4 bg-green-500 rounded-md"></div>
                 <span class="text-xs font-bold text-slate-500">Disponible</span>
             </div>
-
-            <div class="flex items-center gap-2">
-                <!-- Modificación: Limpio usa azul claro/cian. -->
-                <div class="w-4 h-4 bg-cyan-500 rounded-md"></div>
-                <span class="text-xs font-bold text-slate-500">Limpio</span>
-            </div>
             
             <div class="flex items-center gap-2">
                 <!-- Modificación: Ocupada usa naranja. -->
@@ -32,7 +26,7 @@
             <div class="flex items-center gap-2">
                 <!-- Modificación: Sucia usa gris oscuro/café. -->
                 <div class="w-4 h-4 bg-stone-600 rounded-md"></div>
-                <span class="text-xs font-bold text-slate-500">Sucia (Requiere Limpieza)</span>
+                <span class="text-xs font-bold text-slate-500">Sucia</span>
             </div>
             
             <div class="flex items-center gap-2">
