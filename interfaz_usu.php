@@ -10,6 +10,7 @@ require_once __DIR__ . '/configuracion/wompi.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
 
+
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $portalRepository = new \App\Usuario\PortalRepository();
 
@@ -117,7 +118,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 $portalData = (new \App\Usuario\PortalService($portalRepository))->load($conexion, $_SESSION);
 $habitaciones = $portalData['habitaciones'];
-$visibleRooms = 6; // mostrar sólo las primeras N habitaciones en el carrusel
 $experiencias = $portalData['experiencias'];
 $usuarioId = $portalData['usuarioId'];
 $usuarioNombre = $portalData['usuarioNombre'];
@@ -164,6 +164,22 @@ $historialExperiencias = $portalData['historialExperiencias'];
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 </head>
+
+<div id="roomCart" class="fixed bottom-6 left-1/2 z-[80] hidden -translate-x-1/2">
+    <div class="glass-card flex max-w-3xl items-center gap-4 rounded-full border border-white/20 px-6 py-4 shadow-2xl backdrop-blur-lg">
+        <span class="material-symbols-outlined text-3xl text-white">shopping_cart</span>
+        <div class="flex-1">
+            <p class="text-xs font-black uppercase tracking-[0.16em] text-white/70">Habitaciones seleccionadas</p>
+            <p id="roomCartSummary" class="text-sm font-bold text-white">0 habitaciones</p>
+        </div>
+        <button id="roomCartClear" type="button" class="rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 hover:bg-white/10">
+            Limpiar
+        </button>
+        <button id="roomCartCheckout" type="button" class="hero-button primary-button px-5 py-3 text-xs font-black uppercase tracking-[0.16em]">
+            Reservar
+        </button>
+    </div>
+</div> 
 <body>
     <nav class="site-nav fixed inset-x-0 top-0 z-50">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
@@ -191,7 +207,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     </span>
                     <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
                         Cerrar sesión
-
                     </button>
                 <?php else: ?>
                     <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-4 py-3 text-sm">
@@ -290,7 +305,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
 
                     <div class="mt-4 flex flex-col gap-2">
                         <p id="searchFeedback" class="hidden text-sm font-bold"></p>
-                        
                     </div>
                 </div>
             </div>
@@ -328,70 +342,88 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     </div>
                 </div>
 
-             <div class="mt-8 relative">
-                <div id="roomsCarousel" class="rooms-carousel mt-0 flex gap-6 overflow-x-auto snap-x px-4 md:px-0">
-                    <?php foreach (array_slice($habitaciones, 0, $visibleRooms) as $room): ?>
-        <?php
-        $roomName = 'Habitación ' . $room['num_hab'] . ' · ' . $room['tipo_hab'];
-        $features = roomFeatures((string) $room['tipo_hab']);
-        $tipoLower = mb_strtolower((string) $room['tipo_hab'], 'UTF-8');
-        if (str_contains($tipoLower, 'suite')) {
-            $roomType = 'suite';
-        } elseif (str_contains($tipoLower, 'doble')) {
-            $roomType = 'doble';
-        } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
-            $roomType = 'sencilla';
-        } else {
-            $roomType = 'otra';
-        }
-        ?>
-        <article class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" data-room-card="<?php echo (int) $room['cod_hab']; ?>" data-room-type="<?php echo $roomType; ?>">
-            <img src="<?php echo e(roomImage((string) $room['tipo_hab'])); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-            <div class="p-6">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e((string) $room['tipo_hab']); ?></p>
-                        <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
+                <div class="mt-8 relative">
+                    <?php if (!empty($habitaciones)): ?>
+                        <div id="roomsCarousel" class="rooms-carousel mt-0 flex gap-6 overflow-x-auto snap-x px-4 md:px-0">
+                            <?php foreach ($habitaciones as $room): ?>
+                                <?php
+                                $codHab = $room['cod_hab'] ?? $room['id'] ?? 0;
+                                $numHab = $room['num_hab'] ?? $room['numero'] ?? '';
+                                $tipoHab = (string) ($room['tipo_hab'] ?? $room['tipo'] ?? 'Habitación');
+                                $precioHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
+                                $roomName = 'Habitación ' . $numHab . ' · ' . $tipoHab;
+
+                                $features = !empty($room['car_hab']) ? $room['car_hab'] : roomFeatures($tipoHab);
+                                $roomPhoto = !empty($room['img_hab']) ? (string) $room['img_hab'] : roomImage($tipoHab);
+
+                                $tipoLower = mb_strtolower($tipoHab, 'UTF-8');
+                                if (str_contains($tipoLower, 'suite')) {
+                                    $roomType = 'suite';
+                                } elseif (str_contains($tipoLower, 'doble')) {
+                                    $roomType = 'doble';
+                                } elseif (str_contains($tipoLower, 'sencilla') || str_contains($tipoLower, 'simple')) {
+                                    $roomType = 'sencilla';
+                                } else {
+                                    $roomType = 'otra';
+                                }
+                                ?>
+                                <article 
+                                    class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" 
+                                    data-room-card="<?php echo (int) $codHab; ?>" 
+                                    data-room-type="<?php echo $roomType; ?>"
+                                    data-room-price="<?php echo $precioHab; ?>"
+                                    data-room-ids="[<?php echo (int) $codHab; ?>]"
+                                >
+                                    <img src="<?php echo e($roomPhoto); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
+                                    <div class="p-6">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <div>
+                                                <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($tipoHab); ?></p>
+                                                <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
+                                            </div>
+                                            <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
+                                                Reserva online
+                                            </span>
+                                        </div>
+
+                                        <p class="muted-light mt-4 min-h-[72px] text-sm leading-7">
+                                            <?php echo e((string) ($room['obs_hab'] ?? 'Habitación confortable con todas las comodidades.')); ?>
+                                        </p>
+
+                                        <div class="mt-5 flex flex-wrap gap-2">
+                                            <?php foreach ($features as $feature): ?>
+                                                <span class="soft-chip rounded-full px-3 py-2 text-xs font-bold"><?php echo e($feature); ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+
+                                        <p data-room-availability class="hidden mt-4 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-xs font-bold leading-5 text-white" role="status"></p>
+
+                                        <div class="mt-6 flex items-center justify-between gap-4">
+                                            <div>
+                                                <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
+                                                <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?></p>
+                                            </div>
+                                           <button
+    type="button"
+    class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
+    data-room-add
+    data-room-id="<?php echo (int) $codHab; ?>"
+    data-room-name="<?php echo e($roomName); ?>"
+    data-room-price="<?php echo $precioHab; ?>"
+>
+    <span data-room-add-label>Agregar</span>
+</button>
+                                        </div>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div id="emptyRoomsState" class="<?php echo !empty($habitaciones) ? 'hidden' : ''; ?> rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
+                        <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
+                        <p id="emptyRoomsDetail" class="muted-light mt-2">Cambia el rango de fechas o vuelve a consultar en unos segundos.</p>
                     </div>
-                    <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
-                        Reserva online
-                    </span>
-                </div>
-
-                <p class="muted-light mt-4 min-h-[72px] text-sm leading-7">
-                    <?php echo e((string) $room['obs_hab']); ?>
-                </p>
-
-                <div class="mt-5 flex flex-wrap gap-2">
-                    <?php foreach ($features as $feature): ?>
-                        <span class="soft-chip rounded-full px-3 py-2 text-xs font-bold"><?php echo e($feature); ?></span>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="mt-6 flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
-                        <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format((float) $room['pre_hab'], 0, ',', '.'); ?></p>
-                    </div>
-                    <button
-                        type="button"
-                        class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
-                        data-room-select
-                        data-room-id="<?php echo (int) $room['cod_hab']; ?>"
-                        data-room-name="<?php echo e($roomName); ?>"
-                        data-room-price="<?php echo (float) $room['pre_hab']; ?>"
-                    >
-                        Reservar
-                    </button>
-                </div>
-            </div>
-        </article>
-    <?php endforeach; ?>
-                </div>
-            </div>
-                <div id="emptyRoomsState" class="hidden rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
-                    <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
-                    <p class="muted-light mt-2">Cambia el rango de fechas o vuelve a consultar en unos segundos.</p>
                 </div>
             </div>
         </section>
@@ -565,10 +597,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </section>
 
         <?php if ($usuarioAutenticado): ?>
-                
-         
 <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
-    <!-- Borde grueso gris medio transparente (border-8 border-slate-300/30) -->
     <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         
         <div class="flex items-center justify-between gap-4 mb-6">
@@ -722,7 +751,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <h3 class="font-display text-white text-base mb-4">Reservas</h3>
                 <ul class="space-y-2 text-white/70">
                     <li><a href="mailto:reservas@hotelaurora.com" class="hover:text-white">reservas@hotelaurora.com</a></li>
-                    <!-- TODO: reemplaza estos datos por los reales del hotel -->
                     <li>Teléfono: +57 XXX XXX XXXX</li>
                     <li>Solo WhatsApp: XXX XXX XXXX</li>
                 </ul>
@@ -731,7 +759,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
             <div>
                 <h3 class="font-display text-white text-base mb-4">Síguenos en:</h3>
                 <div class="flex items-center gap-4 text-white/70">
-                    <!-- TODO: reemplaza los "#" por los enlaces reales a tus redes -->
                     <a href="#" class="hover:text-white" aria-label="Facebook">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94z"/></svg>
                     </a>
@@ -742,7 +769,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M16.5 2h-3v13.7a2.9 2.9 0 1 1-2.06-2.78v-3.1a6 6 0 1 0 5.06 5.93V8.4a7.6 7.6 0 0 0 4.5 1.46V6.8A4.6 4.6 0 0 1 16.5 2z"/></svg>
                     </a>
                 </div>
-                <!-- TODO: agrega la dirección real del hotel -->
                 <p class="mt-6 text-white/60 text-xs">Dirección: [pendiente]</p>
             </div>
         </div>
@@ -753,12 +779,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </footer>
 
-
-
-   
-   
-
-    
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
             <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
@@ -807,145 +827,138 @@ $historialExperiencias = $portalData['historialExperiencias'];
     require_once __DIR__ . '/includes/system_tour.php';
     ?>
 
- <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
-        
-    <div class="flex min-h-full items-center justify-center">
-        <div class="glass-card w-full max-w-5xl overflow-hidden rounded-[32px]">
-            <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
-                <!-- Lateral con información del cobro -->
-                <aside class="bg-[#17354f] px-7 py-8 text-white">
-                    <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
-                    <h3 id="modalRoomName" class="mt-2 text-3xl font-black">Habitación seleccionada</h3>
-                    <p class="mt-3 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
+    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="glass-card w-full max-w-5xl overflow-hidden rounded-[32px]">
+                <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
+                    <aside class="bg-[#17354f] px-7 py-8 text-white">
+                        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
+                        <h3 id="modalRoomName" class="mt-2 text-3xl font-black">Habitación seleccionada</h3>
+                        <p class="mt-3 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
 
-                    <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
-                        <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
-                        <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-out</p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
-                        <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
-                    </div>
+                        <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-out</p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
+                        </div>
 
-                    <!-- Cálculos automáticos -->
-                    <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
-                        <div class="flex justify-between text-sm text-white/70">
-                            <span>Subtotal estadía:</span>
-                            <span id="modalSubtotal">$0</span>
+                        <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
+                            <div class="flex justify-between text-sm text-white/70">
+                                <span>Subtotal estadía:</span>
+                                <span id="modalSubtotal">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm text-white/70">
+                                <span>Impuestos (IVA 19%):</span>
+                                <span id="modalIva">$0</span>
+                            </div>
+                            <div class="flex justify-between text-base font-black text-white border-t border-white/10 pt-2">
+                                <span>Total Reserva:</span>
+                                <span id="modalTotal">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm font-bold text-emerald-400 pt-1">
+                                <span>Monto a pagar ahora:</span>
+                                <span id="modalMontoPagarAhora">$0</span>
+                            </div>
                         </div>
-                        <div class="flex justify-between text-sm text-white/70">
-                            <span>Impuestos (IVA 19%):</span>
-                            <span id="modalIva">$0</span>
-                        </div>
-                        <div class="flex justify-between text-base font-black text-white border-t border-white/10 pt-2">
-                            <span>Total Reserva:</span>
-                            <span id="modalTotal">$0</span>
-                        </div>
-                        <div class="flex justify-between text-sm font-bold text-emerald-400 pt-1">
-                            <span>Monto a pagar ahora:</span>
-                            <span id="modalMontoPagarAhora">$0</span>
-                        </div>
-                    </div>
-                </aside>
+                    </aside>
 
-                <!-- Formulario de Cobro -->
-                <section class="bg-white/88 px-7 py-8 backdrop-blur-lg overflow-y-auto max-h-[85vh]">
-                    <div class="flex items-start justify-between gap-4">
-                        <div>
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
-                            <h4 class="mt-2 text-3xl font-black text-[#17354f]">Detalles de Pago</h4>
-                        </div>
-                       <button 
-                        id="closeBookingModal" 
-                        type="button" 
-                        onclick="closeBookingModal()" 
-                        class="rounded-full bg-slate-100 p-3 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
->                   
-                        <span class="material-symbols-outlined pointer-events-none">close</span>
-                        </button>
-                    </div>
-
-                    <!-- Selección 100% o 50% -->
-                    <div class="mt-6">
-                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400">Modalidad de Cobro</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="100">
-                                <p class="text-xs font-black uppercase text-[#000000]">Pago Total (100%)</p>
-                                <p class="text-xs text-black-500">Liquida el valor completo ahora</p>
-                            </button>
-                            <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="50">
-                                <p class="text-xs font-black uppercase text-[#000000]">Abono inicial (50%)</p>
-                                <p class="text-xs text-black">Paga el resto en recepción</p>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Selección de Pasarela/Método -->
-                    <div class="mt-6">
-                        <p class=" mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
-                        <div class="grid gap-3 md:grid-cols-3">
-
-                            <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
-                            <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción">Pago en Recepción</button>
-                        </div>
-                    </div>
-
-                    <!-- Campos del formulario -->
-                    <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
-                        <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
-                            <span class="material-symbols-outlined text-[18px]">verified_user</span>
-                            Pago seguro procesado por Wompi
-                        </div>
-                        <div id="cardFields" class="grid gap-3">
+                    <section class="bg-white/88 px-7 py-8 backdrop-blur-lg overflow-y-auto max-h-[85vh]">
+                        <div class="flex items-start justify-between gap-4">
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Número de Tarjeta</label>
-                                <input id="payCardNumber" type="text" maxlength="19" placeholder="0000 0000 0000 0000" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
+                                <h4 class="mt-2 text-3xl font-black text-[#17354f]">Detalles de Pago</h4>
                             </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Expiración</label>
-                                    <input id="payCardExpiry" type="text" placeholder="MM/AA" maxlength="5" class="w-full rounded-xl border-slate-300 bg-white text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">CVC / CVV</label>
-                                    <input id="payCardCvc" type="password" maxlength="4" placeholder="123" class="w-full rounded-xl border-slate-300 bg-white text-sm">
-                                </div>
-                            </div>
+                            <button 
+                                id="closeBookingModal" 
+                                type="button" 
+                                onclick="closeBookingModal()" 
+                                class="rounded-full bg-slate-100 p-3 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                            >                   
+                                <span class="material-symbols-outlined pointer-events-none">close</span>
+                            </button>
                         </div>
-                        <div id="transferFields" class="hidden text-xs text-slate-600">
-                            <p class="font-bold text-slate-800 mb-1">Datos bancarios para consignación:</p>
-                            <p>Cuenta de Ahorros: <strong>123-456789-00</strong></p>
-                            <p>Titular: <strong>Hotel Aurora S.A.S</strong></p>
-                        </div>
-                    </div>
 
-                    <?php if ($recaptchaSiteKey !== ''): ?>
-                        <div class="mt-5 flex justify-center" aria-label="Verificación de seguridad">
-                            <div class="g-recaptcha" data-sitekey="<?php echo e($recaptchaSiteKey); ?>"></div>
+                        <div class="mt-6">
+                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400">Modalidad de Cobro</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="100">
+                                    <p class="text-xs font-black uppercase text-[#000000]">Pago Total (100%)</p>
+                                    <p class="text-xs text-black-500">Liquida el valor completo ahora</p>
+                                </button>
+                                <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="50">
+                                    <p class="text-xs font-black uppercase text-[#000000]">Abono inicial (50%)</p>
+                                    <p class="text-xs text-black">Paga el resto en recepción</p>
+                                </button>
+                            </div>
                         </div>
-                    <?php endif; ?>
-                    <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
-                    <button 
-                        id="confirmBookingBtn" 
-                        type="button" 
-                        onclick="processReservationPayment()" 
-                        class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
-                    >
-                        Confirmar y Pagar
-                    </button>
-                </section>
+
+                        <div class="mt-6">
+                            <p class=" mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
+                            <div class="grid gap-3 md:grid-cols-3">
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción">Pago en Recepción</button>
+                            </div>
+                        </div>
+
+                        <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
+                            <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
+                                <span class="material-symbols-outlined text-[18px]">verified_user</span>
+                                Pago seguro procesado por Wompi
+                            </div>
+                            <div id="cardFields" class="grid gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Número de Tarjeta</label>
+                                    <input id="payCardNumber" type="text" maxlength="19" placeholder="0000 0000 0000 0000" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Expiración</label>
+                                        <input id="payCardExpiry" type="text" placeholder="MM/AA" maxlength="5" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">CVC / CVV</label>
+                                        <input id="payCardCvc" type="password" maxlength="4" placeholder="123" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="transferFields" class="hidden text-xs text-slate-600">
+                                <p class="font-bold text-slate-800 mb-1">Datos bancarios para consignación:</p>
+                                <p>Cuenta de Ahorros: <strong>123-456789-00</strong></p>
+                                <p>Titular: <strong>Hotel Aurora S.A.S</strong></p>
+                            </div>
+                        </div>
+
+                        <?php if ($recaptchaSiteKey !== ''): ?>
+                            <div class="mt-5 flex justify-center" aria-label="Verificación de seguridad">
+                                <div class="g-recaptcha" data-sitekey="<?php echo e($recaptchaSiteKey); ?>"></div>
+                            </div>
+                        <?php endif; ?>
+                        <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
+                        <button 
+                            id="confirmBookingBtn" 
+                            type="button" 
+                            onclick="processReservationPayment()" 
+                            class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
+                        >
+                            Confirmar y Pagar
+                        </button>
+                    </section>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
     <script src="assets/js/interfaz_usu.js?v=2"></script>
- <?php require_once 'includes/banner_cookies.php'; ?>
-<!-- Modal y lógica de inactividad -->
-<?php
-$privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
-$privacyPolicyUrl = 'interfaz/legal/politica_privacidad.php';
-include __DIR__ . '/includes/privacy_policy_modal.php';
-?>
-<?php if (!empty($_SESSION['user_auth'])): ?>
-    <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
-    <script src="assets/js/inactividad.js?v=3"></script>
-    
-<?php endif; ?>
+    <?php require_once 'includes/banner_cookies.php'; ?>
+    <?php
+    $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
+    $privacyPolicyUrl = 'interfaz/legal/politica_privacidad.php';
+    include __DIR__ . '/includes/privacy_policy_modal.php';
+    ?>
+    <?php if (!empty($_SESSION['user_auth'])): ?>
+        <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
+        <script src="assets/js/inactividad.js?v=3"></script>
+        <script src="assets/js/interfaz_usu.js?v=100"></script>
+    <?php endif; ?>
+</body>
+</html>

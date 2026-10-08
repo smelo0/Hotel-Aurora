@@ -30,6 +30,31 @@
                 },
             },
         }
-    </script>
+       
+    // Se declara globalmente en el HEAD para que esté lista antes de que renderice el sidebar
+    window.navegar = function(sec, btn) {
+        if (!sec) return;
+
+        // Ocultar todas las secciones
+        document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
+
+        // Mostrar la sección seleccionada
+        const targetId = sec.startsWith('sec-') ? sec : 'sec-' + sec;
+        const seccion = document.getElementById(targetId) || document.getElementById(sec);
+
+        if (seccion) {
+            seccion.classList.remove('hidden');
+        } else if (typeof sec === 'string' && (sec.includes('.php') || sec.includes('/'))) {
+            window.location.href = sec;
+        }
+
+        // Marcar botón activo
+        if (btn) {
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active-nav', 'hover:bg-slate-50'));
+            btn.classList.add('active-nav');
+        }
+    };
+</script>
+   
     <link rel="stylesheet" href="CSS/estilos_ad.css?v=1">
 </head>

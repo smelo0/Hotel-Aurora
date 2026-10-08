@@ -2,7 +2,6 @@
 // PANEL ADMIN - FUNCIONES COMUNES + CRUD TRANSACCIONAL DE TAREAS
 // =======================================================
 
-// Reparacion: Se reemplazo window.onload por DOMContentLoaded para no pisar el arranque inline de index_ad.php.
 document.addEventListener('DOMContentLoaded', () => {
     inicializarSidebarAdmin();
     inicializarPermisosAdmin();
@@ -16,9 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarSincronizacionReservas();
     inicializarCobroExperienciasReserva();
 
-    if (new URLSearchParams(window.location.search).get('admin_seccion') === 'reservas') {
-        navegar('reservas', document.querySelector('[data-permiso="reservas.ver"]'));
-    }
+    // Restaurar la ultima seccion visitada (o la indicada por URL) tras recargar.
+    const seccionParam = new URLSearchParams(window.location.search).get('admin_seccion');
+    const seccionGuardada = sessionStorage.getItem('hotel_admin_seccion');
+    const seccionInicial = seccionParam || seccionGuardada || 'dashboard';
+    const botonInicial = document.querySelector(`.nav-item[onclick*="navegar('${seccionInicial}'"]`)
+        || document.querySelector(`.nav-item[onclick*='navegar("${seccionInicial}"']`);
+    navegar(seccionInicial, botonInicial);
 });
 
 function inicializarSidebarAdmin() {
@@ -64,7 +67,6 @@ function inicializarPermisosAdmin() {
     }
 }
 
-// Reparacion: Se escucha el mismo canal en tiempo real usado por Operaciones/Housekeeping.
 window.addEventListener('storage', event => {
     if (event.key === 'habitaciones_actualizadas' && typeof renderHousekeeping === 'function') {
         renderHousekeeping();
@@ -125,6 +127,7 @@ function navegar(sec, btn) {
         dashboard: 'dashboard.ver',
         reservas: 'reservas.ver',
         experiencias: 'experiencias.ver',
+        habitaciones: 'habitaciones.ver',
         roles: 'roles.ver',
         operaciones: 'operaciones.ver',
         finanzas: 'finanzas.ver',
@@ -136,6 +139,8 @@ function navegar(sec, btn) {
     if (seccion) seccion.classList.remove('hidden');
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active-nav', 'hover:bg-slate-50'));
     if (btn) btn.classList.add('active-nav');
+
+    try { sessionStorage.setItem('hotel_admin_seccion', sec); } catch (_) {}
 }
 
 function filtrarReservas() {
@@ -418,7 +423,6 @@ function iniciarSincronizacionHousekeeping() {
     intervaloHousekeeping = setInterval(renderHousekeeping, 3000);
 }
 
-// Compatibilidad: helpers que antes estaban inline en index_ad.php
 function abrirModalLogout(e) {
     if (e) e.preventDefault();
     const modal = document.getElementById('modalLogout');
@@ -477,7 +481,6 @@ function limpiarNombreCreadorAdmin(nombre, rolNombre) {
 }
 
 function formatearCreadorAdmin(tarea) {
-    // Reparacion: El creador se normaliza siempre como [Nombre] - [Rol].
     if (tarea.creador_formateado) return tarea.creador_formateado;
 
     const rolNombre = tarea.rol_nombre || obtenerNombreRolAdmin(tarea.rol);
@@ -552,7 +555,6 @@ async function renderTareasAdmin() {
     renderTareasAdminEnCurso = true;
 
     try {
-        // Transaccion: La UI lee de servidor con cache desactivada para mantener consistencia del CRUD.
         const respuesta = await fetch('../../controladores/obtener_tareas.php', {
             cache: 'no-store',
             headers: { 'Accept': 'application/json' }
@@ -578,7 +580,6 @@ async function marcarTareaComoHechaAdmin(id, botonHTML) {
     const tarea = botonHTML.closest('.task-item');
     const textoOriginal = botonHTML.innerHTML;
 
-    // Transaccion: Se deshabilita el boton y se muestra Cargando mientras responde MySQL.
     botonHTML.disabled = true;
     botonHTML.classList.add('opacity-60', 'cursor-not-allowed');
     botonHTML.innerHTML = 'Cargando...';
@@ -599,7 +600,6 @@ async function marcarTareaComoHechaAdmin(id, botonHTML) {
             throw new Error(resultado.mensaje || 'No se pudo completar la tarea');
         }
 
-        // Transaccion: La tarjeta solo se quita despues de confirmacion 200 del servidor.
         if (tarea) {
             tarea.classList.add('opacity-0', 'translate-x-6', 'scale-95');
             setTimeout(() => {
@@ -618,7 +618,6 @@ async function marcarTareaComoHechaAdmin(id, botonHTML) {
     }
 }
 
-// Reparacion: Alias para no romper botones antiguos que llamaban marcarTareaComoHecha desde la cola admin.
 function marcarTareaComoHecha(id, botonHTML) {
     return marcarTareaComoHechaAdmin(id, botonHTML);
 }
@@ -639,13 +638,11 @@ function actualizarContadorTareasAdmin() {
         }
     }
 
-    // Reparacion: Sincroniza tambien el contador del dashboard cuando existe.
     if (contadorDashboard) contadorDashboard.innerText = cantidad;
 }
 
 function iniciarSincronizacionTareasAdmin() {
     if (intervaloColaAdmin) return;
-    // Reparacion: Se replica la sincronizacion periodica de Operaciones para recibir tareas sin recargar.
     intervaloColaAdmin = setInterval(renderTareasAdmin, 3000);
 }
 
@@ -658,7 +655,6 @@ function reiniciarSincronizacionTareasAdmin() {
 }
 
 function notificarCambioTareasAdmin(tarea = null) {
-    // Nueva conexion: Envia la tarea creada como payload para que el panel empleado la pinte sin F5.
     if (tarea) {
         const payload = JSON.stringify({ ...tarea, emitida_en: Date.now() });
         localStorage.setItem('tarea_nueva_payload', payload);
@@ -680,7 +676,6 @@ function initDragAndDropAdmin() {
     inicializarItemsDragAdmin();
     if (contenedor.dataset.dragInicializado === '1') return;
 
-    // Reparacion: El listener dragover se instala una sola vez para evitar duplicados por cada render.
     contenedor.dataset.dragInicializado = '1';
     contenedor.addEventListener('dragover', event => {
         event.preventDefault();
@@ -794,10 +789,9 @@ if (formTarea) {
         formData.append('id_creador_panel', typeof ID_USUARIO_ACTIVO !== 'undefined' ? ID_USUARIO_ACTIVO : '');
         formData.append('rol_creador_panel', typeof ROL_USUARIO !== 'undefined' ? ROL_USUARIO : '');
         formData.append('firma_creador_panel', typeof FIRMA_USUARIO_ACTIVO !== 'undefined' ? FIRMA_USUARIO_ACTIVO : '');
-        formData.append('panel_origen', 'admin'); // Correccion: El backend identifica que la tarea nace desde el panel administrador.
+        formData.append('panel_origen', 'admin');
 
         try {
-            // Transaccion: Estado de carga para impedir doble envio mientras responde la base de datos.
             if (botonSubmit) {
                 botonSubmit.disabled = true;
                 botonSubmit.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">sync</span> Guardando...';
@@ -811,12 +805,10 @@ if (formTarea) {
             const resultado = await respuesta.json();
 
             if (!respuesta.ok || resultado.status !== 'exito') {
-                // Transaccion: Error de validacion controlado por el servidor.
                 alert(resultado.mensaje || 'No se pudo guardar la tarea.');
                 return;
             }
 
-            // Transaccion: La UI se actualiza solo con exito 200/201 confirmado por servidor.
             this.reset();
             cerrarModal();
             await renderTareasAdmin();
@@ -825,7 +817,6 @@ if (formTarea) {
             console.error('Error critico de base de datos:', error);
             alert('Error critico de base de datos. No se pudo guardar la tarea.');
         } finally {
-            // Transaccion: Restauracion obligatoria para que el usuario no quede bloqueado.
             if (botonSubmit) {
                 botonSubmit.disabled = false;
                 botonSubmit.innerHTML = textoOriginal;
@@ -889,10 +880,10 @@ function crearFilaReservaHTML(reserva) {
             <td class="py-5 px-4 align-middle"><span class="${obtenerClaseEstadoReserva(estado)} px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">${escaparHTMLAdmin(estado)}</span></td>
             <td class="py-5 px-4 align-middle max-w-xs">${notasTabla}</td>
             <td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">
-                <button onclick="abrirEdicion(this)" class="ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva" title="Editar Reserva" data-id="${Number(reserva.cod_res)}" data-estado="${escaparHTMLAdmin(estado)}" data-habitacion="${escaparHTMLAdmin(habitacion)}" data-notas="${escaparHTMLAdmin(notas)}">
+                <button type="button" onclick="abrirEdicion(this)" class="ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva" title="Editar Reserva" data-id="${Number(reserva.cod_res)}" data-estado="${escaparHTMLAdmin(estado)}" data-habitacion="${escaparHTMLAdmin(habitacion)}" data-notas="${escaparHTMLAdmin(notas)}">
                     <span class="material-symbols-outlined text-sm">edit</span>
                 </button>
-                <button onclick="confirmarEliminacion(${Number(reserva.cod_res)})" class="ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm" title="Eliminar Reserva">
+                <button type="button" onclick="confirmarEliminacion(${Number(reserva.cod_res)})" class="ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm" title="Eliminar Reserva">
                     <span class="material-symbols-outlined text-sm">delete</span>
                 </button>
             </div></td>
@@ -1048,8 +1039,9 @@ document.addEventListener('submit', async function(e) {
     const form = e.target;
     if (!(form instanceof HTMLFormElement)) return;
 
-    const esFormEditar = form.id === 'formEditarReserva';
-    const esFormCrear = form.getAttribute('action') === '../../controladores/guardar_reserva.php';
+    const action = form.getAttribute('action') || '';
+    const esFormEditar = form.id === 'formEditarReserva' || action.includes('editar_reserva.php');
+    const esFormCrear = action.includes('guardar_reserva.php');
     if (!esFormEditar && !esFormCrear) return;
 
     e.preventDefault();
@@ -1060,7 +1052,6 @@ document.addEventListener('submit', async function(e) {
         : form.querySelector('button[type="submit"]');
     if (!btn) return;
 
-    // Evita doble envio por listeners duplicados
     if (btn.dataset.enviando === '1') return;
     btn.dataset.enviando = '1';
 

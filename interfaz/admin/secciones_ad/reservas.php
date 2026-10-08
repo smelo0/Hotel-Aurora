@@ -97,11 +97,19 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     is_int($paginaSolicitadaReservas) ? $paginaSolicitadaReservas : 1,
                     $busquedaReservas
                 );
-                $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'];
+                $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'] ?? [];
                 $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
                     && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
-                $reservasAdmin = $datosReservasAdmin['reservas'];
-                $paginacionReservas = $datosReservasAdmin['paginacion'];
+                $reservasAdmin = $datosReservasAdmin['reservas'] ?? [];
+                $paginacionReservas = $datosReservasAdmin['paginacion'] ?? [
+                    'pagina' => 1,
+                    'paginas' => 1,
+                    'por_pagina' => 25,
+                    'total' => 0,
+                    'desde' => 0,
+                    'hasta' => 0,
+                    'busqueda' => '',
+                ];
                 $consultaPaginacionReservas = static function (int $pagina) use ($busquedaReservas): string {
                     return http_build_query(array_filter([
                         'admin_seccion' => 'reservas',
@@ -112,17 +120,20 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
                 if ($reservasAdmin !== []) {
                     foreach ($reservasAdmin as $reserva) {
-                        $fecha_in = formatear_fecha_reserva_admin($reserva['fec_ent_res']);
-                        $fecha_out = formatear_fecha_reserva_admin($reserva['fec_sal_res']);
+                        $fecha_in = formatear_fecha_reserva_admin($reserva['fec_ent_res'] ?? '');
+                        $fecha_out = formatear_fecha_reserva_admin($reserva['fec_sal_res'] ?? '');
 
-                        $estado = $reserva['est_res'];
+                        $estado = $reserva['est_res'] ?? 'Pendiente';
                         $color_clase = 'bg-slate-100 text-slate-700';
                         if ($estado === 'Confirmada') $color_clase = 'bg-green-100 text-green-700';
                         if ($estado === 'Pendiente') $color_clase = 'bg-amber-100 text-amber-700';
                         if ($estado === 'En Casa') $color_clase = 'bg-blue-100 text-blue-700';
                         if ($estado === 'Cancelada') $color_clase = 'bg-red-100 text-red-700';
 
-                        $habitacion = !empty($reserva['cod_hab_det']) ? $reserva['cod_hab_det'] : 'Sin asignar';
+                        // Mapeo seguro utilizando cod_hab_det recuperado en la consulta SQL
+                        $habitacionCodigo = $reserva['cod_hab_det'] ?? null;
+                        $habitacion = !empty($habitacionCodigo) ? 'Habitación ' . $habitacionCodigo : 'Sin asignar';
+
                         $notas_db = $reserva['not_res'] ?? '';
                         $notas_separadas = separar_notas_reserva_admin($notas_db);
                         $huespedes_tabla = !empty($notas_separadas['huespedes'])
@@ -133,22 +144,23 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             : '';
                         $notas_tabla = ($huespedes_tabla || $peticion_tabla) ? $huespedes_tabla . $peticion_tabla : '<span class="text-slate-300 italic">Ninguna</span>';
 
-                        $id_reserva = (int) $reserva['cod_res'];
+                        $id_reserva = (int) ($reserva['cod_res'] ?? 0);
                         $notas_seguras = htmlspecialchars($notas_db, ENT_QUOTES, 'UTF-8');
                         $hab_segura = htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8');
-                        $saldo_pendiente = number_format((float) $reserva['saldo_pendiente'], 2, '.', '');
+                        $saldo_pendiente = number_format((float) ($reserva['saldo_pendiente'] ?? 0), 2, '.', '');
                         $experienciasTabla = '';
+
                         foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
-                            $idAgenda = (int) $experienciaReserva['id_agenda'];
-                            $nombreExperiencia = htmlspecialchars((string) $experienciaReserva['actividad'], ENT_QUOTES, 'UTF-8');
+                            $idAgenda = (int) ($experienciaReserva['id_agenda'] ?? 0);
+                            $nombreExperiencia = htmlspecialchars((string) ($experienciaReserva['actividad'] ?? ''), ENT_QUOTES, 'UTF-8');
                             $fechaExperiencia = htmlspecialchars(
-                                date('d M Y', strtotime((string) $experienciaReserva['fecha_agenda'])) . ' · ' . substr((string) $experienciaReserva['hora_agenda'], 0, 5),
+                                date('d M Y', strtotime((string) ($experienciaReserva['fecha_agenda'] ?? 'now'))) . ' · ' . substr((string) ($experienciaReserva['hora_agenda'] ?? '00:00'), 0, 5),
                                 ENT_QUOTES,
                                 'UTF-8'
                             );
-                            $estadoExperiencia = htmlspecialchars((string) ($experienciaReserva['estado_agenda'] ?: 'Pendiente'), ENT_QUOTES, 'UTF-8');
+                            $estadoExperiencia = htmlspecialchars((string) (($experienciaReserva['estado_agenda'] ?? '') ?: 'Pendiente'), ENT_QUOTES, 'UTF-8');
                             $estadoPagoExperiencia = (string) ($experienciaReserva['estado_pago_experiencia'] ?? 'Pendiente');
-                            $montoExperiencia = $experienciaReserva['monto_experiencia'] === null
+                            $montoExperiencia = ($experienciaReserva['monto_experiencia'] ?? null) === null
                                 ? 'Sin precio'
                                 : '$' . number_format((float) $experienciaReserva['monto_experiencia'], 0, ',', '.');
                             $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
@@ -157,7 +169,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 . '<p class="mt-1 text-xs font-bold text-slate-600">Experiencia: ' . htmlspecialchars($montoExperiencia, ENT_QUOTES, 'UTF-8')
                                 . ' · Pago: ' . htmlspecialchars($estadoPagoExperiencia, ENT_QUOTES, 'UTF-8') . '</p>';
                             if ($puedeCobrarExperienciasReserva && $estadoPagoExperiencia === 'Pendiente'
-                                && $experienciaReserva['monto_experiencia'] !== null
+                                && ($experienciaReserva['monto_experiencia'] ?? null) !== null
                                 && (float) $experienciaReserva['monto_experiencia'] > 0
                                 && $estadoExperiencia !== 'Cancelada') {
                                 $experienciasTabla .= '<div class="mt-2 flex flex-wrap items-center gap-2">'
@@ -172,11 +184,16 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             $experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias vinculadas</span>';
                         }
 
+                        $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
+
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
-                        echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . htmlspecialchars($reserva['nom_usu']) . '</td>';
-                        echo '<td class="py-5 px-4 align-middle text-slate-600 font-bold">' . htmlspecialchars($habitacion) . '</td>';
-                        echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in) . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out) . '</span></div></td>';
-                        echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado) . '</span></td>';
+                        echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . $nombreUsuario . '</td>';
+                        echo '<td class="py-5 px-4 align-middle text-slate-600 font-bold">'
+                            . '<div class="flex items-center gap-2"><span class="material-symbols-outlined text-[17px] text-primary">hotel</span><span>'
+                            . htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8') . '</span></div>'
+                            . '</td>';
+                        echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in, ENT_QUOTES, 'UTF-8') . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out, ENT_QUOTES, 'UTF-8') . '</span></div></td>';
+                        echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle min-w-64">' . $experienciasTabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
@@ -190,8 +207,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
-                $huespedes_reserva = $datosReservasAdmin['huespedes'];
-                $habitaciones_disponibles = $datosReservasAdmin['habitaciones_disponibles'];
+                $huespedes_reserva = $datosReservasAdmin['huespedes'] ?? [];
+                $habitaciones_disponibles = $datosReservasAdmin['habitaciones_disponibles'] ?? [];
                 ?>
             </tbody>
         </table>
@@ -205,8 +222,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 <?php if ($paginacionReservas['pagina'] > 1): ?>
                     <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] - 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Anterior</a>
                 <?php endif; ?>
-                <span class="px-2 text-xs font-bold text-slate-500">Página <?php echo (int) $paginacionReservas['pagina']; ?> de <?php echo (int) $paginacionReservas['paginas']; ?></span>
-                <?php if ($paginacionReservas['pagina'] < $paginacionReservas['paginas']): ?>
+                <span class="px-2 text-xs font-bold text-slate-500">Página <?php echo (int) $paginacionReservas['pagina']; ?> de <?php echo (int)$paginacionReservas['paginas']; ?></span>
+                <?php if ($paginacionReservas['pagina'] <$paginacionReservas['paginas']): ?>
                     <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] + 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Siguiente</a>
                 <?php endif; ?>
             </nav>
@@ -224,7 +241,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             </div>
 
             <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="px-7 pb-7 space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
                     <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Huésped</label>
                     <div id="contenedorBuscadorHuespedReserva" class="relative">
@@ -292,10 +309,10 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Habitacion</label>
                     <select name="id_habitacion" id="selectorHabitacionDisponible" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
                         <option value="" selected disabled>Seleccionar habitacion disponible...</option>
-                        <?php foreach ($habitaciones_disponibles as $hab): ?>
-                            <?php $precioBase = (float) $hab['pre_hab'] ?: (float) $hab['precio_hab'] ?: 0; ?>
-                            <option value="<?php echo (int) $hab['cod_hab']; ?>" data-price="<?php echo htmlspecialchars((string) $precioBase, ENT_QUOTES, 'UTF-8'); ?>">
-                                Habitacion <?php echo (int) $hab['num_hab']; ?> - <?php echo htmlspecialchars($hab['tipo_hab'], ENT_QUOTES, 'UTF-8'); ?>
+                        <?php foreach ($habitaciones_disponibles as$hab): ?>
+                            <?php $precioBase = (float) ($hab['pre_hab'] ?? 0) ?: (float) ($hab['precio_hab'] ?? 0) ?: 0; ?>
+                            <option value="<?php echo (int) ($hab['cod_hab'] ?? 0); ?>" data-price="<?php echo htmlspecialchars((string) $precioBase, ENT_QUOTES, 'UTF-8'); ?>">
+                                Habitacion <?php echo (int) ($hab['num_hab'] ?? 0); ?> - <?php echo htmlspecialchars($hab['tipo_hab'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -355,12 +372,14 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             </div>
 
             <form id="formEditarReserva" action="../../controladores/editar_reserva.php" method="POST" class="p-6 space-y-4">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="cod_res" id="edit_cod_res">
 
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Asignar Habitacion</label>
-                    <input type="text" name="habitacion" id="edit_habitacion" placeholder="Ej: 5 (Codigo de BD)" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none">
+                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Habitaciones asignadas</label>
+                    <div id="edit_habitacion" class="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600">
+                        Se asignan automáticamente según el tipo y cantidad solicitados.
+                    </div>
                 </div>
 
                 <div>
@@ -548,7 +567,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
             document.getElementById('edit_cod_res').value = id;
             document.getElementById('edit_estado').value = estado;
-            document.getElementById('edit_habitacion').value = (habitacion === 'Sin asignar') ? '' : habitacion;
+            document.getElementById('edit_habitacion').textContent = (habitacion === 'Sin asignar') ? 'Sin habitaciones asignadas' : habitacion;
             document.getElementById('edit_notas').value = (notas === 'Ninguna' ? '' : notas);
             const permiteCobrar = estado === 'Pendiente';
             document.getElementById('editPagoControles').classList.toggle('hidden', !permiteCobrar);

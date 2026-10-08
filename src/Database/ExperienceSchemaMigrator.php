@@ -18,6 +18,42 @@ final class ExperienceSchemaMigrator
         $this->migrateActivityAgenda();
     }
 
+    /**
+     * Indica si faltan columnas que el panel de experiencias necesita (por ejemplo, en una base
+     * exportada antes de que existieran los precios, horarios y cobros de experiencias).
+     */
+    public function requiereMigracion(): bool
+    {
+        $esperadas = [
+            'experiencias' => ['imagen', 'opcion_1', 'precio_opcion_1', 'horarios_json'],
+            'agenda_actividad' => [
+                'opcion_actividad', 'selecciones_personas_json', 'estado_pago_experiencia',
+                'cod_res_agenda', 'monto_experiencia', 'precios_personas_json',
+            ],
+        ];
+        $resultado = $this->connection->query(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('experiencias', 'agenda_actividad')"
+        );
+        if (!$resultado) {
+            throw new RuntimeException('No se pudo comprobar la estructura de experiencias.');
+        }
+        $existentes = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $existentes[$fila['TABLE_NAME']][$fila['COLUMN_NAME']] = true;
+        }
+        $resultado->free();
+
+        foreach ($esperadas as $tabla => $columnas) {
+            foreach ($columnas as $columna) {
+                if (!isset($existentes[$tabla][$columna])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private function migrateExperiences(): void
     {
         $this->connection->query(

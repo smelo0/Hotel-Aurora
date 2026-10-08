@@ -124,24 +124,41 @@ final class PortalRepository
     public function fetchRoomCatalog(mysqli $connection): array
     {
         $statement = $connection->prepare(
-            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab
+            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab
              FROM habitacion h
-             WHERE h.est_hab NOT IN ('Mantenimiento', 'Sucia')
-             ORDER BY h.num_hab ASC
-             LIMIT 20"
+             WHERE LOWER(TRIM(h.est_hab)) = 'disponible' OR h.est_hab IS NULL OR h.est_hab = ''
+             ORDER BY h.num_hab ASC"
         );
+        if (!$statement) {
+            return [];
+        }
+
         $statement->execute();
-        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description);
+        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description, $image, $amenitiesJson);
 
         $rooms = [];
         while ($statement->fetch()) {
+            $amenities = json_decode((string) $amenitiesJson, true);
+            $amenities = is_array($amenities)
+                ? array_values(array_filter(array_map(static fn($item): string => trim((string) $item), $amenities), static fn(string $item): bool => $item !== ''))
+                : [];
+
+            $finalPrice = (float) ($primaryPrice ?: $secondaryPrice ?: 0);
+
             $rooms[] = [
+                'img_hab' => $image !== null && trim((string) $image) !== '' ? (string) $image : null,
+                'car_hab' => $amenities,
                 'cod_hab' => (int) $roomId,
+                'id'      => (int) $roomId,
                 'num_hab' => (int) $roomNumber,
+                'numero'  => (int) $roomNumber,
                 'tipo_hab' => (string) $roomType,
-                'pre_hab' => (float) ($primaryPrice ?: $secondaryPrice ?: 0),
-                'est_hab' => (string) $status,
-                'obs_hab' => $description !== null && trim((string) $description) !== ''
+                'tipo'     => (string) $roomType,
+                'pre_hab'  => $finalPrice,
+                'precio_hab' => $finalPrice,
+                'precio'   => $finalPrice,
+                'est_hab'  => (string) ($status ?: 'Disponible'),
+                'obs_hab'  => $description !== null && trim((string) $description) !== ''
                     ? (string) $description
                     : 'Habitación premium preparada para una estadía cómoda, luminosa y serena.',
             ];
@@ -156,19 +173,22 @@ final class PortalRepository
         $statement = $connection->prepare(
             "SELECT h.cod_hab
              FROM habitacion h
-             WHERE h.est_hab NOT IN ('Mantenimiento', 'Sucia')
+             WHERE LOWER(TRIM(h.est_hab)) NOT IN ('mantenimiento', 'sucia')
                AND NOT EXISTS (
                    SELECT 1
                    FROM detalle d
                    INNER JOIN reservas r ON r.cod_res = d.cod_res_det
                    WHERE d.cod_hab_det = h.cod_hab
-                     AND r.est_res NOT IN ('Cancelada', 'Cancelado', 'Finalizada')
+                     AND LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado', 'finalizada')
                      AND ? < r.fec_sal_res
                      AND ? > r.fec_ent_res
                )
-             ORDER BY h.num_hab ASC
-             LIMIT 20"
+             ORDER BY h.num_hab ASC"
         );
+        if (!$statement) {
+            return [];
+        }
+
         $statement->bind_param('ss', $checkin, $checkout);
         $statement->execute();
         $statement->bind_result($roomId);
@@ -182,26 +202,95 @@ final class PortalRepository
         return $availableIds;
     }
 
+    public function fetchNextAvailability(mysqli $connection, string $checkinDate, int $nights): array
+    {
+        $nights = max(1, $nights);
+        $start = \DateTimeImmutable::createFromFormat('!Y-m-d', $checkinDate);
+        if ($start === false) {
+            return [];
+        }
+
+        $reservationsByRoom = [];
+        $statement = $connection->prepare(
+            "SELECT d.cod_hab_det, DATE(r.fec_ent_res), DATE(r.fec_sal_res)
+             FROM detalle d
+             INNER JOIN reservas r ON r.cod_res = d.cod_res_det
+             WHERE LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado', 'finalizada')
+               AND DATE(r.fec_sal_res) > ?
+             ORDER BY d.cod_hab_det ASC, r.fec_ent_res ASC"
+        );
+        if ($statement) {
+            $statement->bind_param('s', $checkinDate);
+            $statement->execute();
+            $statement->bind_result($roomId, $entry, $exit);
+            while ($statement->fetch()) {
+                $reservationsByRoom[(int) $roomId][] = [(string) $entry, (string) $exit];
+            }
+            $statement->close();
+        }
+
+        $result = [];
+        $rooms = $connection->query('SELECT cod_hab, est_hab FROM habitacion ORDER BY num_hab ASC');
+        if ($rooms) {
+            while ($room = $rooms->fetch_assoc()) {
+                $id = (int) $room['cod_hab'];
+                $estado = strtolower(trim((string) $room['est_hab']));
+                if ($estado === 'mantenimiento') {
+                    $result[$id] = ['fecha' => null, 'motivo' => 'mantenimiento'];
+                    continue;
+                }
+                if ($estado === 'sucia') {
+                    $result[$id] = ['fecha' => null, 'motivo' => 'limpieza'];
+                    continue;
+                }
+
+                $candidate = $start;
+                $changed = true;
+                while ($changed) {
+                    $changed = false;
+                    $candidateEnd = $candidate->modify('+' . $nights . ' days')->format('Y-m-d');
+                    foreach ($reservationsByRoom[$id] ?? [] as [$entry, $exit]) {
+                        if ($entry < $candidateEnd && $exit > $candidate->format('Y-m-d')) {
+                            $candidate = \DateTimeImmutable::createFromFormat('!Y-m-d', $exit);
+                            $changed = true;
+                            break;
+                        }
+                    }
+                }
+                $result[$id] = ['fecha' => $candidate->format('Y-m-d'), 'motivo' => 'ocupada'];
+            }
+            $rooms->free();
+        }
+
+        return $result;
+    }
+
     public function fetchReservationStays(mysqli $connection, int $userId): array
     {
         $statement = $connection->prepare(
             "SELECT DATE(fec_ent_res) AS fecha_inicio, DATE(fec_sal_res) AS fecha_fin
              FROM reservas
              WHERE id_usu_res = ?
-               AND est_res NOT IN ('Cancelada', 'Cancelado')
+               AND LOWER(TRIM(est_res)) NOT IN ('cancelada', 'cancelado')
                AND DATE(fec_sal_res) > CURDATE()
              ORDER BY fec_ent_res ASC"
         );
+        if (!$statement) {
+            return [];
+        }
+
         $statement->bind_param('i', $userId);
         $statement->execute();
         $result = $statement->get_result();
 
         $stays = [];
-        while ($row = $result->fetch_assoc()) {
-            $stays[] = [
-                'inicio' => (string) $row['fecha_inicio'],
-                'fin' => (string) $row['fecha_fin'],
-            ];
+        if ($result instanceof \mysqli_result) {
+            while ($row = $result->fetch_assoc()) {
+                $stays[] = [
+                    'inicio' => (string) $row['fecha_inicio'],
+                    'fin' => (string) $row['fecha_fin'],
+                ];
+            }
         }
 
         $statement->close();
@@ -212,19 +301,27 @@ final class PortalRepository
     {
         $statement = $connection->prepare(
             "SELECT r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
-                    h.num_hab, h.tipo_hab
+                    GROUP_CONCAT(DISTINCT h.num_hab ORDER BY h.num_hab ASC SEPARATOR ', ') AS num_hab,
+                    GROUP_CONCAT(DISTINCT h.tipo_hab ORDER BY h.tipo_hab ASC SEPARATOR ', ') AS tipo_hab
              FROM reservas r
              LEFT JOIN detalle d ON d.cod_res_det = r.cod_res
              LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
              WHERE r.id_usu_res = ?
+             GROUP BY r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res
              ORDER BY r.fec_ent_res DESC"
         );
+        if (!$statement) {
+            return [];
+        }
+
         $statement->bind_param('i', $userId);
         $statement->execute();
         $result = $statement->get_result();
         $reservations = [];
-        while ($row = $result->fetch_assoc()) {
-            $reservations[] = $row;
+        if ($result instanceof \mysqli_result) {
+            while ($row = $result->fetch_assoc()) {
+                $reservations[] = $row;
+            }
         }
 
         $statement->close();

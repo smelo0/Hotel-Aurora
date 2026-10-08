@@ -29,6 +29,10 @@
         <button data-permiso="experiencias.ver" onclick="navegar('experiencias', this)" aria-label="Experiencias" title="Experiencias" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">celebration</span><span class="text-sm font-bold">Experiencias</span>
         </button>
+        <!-- Nueva Sección: gestión de habitaciones (añadir, editar, eliminar y describir) -->
+        <button data-permiso="habitaciones.ver" onclick="navegar('habitaciones', this)" aria-label="Habitaciones" title="Habitaciones" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">meeting_room</span><span class="text-sm font-bold">Habitaciones</span>
+        </button>
         <!-- Nueva Sección: ítem de navegación para Gestión de Roles y Permisos -->
         <button data-permiso="roles.ver" onclick="navegar('roles', this)" aria-label="Roles y Permisos" title="Roles y Permisos" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">admin_panel_settings</span><span class="text-sm font-bold">Roles y Permisos</span>

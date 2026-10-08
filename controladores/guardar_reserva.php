@@ -84,6 +84,20 @@ $notasReserva = trim((string) ($_POST['notas_reserva'] ?? ''));
 $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
 $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
+$tipoHabitacion = trim((string) ($_POST['tipo_habitacion'] ?? ''));
+$cantidadHabitaciones = max(1, (int) ($_POST['cantidad_habitaciones'] ?? 1));
+
+// ⬅️ NUEVO: leer el array de IDs seleccionados por el huésped
+$habitacionesIdsPost = $_POST['habitaciones_ids'] ?? [];
+if (!is_array($habitacionesIdsPost)) {
+    $habitacionesIdsPost = [$habitacionesIdsPost];
+}
+$habitacionesIdsPost = array_values(array_unique(array_filter(
+    array_map('intval', $habitacionesIdsPost),
+    static fn(int $id): bool => $id > 0
+)));
+// ⬆️ FIN NUEVO
+
 $esPersonal = isset($_SESSION['emp_auth']['id_usuario']);
 $accion = trim((string) ($_POST['accion'] ?? ''));
 
@@ -132,7 +146,7 @@ if (!$esPersonal && $secretkey !== '' && $sitekey === '') {
 if (!$esPersonal && $recapchatoken === '' && $secretkey !== '') {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Por favor, completa el reCAPTCHA para continuar.']);
 }
- 
+
 if (!$esPersonal && $secretkey !== '' && $recapchatoken !== '') {
     $curl = curl_init('https://www.google.com/recaptcha/api/siteverify');
     curl_setopt_array($curl, [
@@ -164,8 +178,12 @@ if (!$esPersonal && $secretkey !== '' && $recapchatoken !== '') {
 $checkinDate = parseDateOnly($fechaIn);
 $checkoutDate = parseDateOnly($fechaOut);
 
-if ($idHabitacion <= 0 || !$checkinDate || !$checkoutDate) {
-    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Los datos de la reserva no son válidos.']);
+// ⬅️ ACTUALIZADO: también aceptamos habitacionesIdsPost
+if ((!$idHabitacion && $tipoHabitacion === '' && $habitacionesIdsPost === []) || !$checkinDate || !$checkoutDate) {
+    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona el tipo de habitación y la cantidad que necesitas.']);
+}
+if ($cantidadHabitaciones < 1 || $cantidadHabitaciones > 20) {
+    jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de habitaciones no es válida.']);
 }
 
 if ($checkoutDate <= $checkinDate) {
@@ -174,9 +192,17 @@ if ($checkoutDate <= $checkinDate) {
 
 $checkinAt = $checkinDate->setTime(15, 0, 0);
 $checkoutAt = $checkoutDate->setTime(12, 0, 0);
+$checkinSql  = $checkinAt->format('Y-m-d H:i:s');   // ⬅️ NUEVO (faltaba en tu archivo)
+$checkoutSql = $checkoutAt->format('Y-m-d H:i:s');  // ⬅️ NUEVO (faltaba en tu archivo)
 $noches = (int) $checkinDate->diff($checkoutDate)->days;
+
+$resumenHabitaciones = $tipoHabitacion !== ''
+    ? "Tipo de habitación: {$tipoHabitacion} | Cantidad de habitaciones: {$cantidadHabitaciones}"
+    : ($habitacionesIdsPost !== []
+        ? 'Habitaciones seleccionadas: ' . count($habitacionesIdsPost)
+        : "Habitación seleccionada: {$idHabitacion}");
 $notasCompletas = trim(
-    "Adultos: {$cantidadAdultos} | Niños: {$cantidadNinos} | Pago: {$metodoPago}" .
+    "Adultos: {$cantidadAdultos} | Niños: {$cantidadNinos} | Pago: {$metodoPago} | {$resumenHabitaciones}" .
     ($notasReserva !== '' ? "\n{$notasReserva}" : '')
 );
 
@@ -289,24 +315,150 @@ try {
     }
     $stmtDatosHuesped->close();
 
-    $sqlRoom = 'SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab, est_hab FROM habitacion WHERE cod_hab = ? LIMIT 1 FOR UPDATE';
-    $stmtRoom = $conexion->prepare($sqlRoom);
-    $stmtRoom->bind_param('i', $idHabitacion);
-    $stmtRoom->execute();
-    $stmtRoom->store_result();
+    $habitacionesSeleccionadas = [];
 
-    if ($stmtRoom->num_rows !== 1) {
-        $stmtRoom->close();
-        throw new RuntimeException('habitacion_no_existe');
+    // ═══════════════════════════════════════════════════════════════
+    // RAMA 1 (NUEVA): el huésped eligió varias habitaciones específicas
+    // ═══════════════════════════════════════════════════════════════
+    if ($habitacionesIdsPost !== []) {
+        $placeholders = implode(',', array_fill(0, count($habitacionesIdsPost), '?'));
+        $sqlRooms = "SELECT cod_hab, num_hab, tipo_hab,
+                            COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                            est_hab
+                     FROM habitacion
+                     WHERE cod_hab IN ($placeholders)
+                       AND est_hab NOT IN ('Mantenimiento', 'Sucia')
+                     FOR UPDATE";
+        $stmtRooms = $conexion->prepare($sqlRooms);
+        $types = str_repeat('i', count($habitacionesIdsPost));
+        $stmtRooms->bind_param($types, ...$habitacionesIdsPost);
+        $stmtRooms->execute();
+        $roomsResult = $stmtRooms->get_result();
+
+        while ($room = $roomsResult->fetch_assoc()) {
+            \App\Reserva\RoomAvailabilityService::validar(
+                $conexion,
+                (int) $room['cod_hab'],
+                $checkinAt,
+                $checkoutAt
+            );
+            $habitacionesSeleccionadas[] = [
+                'cod_hab'  => (int) $room['cod_hab'],
+                'num_hab'  => (int) $room['num_hab'],
+                'tipo_hab' => (string) $room['tipo_hab'],
+                'precio'   => (float) $room['precio_habitacion'],
+                'est_hab'  => (string) $room['est_hab'],
+            ];
+        }
+        $stmtRooms->close();
+
+        if (count($habitacionesSeleccionadas) !== count($habitacionesIdsPost)) {
+            throw new RuntimeException('habitaciones_insuficientes');
+        }
+
+        $tipoHabitacion = count($habitacionesSeleccionadas) > 1
+            ? 'Múltiples'
+            : (string) ($habitacionesSeleccionadas[0]['tipo_hab'] ?? '');
+        $cantidadHabitaciones = count($habitacionesSeleccionadas);
     }
 
-    $stmtRoom->bind_result($roomIdDb, $roomNumber, $roomType, $roomPricePrimary, $roomPriceSecondary, $roomStatus);
-    $stmtRoom->fetch();
-    $stmtRoom->close();
+    // ═══════════════════════════════════════════════════════════════
+    // RAMA 2: tipo de habitación + cantidad (flujo viejo, intacto)
+    // ═══════════════════════════════════════════════════════════════
+    elseif ($tipoHabitacion !== '') {
+        $sqlRooms = "SELECT cod_hab, num_hab, tipo_hab,
+                            COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                            est_hab
+                     FROM habitacion
+                     WHERE tipo_hab = ?
+                       AND est_hab NOT IN ('Mantenimiento', 'Sucia')
+                     ORDER BY num_hab ASC
+                     FOR UPDATE";
+        $stmtRooms = $conexion->prepare($sqlRooms);
+        $stmtRooms->bind_param('s', $tipoHabitacion);
+        $stmtRooms->execute();
+        $roomsResult = $stmtRooms->get_result();
 
-    $checkinSql = $checkinAt->format('Y-m-d H:i:s');
-    $checkoutSql = $checkoutAt->format('Y-m-d H:i:s');
-    \App\Reserva\RoomAvailabilityService::validar($conexion, $idHabitacion, $checkinAt, $checkoutAt);
+        while ($room = $roomsResult->fetch_assoc()) {
+            if (count($habitacionesSeleccionadas) >= $cantidadHabitaciones) {
+                break;
+            }
+
+            $roomId = (int) $room['cod_hab'];
+
+            try {
+                \App\Reserva\RoomAvailabilityService::validar(
+                    $conexion,
+                    $roomId,
+                    $checkinAt,
+                    $checkoutAt
+                );
+                $habitacionesSeleccionadas[] = [
+                    'cod_hab'  => $roomId,
+                    'num_hab'  => (int) $room['num_hab'],
+                    'tipo_hab' => (string) $room['tipo_hab'],
+                    'precio'   => (float) $room['precio_habitacion'],
+                    'est_hab'  => (string) $room['est_hab'],
+                ];
+            } catch (Throwable $roomError) {
+                if (!in_array($roomError->getMessage(), ['habitacion_reservada', 'habitacion_no_disponible'], true)) {
+                    $stmtRooms->close();
+                    throw $roomError;
+                }
+            }
+        }
+        $stmtRooms->close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RAMA 3: id de habitación específica (compatibilidad)
+    // ═══════════════════════════════════════════════════════════════
+    elseif ($idHabitacion > 0) {
+        $sqlRoom = 'SELECT cod_hab, num_hab, tipo_hab,
+                           COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                           est_hab
+                    FROM habitacion WHERE cod_hab = ? LIMIT 1 FOR UPDATE';
+        $stmtRoom = $conexion->prepare($sqlRoom);
+        $stmtRoom->bind_param('i', $idHabitacion);
+        $stmtRoom->execute();
+        $room = $stmtRoom->get_result()->fetch_assoc();
+        $stmtRoom->close();
+
+        if (!$room) {
+            throw new RuntimeException('habitacion_no_existe');
+        }
+
+        \App\Reserva\RoomAvailabilityService::validar(
+            $conexion,
+            $idHabitacion,
+            $checkinAt,
+            $checkoutAt
+        );
+
+        $habitacionesSeleccionadas[] = [
+            'cod_hab'  => (int) $room['cod_hab'],
+            'num_hab'  => (int) $room['num_hab'],
+            'tipo_hab' => (string) $room['tipo_hab'],
+            'precio'   => (float) $room['precio_habitacion'],
+            'est_hab'  => (string) $room['est_hab'],
+        ];
+        $tipoHabitacion = (string) $room['tipo_hab'];
+        $cantidadHabitaciones = 1;
+    }
+
+    if (count($habitacionesSeleccionadas) < $cantidadHabitaciones) {
+        throw new RuntimeException('habitaciones_insuficientes');
+    }
+
+    $precioNocheTotal = array_sum(array_map(
+        static fn(array $room): float => (float) $room['precio'],
+        $habitacionesSeleccionadas
+    ));
+    $numerosHabitaciones = array_map(
+        static fn(array $room): string => (string) $room['num_hab'],
+        $habitacionesSeleccionadas
+    );
+    $habitacionesTexto = implode(', ', $numerosHabitaciones);
 
     // 1. Insertar la Reserva
     $sqlReserva = 'INSERT INTO reservas (fec_ent_res, fec_sal_res, est_res, not_res, id_usu_res) VALUES (?, ?, ?, ?, ?)';
@@ -316,15 +468,18 @@ try {
     $idReservaNueva = (int) $conexion->insert_id;
     $stmtReserva->close();
 
-    // 2. Insertar el Detalle de la Reserva
+    // 2. Insertar un detalle por cada habitación.
     $sqlDetalle = 'INSERT INTO detalle (can_noc_det, cod_res_det, cod_hab_det) VALUES (?, ?, ?)';
     $stmtDetalle = $conexion->prepare($sqlDetalle);
-    $stmtDetalle->bind_param('iii', $noches, $idReservaNueva, $idHabitacion);
-    $stmtDetalle->execute();
+    foreach ($habitacionesSeleccionadas as $room) {
+        $roomIdDetalle = (int) $room['cod_hab'];
+        $stmtDetalle->bind_param('iii', $noches, $idReservaNueva, $roomIdDetalle);
+        $stmtDetalle->execute();
+    }
     $stmtDetalle->close();
 
-    // 3. Registrar el Pago en la Base de Datos
-    $precioHabitacion = (float) ($roomPricePrimary ?: $roomPriceSecondary ?: 0);
+    // 3. Registrar el Pago
+    $precioHabitacion = (float) $precioNocheTotal;
     $montoCalculado = round($precioHabitacion * $noches * 1.19 * ($porcentajePago / 100), 2);
     $montoFinal = $montoCalculado;
     $refFinal = '';
@@ -362,17 +517,21 @@ try {
     $idPagoNuevo = (int) $conexion->insert_id;
     $stmtPago->close();
 
-    // 4. Actualizar Estado de la Habitación si corresponde
+    // 4. Actualizar estado de cada habitación si la estancia ya está en curso.
     $today = new DateTimeImmutable('today');
-    if ($checkinDate <= $today && $checkoutDate > $today && (string) $roomStatus === 'Disponible') {
+    if ($checkinDate <= $today && $checkoutDate > $today) {
         $newStatus = 'Ocupada';
         $stmtEstado = $conexion->prepare('UPDATE habitacion SET est_hab = ? WHERE cod_hab = ?');
-        $stmtEstado->bind_param('si', $newStatus, $idHabitacion);
-        $stmtEstado->execute();
+        foreach ($habitacionesSeleccionadas as $room) {
+            if ((string) $room['est_hab'] === 'Disponible') {
+                $roomIdEstado = (int) $room['cod_hab'];
+                $stmtEstado->bind_param('si', $newStatus, $roomIdEstado);
+                $stmtEstado->execute();
+            }
+        }
         $stmtEstado->close();
     }
 
-    // Si todo salió bien, guardamos permanentemente
     $conexion->commit();
 
     jsonResponse(200, [
@@ -385,11 +544,22 @@ try {
             'fec_sal_res' => $checkoutSql,
             'est_res' => $estadoInicial,
             'not_res' => $notasCompletas,
-            'cod_hab_det' => $idHabitacion,
+            'cod_hab_det' => (int) ($habitacionesSeleccionadas[0]['cod_hab'] ?? 0),
+            'cantidad_habitaciones' => count($habitacionesSeleccionadas),
+            'tipo_habitacion' => $tipoHabitacion,
+            'habitaciones' => array_map(
+                static fn(array $room): array => [
+                    'cod_hab' => (int) $room['cod_hab'],
+                    'num_hab' => (int) $room['num_hab'],
+                    'tipo_hab' => (string) $room['tipo_hab'],
+                    'precio' => (float) $room['precio'],
+                ],
+                $habitacionesSeleccionadas
+            ),
             'habitacion' => [
-                'cod_hab' => (int) $roomIdDb,
-                'num_hab' => (int) $roomNumber,
-                'tipo_hab' => (string) $roomType,
+                'cod_hab' => (int) ($habitacionesSeleccionadas[0]['cod_hab'] ?? 0),
+                'num_hab' => (int) ($habitacionesSeleccionadas[0]['num_hab'] ?? 0),
+                'tipo_hab' => $tipoHabitacion,
                 'precio' => $precioHabitacion,
             ],
             'pago' => [
@@ -404,8 +574,8 @@ try {
                 'fecha' => date('Y-m-d H:i:s'),
                 'huesped' => (string) $nombreHuespedFactura,
                 'correo' => (string) $correoHuespedFactura,
-                'habitacion' => (string) $roomNumber,
-                'tipo_habitacion' => (string) $roomType,
+                'habitacion' => $habitacionesTexto,
+                'tipo_habitacion' => $tipoHabitacion . ' · ' . count($habitacionesSeleccionadas) . ' habitación(es)',
                 'fecha_entrada' => $checkinSql,
                 'fecha_salida' => $checkoutSql,
                 'noches' => $noches,
@@ -434,7 +604,10 @@ try {
         $message = 'La habitación no está disponible para reservas en este momento.';
         $statusCode = 409;
     } elseif ($reason === 'habitacion_reservada') {
-        $message = 'La habitación ya está reservada para esas fechas.';
+        $message = 'Una de las habitaciones seleccionadas ya está reservada para esas fechas.';
+        $statusCode = 409;
+    } elseif ($reason === 'habitaciones_insuficientes') {
+        $message = 'No hay suficientes habitaciones de ese tipo disponibles para las fechas seleccionadas.';
         $statusCode = 409;
     } elseif (str_starts_with($reason, 'wompi_')) {
         $message = match ($reason) {
@@ -445,6 +618,8 @@ try {
         };
         $statusCode = 422;
     }
+
+    error_log('GUARDAR_RESERVA_ERROR: ' . $reason . ' | ' . $error->getFile() . ':' . $error->getLine()); // ⬅️ NUEVO (útil para depurar)
 
     jsonResponse($statusCode, [
         'status' => 'error',

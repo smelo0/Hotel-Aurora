@@ -249,7 +249,18 @@ function crearBloqueReservaHabitacion(habitacion) {
     const salida = formatearFechaHotel(habitacion.fec_sal_res);
     const fechas = entrada && salida ? `${entrada} - ${salida}` : '';
     const estado = habitacion.est_res || habitacion.estado || 'Ocupada';
-    return `<div class="space-y-2 mb-5"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary">person</span><span class="text-[14px] font-black text-heading leading-tight">${escaparHTML(habitacion.huesped_nombre)}</span></div>${fechas ? `<div class="flex items-center gap-2 text-[#64748b]"><span class="material-symbols-outlined text-[15px]">calendar_month</span><span class="text-[11px] font-bold">${escaparHTML(fechas)}</span></div>` : ''}<span class="inline-flex w-fit px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estado)}">${escaparHTML(estado)}</span></div>`;
+    return `<div class="space-y-2 mb-5">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-primary">person</span>
+            <span class="text-[14px] font-black text-heading leading-tight">${escaparHTML(habitacion.huesped_nombre)}</span>
+        </div>
+        ${habitacion.cod_res ? `<div class="flex items-center gap-2 text-[#64748b]"><span class="material-symbols-outlined text-[15px]">confirmation_number</span><span class="text-[11px] font-bold">Reserva #${escaparHTML(habitacion.cod_res)}</span></div>` : ''}
+        ${fechas ? `<div class="flex items-center gap-2 text-[#64748b]"><span class="material-symbols-outlined text-[15px]">calendar_month</span><span class="text-[11px] font-bold">${escaparHTML(fechas)}</span></div>` : ''}
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex w-fit px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${obtenerBadgeReservaEmpleado(estado)}">${escaparHTML(estado)}</span>
+            <span class="inline-flex w-fit px-2.5 py-1 rounded-full bg-primary/5 text-primary border border-primary/10 text-[8px] font-black uppercase tracking-widest">Preparar habitación</span>
+        </div>
+    </div>`;
 }
 
 function crearDetalleHuespedEmpleado(habitacion) {

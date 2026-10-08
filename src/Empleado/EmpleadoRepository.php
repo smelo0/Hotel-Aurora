@@ -43,6 +43,7 @@ final class EmpleadoRepository
                 'fec_ent_res' => $fila['fec_ent_res'] ?? null,
                 'fec_sal_res' => $fila['fec_sal_res'] ?? null,
                 'est_res' => $fila['est_res'] ?? null,
+                'cod_res' => $fila['cod_res'] ?? null,
             ];
             $vistos[$id] = true;
         }

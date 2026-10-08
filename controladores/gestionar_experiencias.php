@@ -213,6 +213,17 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) {
     responder_experiencias(403, 'No tienes permiso para consultar las experiencias');
 }
 
+// Si la base de datos viene de una exportación antigua le faltan columnas de experiencias: sin ellas el historial
+// salía vacío sin avisar. Se corrige una sola vez con el mismo migrador de database/migrate-experiences.php.
+try {
+    $migradorExperiencias = new \App\Database\ExperienceSchemaMigrator($conexion);
+    if ($migradorExperiencias->requiereMigracion()) {
+        $migradorExperiencias->migrate();
+    }
+} catch (Throwable $error) {
+    error_log('No se pudo actualizar la estructura de experiencias: ' . $error->getMessage());
+}
+
 if ($metodo === 'GET' && $accion === 'listar') {
     $puedeGestionar = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
     $experienceRepository = new \App\Experiencia\ExperienceRepository();

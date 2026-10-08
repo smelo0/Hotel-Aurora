@@ -22,7 +22,7 @@ final class AdminReservationRepository
             . $searchSql
         );
         if (!$countStatement) {
-            throw new \RuntimeException('No se pudo contar las reservas del administrador.');
+            return $this->obtenerEstructuraVacia($requestedPage, $search);
         }
         if ($search !== '') {
             $searchPattern = '%' . $search . '%';
@@ -30,7 +30,7 @@ final class AdminReservationRepository
         }
         if (!$countStatement->execute()) {
             $countStatement->close();
-            throw new \RuntimeException('No se pudo contar las reservas del administrador.');
+            return $this->obtenerEstructuraVacia($requestedPage, $search);
         }
         $total = (int) ($countStatement->get_result()->fetch_assoc()['total'] ?? 0);
         $countStatement->close();
@@ -40,11 +40,20 @@ final class AdminReservationRepository
         $searchPattern = '%' . $search . '%';
 
         $reservas = $this->obtenerFilas(
-            "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res, d.cod_hab_det,
+            "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
+                    GROUP_CONCAT(
+                        DISTINCT CONCAT(h.num_hab, ' · ', h.tipo_hab)
+                        ORDER BY h.num_hab ASC SEPARATOR ', '
+                    ) AS habitaciones,
                     COALESCE(
                         (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
                         GREATEST(
-                            COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
+                            COALESCE((
+                                SELECT SUM(COALESCE(NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))
+                                FROM detalle d2
+                                INNER JOIN habitacion h2 ON h2.cod_hab = d2.cod_hab_det
+                                WHERE d2.cod_res_det = r.cod_res
+                            ), 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
                             - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
                             0
                         )
@@ -54,13 +63,15 @@ final class AdminReservationRepository
              LEFT JOIN detalle d ON r.cod_res = d.cod_res_det
              LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
              " . ($search !== '' ? 'WHERE u.nom_usu LIKE ?' : '') . "
+             GROUP BY r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res
              ORDER BY r.cod_res DESC LIMIT ? OFFSET ?",
             $search !== '' ? 'sii' : 'ii',
             $search !== '' ? [$searchPattern, self::PAGE_SIZE, $offset] : [self::PAGE_SIZE, $offset]
         );
 
         $experienciasPorReserva = [];
-        $codigosReservas = array_map(static fn(array $reserva): int => (int) $reserva['cod_res'], $reservas);
+        $codigosReservas = array_filter(array_map(static fn($reserva): int => is_array($reserva) ? (int) ($reserva['cod_res'] ?? 0) : 0, $reservas));
+        
         $experiencias = $codigosReservas === [] ? [] : $this->obtenerFilas(
             "SELECT id_agenda, cod_res_agenda, actividad, fecha_agenda, hora_agenda,
                     estado_agenda, estado_pago_experiencia, monto_experiencia
@@ -68,10 +79,12 @@ final class AdminReservationRepository
              WHERE cod_res_agenda IN (" . implode(',', array_fill(0, count($codigosReservas), '?')) . ")
              ORDER BY fecha_agenda, hora_agenda, id_agenda",
             str_repeat('i', count($codigosReservas)),
-            $codigosReservas
+            array_values($codigosReservas)
         );
         foreach ($experiencias as $experiencia) {
-            $experienciasPorReserva[(int) $experiencia['cod_res_agenda']][] = $experiencia;
+            if (is_array($experiencia) && isset($experiencia['cod_res_agenda'])) {
+                $experienciasPorReserva[(int) $experiencia['cod_res_agenda']][] = $experiencia;
+            }
         }
 
         $huespedes = $this->obtenerFilas(
@@ -83,6 +96,7 @@ final class AdminReservationRepository
             "SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab
              FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC"
         );
+
         return [
             'reservas' => $reservas,
             'experiencias_por_reserva' => $experienciasPorReserva,
@@ -102,35 +116,59 @@ final class AdminReservationRepository
 
     private function obtenerFilas(string $sql, string $types = '', array $params = []): array
     {
-        if ($types === '') {
-            $resultado = $this->connection->query($sql);
-        } else {
-            $statement = $this->connection->prepare($sql);
-            if (!$statement) {
-                throw new \RuntimeException('No se pudieron cargar los datos de reservas del administrador.');
+        try {
+            if ($types === '') {
+                $resultado = $this->connection->query($sql);
+            } else {
+                $statement = $this->connection->prepare($sql);
+                if (!$statement) {
+                    return [];
+                }
+                $references = [];
+                foreach ($params as $index => &$value) {
+                    $references[$index] = &$value;
+                }
+                unset($value);
+                if (!call_user_func_array([$statement, 'bind_param'], array_merge([$types], $references)) || !$statement->execute()) {
+                    $statement->close();
+                    return [];
+                }
+                $resultado = $statement->get_result();
             }
-            $references = [];
-            foreach ($params as $index => &$value) {
-                $references[$index] = &$value;
-            }
-            unset($value);
-            if (!call_user_func_array([$statement, 'bind_param'], array_merge([$types], $references)) || !$statement->execute()) {
-                $statement->close();
-                throw new \RuntimeException('No se pudieron cargar los datos de reservas del administrador.');
-            }
-            $resultado = $statement->get_result();
-        }
-        if (!$resultado instanceof \mysqli_result) {
-            throw new \RuntimeException('No se pudieron cargar los datos de reservas del administrador.');
-        }
 
-        $filas = [];
-        while ($fila = $resultado->fetch_assoc()) {
-            $filas[] = $fila;
+            if (!$resultado instanceof \mysqli_result) {
+                return [];
+            }
+
+            $filas = [];
+            while ($fila = $resultado->fetch_assoc()) {
+                $filas[] = $fila;
+            }
+            if (isset($statement) && $statement) {
+                $statement->close();
+            }
+            return $filas;
+        } catch (\Throwable $e) {
+            return [];
         }
-        if (isset($statement)) {
-            $statement->close();
-        }
-        return $filas;
+    }
+
+    private function obtenerEstructuraVacia(int $page, string $search): array
+    {
+        return [
+            'reservas' => [],
+            'experiencias_por_reserva' => [],
+            'huespedes' => [],
+            'habitaciones_disponibles' => [],
+            'paginacion' => [
+                'pagina' => $page,
+                'paginas' => 1,
+                'por_pagina' => self::PAGE_SIZE,
+                'total' => 0,
+                'desde' => 0,
+                'hasta' => 0,
+                'busqueda' => $search,
+            ],
+        ];
     }
 }

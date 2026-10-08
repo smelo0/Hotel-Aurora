@@ -65,21 +65,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('reserva_no_pendiente');
         }
 
-        $hab_final = $habitacion === '' ? null : filter_var($habitacion, FILTER_VALIDATE_INT);
-        if ($habitacion !== '' && (!$hab_final || $hab_final < 1)) {
-            throw new RuntimeException('habitacion_invalida');
-        }
-
-        if ($hab_final !== null) {
-            \App\Reserva\RoomAvailabilityService::validar(
-                $conexion,
-                (int) $hab_final,
-                new DateTimeImmutable((string) $reservaActual['fec_ent_res']),
-                new DateTimeImmutable((string) $reservaActual['fec_sal_res']),
-                (int) $cod_res,
-                (int) $hab_final === (int) ($reservaActual['cod_hab_det'] ?? 0)
-            );
-        }
+        // Las habitaciones de las nuevas reservas se asignan automáticamente por tipo/cantidad.
+        // No se permite que la edición convierta una reserva múltiple en una sola habitación.
+        $hab_final = null;
 
         $estadoFinal = $accion === 'cobrar' ? 'Confirmada' : $estadoSolicitado;
         if (
@@ -129,7 +117,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $entrada = new DateTimeImmutable((string) $reservaActual['fec_ent_res']);
                 $salida = new DateTimeImmutable((string) $reservaActual['fec_sal_res']);
                 $noches = (int) $entrada->diff($salida)->days;
-                $totalReserva = round((float) $reservaActual['precio_habitacion'] * $noches * 1.19, 2);
+                $stmtTotalHabitaciones = $conexion->prepare(
+                    'SELECT COALESCE(SUM(COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0)), 0)
+                     FROM detalle d INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
+                     WHERE d.cod_res_det = ?'
+                );
+                $stmtTotalHabitaciones->bind_param('i', $cod_res);
+                $stmtTotalHabitaciones->execute();
+                $stmtTotalHabitaciones->bind_result($precioNocheTotal);
+                $stmtTotalHabitaciones->fetch();
+                $stmtTotalHabitaciones->close();
+                $totalReserva = round((float) $precioNocheTotal * $noches * 1.19, 2);
                 $montoCobrado = round(max(0, $totalReserva - (float) $montoYaPagado), 2);
             }
 
@@ -164,11 +162,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $stmtActualizarReserva->bind_param('ssi', $estadoFinal, $notas, $cod_res);
         $stmtActualizarReserva->execute();
         $stmtActualizarReserva->close();
-
-        $stmtActualizarDetalle = $conexion->prepare('UPDATE detalle SET cod_hab_det = ? WHERE cod_res_det = ?');
-        $stmtActualizarDetalle->bind_param('si', $hab_final, $cod_res);
-        $stmtActualizarDetalle->execute();
-        $stmtActualizarDetalle->close();
 
         $sqlActualizada = "SELECT r.cod_res, u.nom_usu, u.corr_usu, r.fec_ent_res, r.fec_sal_res,
                                   r.est_res, r.not_res, d.cod_hab_det, h.num_hab, h.tipo_hab
