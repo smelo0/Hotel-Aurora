@@ -43,7 +43,7 @@ final class AdminReservationRepository
             "SELECT r.cod_res, u.nom_usu, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
                     GROUP_CONCAT(
                         DISTINCT CONCAT(h.num_hab, ' · ', h.tipo_hab)
-                        ORDER BY h.num_hab ASC SEPARATOR ', '
+                        ORDER BY h.num_hab ASC SEPARATOR '||'
                     ) AS habitaciones,
                     COALESCE(
                         (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),

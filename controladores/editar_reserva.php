@@ -7,6 +7,20 @@ require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
 
+/**
+ * Noches de una estancia contando solo las fechas (ignora la hora).
+ * Las reservas se guardan con check-in 15:00 y check-out 12:00: con horas, DateTime::diff()->days
+ * devuelve 0 para una noche (solo pasan 21 h). Se comparan las fechas a medianoche.
+ */
+if (!function_exists('calcularNochesEstancia')) {
+    function calcularNochesEstancia(string $entrada, string $salida): int
+    {
+        $desde = (new DateTimeImmutable($entrada))->setTime(0, 0, 0);
+        $hasta = (new DateTimeImmutable($salida))->setTime(0, 0, 0);
+        return max(1, (int) $desde->diff($hasta)->days);
+    }
+}
+
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 exigir_permiso($conexion, 'reservas.editar');
@@ -114,9 +128,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $stmtPagosAprobados->fetch();
                 $stmtPagosAprobados->close();
 
-                $entrada = new DateTimeImmutable((string) $reservaActual['fec_ent_res']);
-                $salida = new DateTimeImmutable((string) $reservaActual['fec_sal_res']);
-                $noches = (int) $entrada->diff($salida)->days;
+                $noches = calcularNochesEstancia((string) $reservaActual['fec_ent_res'], (string) $reservaActual['fec_sal_res']);
                 $stmtTotalHabitaciones = $conexion->prepare(
                     'SELECT COALESCE(SUM(COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0)), 0)
                      FROM detalle d INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
@@ -182,6 +194,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('reserva_no_encontrada');
         }
 
+        $habitacionesActualizadas = [];
+        $stmtHabitaciones = $conexion->prepare(
+            'SELECT h.cod_hab, h.num_hab, h.tipo_hab
+             FROM detalle d
+             INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
+             WHERE d.cod_res_det = ?
+             ORDER BY h.num_hab ASC'
+        );
+        $stmtHabitaciones->bind_param('i', $cod_res);
+        $stmtHabitaciones->execute();
+        $resultadoHabitaciones = $stmtHabitaciones->get_result();
+        while ($filaHabitacion = $resultadoHabitaciones->fetch_assoc()) {
+            $habitacionesActualizadas[] = [
+                'cod_hab' => (int) $filaHabitacion['cod_hab'],
+                'num_hab' => (int) $filaHabitacion['num_hab'],
+                'tipo_hab' => (string) $filaHabitacion['tipo_hab'],
+            ];
+        }
+        $stmtHabitaciones->close();
+
         if ($accion === 'cobrar') {
             $factura = [
                 'folio' => 'FAC-' . $idPagoFactura,
@@ -193,8 +225,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'tipo_habitacion' => (string) ($reserva_actualizada['tipo_hab'] ?? ''),
                 'fecha_entrada' => (string) $reserva_actualizada['fec_ent_res'],
                 'fecha_salida' => (string) $reserva_actualizada['fec_sal_res'],
-                'noches' => (int) (new DateTimeImmutable((string) $reserva_actualizada['fec_ent_res']))
-                    ->diff(new DateTimeImmutable((string) $reserva_actualizada['fec_sal_res']))->days,
+                'noches' => calcularNochesEstancia((string) $reserva_actualizada['fec_ent_res'], (string) $reserva_actualizada['fec_sal_res']),
                 'metodo_pago' => $metodoPago,
                 'monto' => $montoCobrado,
             ];
@@ -222,6 +253,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'est_res' => $reserva_actualizada['est_res'],
                 'not_res' => $reserva_actualizada['not_res'] ?? '',
                 'cod_hab_det' => $reserva_actualizada['cod_hab_det'],
+                'habitaciones' => $habitacionesActualizadas,
                 'habitacion' => [
                     'num_hab' => $reserva_actualizada['num_hab'],
                     'tipo_hab' => $reserva_actualizada['tipo_hab'],

@@ -130,9 +130,34 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         if ($estado === 'En Casa') $color_clase = 'bg-blue-100 text-blue-700';
                         if ($estado === 'Cancelada') $color_clase = 'bg-red-100 text-red-700';
 
-                        // Mapeo seguro utilizando cod_hab_det recuperado en la consulta SQL
-                        $habitacionCodigo = $reserva['cod_hab_det'] ?? null;
-                        $habitacion = !empty($habitacionCodigo) ? 'Habitación ' . $habitacionCodigo : 'Sin asignar';
+                        // Habitaciones asignadas: el repositorio devuelve "num · tipo" separadas por '||'
+                        $habitacionesAsignadas = [];
+                        foreach (explode('||', (string) ($reserva['habitaciones'] ?? '')) as $habitacionItem) {
+                            $habitacionItem = trim($habitacionItem);
+                            if ($habitacionItem === '') continue;
+                            $partesHabitacion = explode(' · ', $habitacionItem, 2);
+                            $habitacionesAsignadas[] = [
+                                'numero' => trim($partesHabitacion[0]),
+                                'tipo' => trim($partesHabitacion[1] ?? ''),
+                            ];
+                        }
+                        $habitacion = $habitacionesAsignadas === []
+                            ? 'Sin asignar'
+                            : implode(', ', array_map(
+                                static fn(array $h): string => 'Habitación ' . $h['numero'] . ($h['tipo'] !== '' ? ' · ' . $h['tipo'] : ''),
+                                $habitacionesAsignadas
+                            ));
+                        $habitacionesHtml = '';
+                        foreach ($habitacionesAsignadas as $h) {
+                            $habitacionesHtml .= '<div class="leading-tight"><span class="block">Habitación '
+                                . htmlspecialchars($h['numero'], ENT_QUOTES, 'UTF-8') . '</span>'
+                                . ($h['tipo'] !== '' ? '<span class="block text-[10px] font-bold uppercase tracking-widest text-slate-400">'
+                                    . htmlspecialchars($h['tipo'], ENT_QUOTES, 'UTF-8') . '</span>' : '')
+                                . '</div>';
+                        }
+                        if ($habitacionesHtml === '') {
+                            $habitacionesHtml = '<span>Sin asignar</span>';
+                        }
 
                         $notas_db = $reserva['not_res'] ?? '';
                         $notas_separadas = separar_notas_reserva_admin($notas_db);
@@ -189,8 +214,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
                         echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . $nombreUsuario . '</td>';
                         echo '<td class="py-5 px-4 align-middle text-slate-600 font-bold">'
-                            . '<div class="flex items-center gap-2"><span class="material-symbols-outlined text-[17px] text-primary">hotel</span><span>'
-                            . htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8') . '</span></div>'
+                            . '<div class="flex items-start gap-2"><span class="material-symbols-outlined text-[17px] text-primary">hotel</span>'
+                            . '<div class="flex flex-col gap-2">' . $habitacionesHtml . '</div></div>'
                             . '</td>';
                         echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in, ENT_QUOTES, 'UTF-8') . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out, ENT_QUOTES, 'UTF-8') . '</span></div></td>';
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . '</span></td>';

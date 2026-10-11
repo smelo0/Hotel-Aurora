@@ -146,15 +146,20 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://checkout.wompi.co/widget.js"></script>
     <?php
-    $recaptchaSiteKey = trim((string) (
+    // reCAPTCHA del checkout: desactivado por defecto (RECAPTCHA_RESERVAS=true para activarlo).
+    $recaptchaReservaActivo = filter_var(
+        getenv('RECAPTCHA_RESERVAS') ?: ($_ENV['RECAPTCHA_RESERVAS'] ?? $_SERVER['RECAPTCHA_RESERVAS'] ?? 'false'),
+        FILTER_VALIDATE_BOOLEAN
+    );
+    $recaptchaSiteKey = $recaptchaReservaActivo ? trim((string) (
         getenv('RECAPTCHA_SITE_KEY')
         ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
-    ));
+    )) : '';
     ?>
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=13">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=14">
     <script>
         window.PORTAL_CONFIG = <?php echo json_encode([
             'wompiPublicKey' => WOMPI_PUBLIC_KEY,

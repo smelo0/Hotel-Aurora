@@ -862,7 +862,15 @@ function separarNotasReserva(notas) {
 }
 
 function crearFilaReservaHTML(reserva) {
-    const habitacion = reserva.cod_hab_det ? reserva.cod_hab_det : 'Sin asignar';
+    const habitacionesLista = Array.isArray(reserva.habitaciones) && reserva.habitaciones.length
+        ? reserva.habitaciones
+        : (reserva.habitacion && reserva.habitacion.num_hab ? [reserva.habitacion] : []);
+    const habitacion = habitacionesLista.length
+        ? habitacionesLista.map(h => `Habitación ${h.num_hab}${h.tipo_hab ? ' · ' + h.tipo_hab : ''}`).join(', ')
+        : 'Sin asignar';
+    const habitacionesHtml = habitacionesLista.length
+        ? habitacionesLista.map(h => `<div class="leading-tight"><span class="block">Habitación ${escaparHTMLAdmin(h.num_hab)}</span>${h.tipo_hab ? `<span class="block text-[10px] font-bold uppercase tracking-widest text-slate-400">${escaparHTMLAdmin(h.tipo_hab)}</span>` : ''}</div>`).join('')
+        : '<span>Sin asignar</span>';
     const notas = reserva.not_res || '';
     const notasSeparadas = separarNotasReserva(notas);
     const huespedesTabla = notasSeparadas.huespedes ? `<p class="text-xs font-black text-slate-700">${escaparHTMLAdmin(notasSeparadas.huespedes)}</p>` : '';
@@ -875,7 +883,7 @@ function crearFilaReservaHTML(reserva) {
     return `
         <tr class="hover:bg-slate-50 transition-colors" data-reserva-id="${Number(reserva.cod_res)}">
             <td class="py-5 px-4 align-middle font-semibold text-slate-800">${escaparHTMLAdmin(reserva.nom_usu || '')}</td>
-            <td class="py-5 px-4 align-middle text-slate-600 font-bold">${escaparHTMLAdmin(habitacion)}</td>
+            <td class="py-5 px-4 align-middle text-slate-600 font-bold"><div class="flex items-start gap-2"><span class="material-symbols-outlined text-[17px] text-primary">hotel</span><div class="flex flex-col gap-2">${habitacionesHtml}</div></div></td>
             <td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>${escaparHTMLAdmin(fechaIn)}</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>${escaparHTMLAdmin(fechaOut)}</span></div></td>
             <td class="py-5 px-4 align-middle"><span class="${obtenerClaseEstadoReserva(estado)} px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">${escaparHTMLAdmin(estado)}</span></td>
             <td class="py-5 px-4 align-middle max-w-xs">${notasTabla}</td>

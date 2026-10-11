@@ -98,8 +98,12 @@ $habitacionesIdsPost = array_values(array_unique(array_filter(
 )));
 // ⬆️ FIN NUEVO
 
-$esPersonal = isset($_SESSION['emp_auth']['id_usuario']);
 $accion = trim((string) ($_POST['accion'] ?? ''));
+// La petición es "de personal" solo si viene del panel (envía accion o tipo_huesped).
+// Si hay además una sesión de cliente y la petición viene del checkout público
+// (sin accion ni tipo_huesped), se trata como reserva de cliente.
+$esPersonal = isset($_SESSION['emp_auth']['id_usuario'])
+    && ($accion !== '' || $tipoHuesped !== '' || !isset($_SESSION['user_auth']['id_usuario']));
 
 $metodoRecibido = trim((string) ($_POST['metodo_pago'] ?? ''));
 if ($esPersonal && $accion === 'guardar') {
@@ -133,21 +137,29 @@ $sitekey = trim((string) (
     ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
 ));
 
+// reCAPTCHA del checkout: desactivado por defecto.
+// Para activarlo: RECAPTCHA_RESERVAS=true en .env (y usar claves reales de Google).
+$captchaReservaActivo = filter_var(
+    getenv('RECAPTCHA_RESERVAS') ?: ($_ENV['RECAPTCHA_RESERVAS'] ?? $_SERVER['RECAPTCHA_RESERVAS'] ?? 'false'),
+    FILTER_VALIDATE_BOOLEAN
+);
+$verificarCaptcha = !$esPersonal && $captchaReservaActivo;
+
 $appEnvironment = strtolower(trim((string) (
     getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? 'local')
 )));
-if (!$esPersonal && $secretkey === '' && $appEnvironment === 'production') {
+if ($verificarCaptcha && $secretkey === '' && $appEnvironment === 'production') {
     jsonResponse(503, ['status' => 'error', 'mensaje' => 'La verificación de seguridad no está configurada.']);
 }
-if (!$esPersonal && $secretkey !== '' && $sitekey === '') {
+if ($verificarCaptcha && $secretkey !== '' && $sitekey === '') {
     jsonResponse(503, ['status' => 'error', 'mensaje' => 'La verificación de seguridad no está configurada correctamente.']);
 }
 
-if (!$esPersonal && $recapchatoken === '' && $secretkey !== '') {
+if ($verificarCaptcha && $recapchatoken === '' && $secretkey !== '') {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Por favor, completa el reCAPTCHA para continuar.']);
 }
 
-if (!$esPersonal && $secretkey !== '' && $recapchatoken !== '') {
+if ($verificarCaptcha && $secretkey !== '' && $recapchatoken !== '') {
     $curl = curl_init('https://www.google.com/recaptcha/api/siteverify');
     curl_setopt_array($curl, [
         CURLOPT_POST => true,

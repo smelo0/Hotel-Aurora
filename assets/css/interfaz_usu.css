@@ -425,6 +425,14 @@ body {
     box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
 }
 
+/* Choque Tailwind + flatpickr: con 2 meses, flatpickr marca los días de relleno con la clase "hidden"
+   y espera "visibility: hidden" (ocupan su celda). La clase .hidden de Tailwind usa "display: none",
+   los quita de la cuadrícula y desalinea las fechas respecto a los días de la semana. */
+.flatpickr-calendar .flatpickr-day.hidden {
+    display: inline-block;
+    visibility: hidden;
+}
+
 .flatpickr-calendar.aurora-calendar .flatpickr-day.selected,
 .flatpickr-calendar.aurora-calendar .flatpickr-day.startRange,
 .flatpickr-calendar.aurora-calendar .flatpickr-day.endRange {
