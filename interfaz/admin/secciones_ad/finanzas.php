@@ -12,6 +12,7 @@ $datosFinanzasAdmin = (new \App\Admin\AdminFinanceService($conexion))->obtenerDa
 $pagosFinanzas = $datosFinanzasAdmin['pagos'];
 $totalesFinanzas = $datosFinanzasAdmin['totales'];
 $movimientosExperienciasFinanzas = $datosFinanzasAdmin['movimientos_experiencias'];
+$movimientosRoomServiceFinanzas = $datosFinanzasAdmin['movimientos_room_service'] ?? [];
 $puedeActualizarPagosExperiencia = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
 
 $escaparFinanzas = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
@@ -29,7 +30,7 @@ $clasesEstadoPago = [
         <div class="rounded-xl border border-primary/10 bg-white p-8 shadow-sm">
             <div class="mb-8">
                 <h3 class="text-2xl font-black tracking-tight text-primary">Historial financiero</h3>
-                <p class="mt-1 text-sm text-slate-500">El total por cliente suma pagos aprobados de reservas y experiencias registradas como pagadas. Las experiencias se administran manualmente.</p>
+                <p class="mt-1 text-sm text-slate-500">El total por cliente suma pagos aprobados de reservas, experiencias y room service registrados como pagados. Las experiencias se administran manualmente.</p>
             </div>
 
             <h4 class="mb-4 text-lg font-black text-slate-800">Total pagado por cliente</h4>
@@ -65,7 +66,7 @@ $clasesEstadoPago = [
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-sm">
-                        <?php if ($pagosFinanzas === [] && $movimientosExperienciasFinanzas === []): ?>
+                        <?php if ($pagosFinanzas === [] && $movimientosExperienciasFinanzas === [] && $movimientosRoomServiceFinanzas === []): ?>
                             <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No hay movimientos de pago.</td></tr>
                         <?php else: ?>
                             <?php foreach ($pagosFinanzas as $pago): ?>
@@ -167,6 +168,29 @@ $clasesEstadoPago = [
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-5 py-4 text-right font-black <?php echo $estadoPagoExperiencia === 'Pagada' ? 'text-primary' : 'text-slate-400'; ?>"><?php echo $montoExperiencia === null ? 'Sin precio' : $formatearMontoFinanzas($montoExperiencia); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php foreach ($movimientosRoomServiceFinanzas as $pedidoRoomService): ?>
+                                <?php
+                                $estadoPagoRoomService = (string) ($pedidoRoomService['estado_pago'] ?? 'Pendiente');
+                                $etiquetaPagoRoomService = $estadoPagoRoomService === 'Pagado' ? 'Pagada' : ($estadoPagoRoomService === 'Sin costo' ? 'Sin costo' : 'Pendiente');
+                                $fechaRoomService = $estadoPagoRoomService === 'Pagado' && !empty($pedidoRoomService['fecha_pago']) ? $pedidoRoomService['fecha_pago'] : $pedidoRoomService['creado_en'];
+                                ?>
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $fechaRoomService))); ?></td>
+                                    <td class="px-5 py-4">
+                                        <p class="font-bold text-slate-800"><?php echo $escaparFinanzas($pedidoRoomService['nom_usu'] ?? 'Huésped sin cuenta asociada'); ?></p>
+                                        <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas($pedidoRoomService['corr_usu'] ?? ''); ?></p>
+                                    </td>
+                                    <td class="px-5 py-4">
+                                        <p class="font-bold text-slate-700">Room service #<?php echo (int) $pedidoRoomService['id_pedido']; ?></p>
+                                        <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas($pedidoRoomService['resumen'] ?? ''); ?></p>
+                                        <p class="mt-1 text-xs font-bold text-slate-500"><?php echo !empty($pedidoRoomService['cod_res_pedido']) ? 'Reserva vinculada: #' . (int) $pedidoRoomService['cod_res_pedido'] : 'Sin reserva vinculada'; ?><?php echo !empty($pedidoRoomService['num_hab']) ? ' · Habitación ' . (int) $pedidoRoomService['num_hab'] : ''; ?></p>
+                                        <?php if (!empty($pedidoRoomService['folio'])): ?><p class="mt-1 text-xs text-slate-500">Factura <?php echo $escaparFinanzas($pedidoRoomService['folio']); ?></p><?php endif; ?>
+                                    </td>
+                                    <td class="px-5 py-4 text-slate-600"><?php echo $estadoPagoRoomService === 'Pagado' ? $escaparFinanzas($pedidoRoomService['metodo_pago'] ?? 'Pago registrado') : '<span class="text-xs text-slate-500">Se cobra desde Reservas o Room Service</span>'; ?></td>
+                                    <td class="px-5 py-4"><span class="rounded-full px-3 py-1 text-[10px] font-black uppercase <?php echo $clasesEstadoPago[$etiquetaPagoRoomService] ?? 'bg-slate-100 text-slate-600'; ?>"><?php echo $escaparFinanzas($etiquetaPagoRoomService); ?></span></td>
+                                    <td class="px-5 py-4 text-right font-black <?php echo $estadoPagoRoomService === 'Pagado' ? 'text-primary' : 'text-slate-400'; ?>"><?php echo $formatearMontoFinanzas($pedidoRoomService['total']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

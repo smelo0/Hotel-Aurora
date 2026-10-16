@@ -29,6 +29,10 @@
         <button data-permiso="experiencias.ver" onclick="navegar('experiencias', this)" aria-label="Experiencias" title="Experiencias" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">celebration</span><span class="text-sm font-bold">Experiencias</span>
         </button>
+        <!-- Nueva Sección: Room Service (pedidos de comidas y objetos a la habitación) -->
+        <button data-permiso="roomservice.ver" onclick="navegar('roomservice', this)" aria-label="Room Service" title="Room Service" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">room_service</span><span class="text-sm font-bold">Room Service</span>
+        </button>
         <!-- Nueva Sección: gestión de habitaciones (añadir, editar, eliminar y describir) -->
         <button data-permiso="habitaciones.ver" onclick="navegar('habitaciones', this)" aria-label="Habitaciones" title="Habitaciones" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">meeting_room</span><span class="text-sm font-bold">Habitaciones</span>

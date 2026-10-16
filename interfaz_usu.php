@@ -202,6 +202,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
                 <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
                 <a href="#planner" class="transition hover:text-white">Agenda</a>
+                <?php if ($usuarioAutenticado): ?>
+                    <a href="#room-service" class="transition hover:text-white">Room service</a>
+                <?php endif; ?>
             </div>
 
             <div class="flex items-center gap-3">
@@ -602,6 +605,61 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </section>
 
         <?php if ($usuarioAutenticado): ?>
+<section id="room-service" class="mx-auto mt-10 max-w-7xl scroll-mt-24 reveal">
+    <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-12">
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Room service</p>
+                <h2 class="mt-2 text-3xl font-black text-white">Pide a tu habitación</h2>
+                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
+            </div>
+        </div>
+
+        <div id="rsAviso" class="mb-5 hidden rounded-2xl border px-5 py-4 text-sm font-bold" role="status" aria-live="polite"></div>
+        <div id="rsSinEstancia" class="hidden rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
+            <span class="material-symbols-outlined text-4xl text-emerald-700">room_service</span>
+            <p class="mt-3 text-lg font-black text-slate-800">El room service está disponible durante tu estancia.</p>
+            <p class="mt-2 text-sm text-slate-600">Cuando tengas una reserva confirmada en curso, podrás pedir comidas y objetos para tu habitación desde aquí.</p>
+        </div>
+
+        <div id="rsContenido" class="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
+            <div>
+                <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de pedido">
+                    <button type="button" data-rs-tipo="comida" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Comidas</button>
+                    <button type="button" data-rs-tipo="objeto" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Objetos</button>
+                </div>
+                <div id="rsCategorias" class="mb-4 flex flex-wrap gap-2"></div>
+                <div id="rsCatalogo" class="grid gap-4 sm:grid-cols-2"></div>
+            </div>
+
+            <aside id="rsCarrito" class="h-fit rounded-3xl bg-emerald-950/60 p-6 lg:sticky lg:top-24">
+                <h3 class="flex items-center gap-2 text-lg font-black text-white"><span class="material-symbols-outlined">shopping_cart</span> Tu pedido</h3>
+                <div id="rsCarritoLineas" class="mt-4 space-y-3"></div>
+                <div id="rsHabitacionBox" class="mt-4 hidden">
+                    <label for="rsHabitacion" class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Enviar a</label>
+                    <select id="rsHabitacion" class="w-full rounded-xl border-0 bg-white px-3 py-3 text-sm font-bold text-slate-800"></select>
+                </div>
+                <label for="rsNotas" class="mb-1 mt-4 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Indicaciones (opcional)</label>
+                <textarea id="rsNotas" rows="2" maxlength="300" placeholder="Ej. sin cebolla, tocar suavemente la puerta…" class="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800"></textarea>
+                <div class="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+                    <span class="text-sm font-bold text-white/70">Total</span>
+                    <span id="rsTotal" class="text-2xl font-black text-white">$0</span>
+                </div>
+                <p class="mt-1 text-[11px] text-white/50">El cobro se agrega a tu cuenta y se paga en recepción.</p>
+                <button id="rsPedir" type="button" class="mt-4 w-full rounded-2xl bg-emerald-400 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pedir a mi habitación</button>
+            </aside>
+        </div>
+
+        <div class="mt-10">
+            <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
+            <div id="rsPedidos" class="mt-4 space-y-3"></div>
+        </div>
+    </div>
+</section>
+<button id="rsIrCarrito" type="button" class="fixed bottom-6 right-6 z-[70] hidden items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-2xl lg:!hidden">
+    <span class="material-symbols-outlined">shopping_cart</span> <span id="rsIrCarritoTexto">Ver pedido</span>
+</button>
+<script src="assets/js/room_service_usu.js?v=1" defer></script>
 <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
     <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         

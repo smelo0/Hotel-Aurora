@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarSincronizacionHousekeeping();
     iniciarSincronizacionReservas();
     inicializarCobroExperienciasReserva();
+    inicializarCobroRoomServiceReserva();
 
     // Restaurar la ultima seccion visitada (o la indicada por URL) tras recargar.
     const seccionParam = new URLSearchParams(window.location.search).get('admin_seccion');
@@ -127,6 +128,7 @@ function navegar(sec, btn) {
         dashboard: 'dashboard.ver',
         reservas: 'reservas.ver',
         experiencias: 'experiencias.ver',
+        roomservice: 'roomservice.ver',
         habitaciones: 'habitaciones.ver',
         roles: 'roles.ver',
         operaciones: 'operaciones.ver',
@@ -201,7 +203,19 @@ function imprimirFacturaReserva(factura, ventana) {
         return Number.isNaN(parsed.getTime()) ? escapar(valor) : escapar(parsed.toLocaleDateString('es-CO'));
     };
     const esExperiencia = factura.tipo === 'experiencia';
-    const filasFactura = esExperiencia
+    const esRoomService = factura.tipo === 'room_service';
+    const filasRoomService = (factura.items || []).map(item => `
+            <tr>
+                <td>Pedido #${escapar(item.pedido)} · ${escapar(item.cantidad)} × ${escapar(item.nombre)}</td>
+                <td>${escapar(factura.metodo_pago)}</td>
+                <td>${moneda.format(Number(item.subtotal) || 0)}</td>
+            </tr>`).join('');
+    const detalleRoomService = `<h2>Detalle del consumo</h2>
+           <p>${factura.cod_reserva ? `Reserva #${escapar(factura.cod_reserva)} · ` : ''}Habitación ${escapar(factura.habitacion)}</p>
+           <p>Room service · pedidos ${(factura.pedidos || []).map(id => '#' + escapar(id)).join(', ')}. El alojamiento y las experiencias se facturan por separado.</p>`;
+    const filasFactura = esRoomService
+        ? filasRoomService
+        : esExperiencia
         ? ((factura.opciones || []).length > 0 ? factura.opciones : [{ opcion: factura.experiencia, monto: factura.monto }]).map((item, indice) => `
             <tr>
                 <td>Persona ${indice + 1}: ${escapar(item.opcion)}</td>
@@ -209,7 +223,9 @@ function imprimirFacturaReserva(factura, ventana) {
                 <td>${item.monto === null ? 'Incluido' : moneda.format(Number(item.monto) || 0)}</td>
             </tr>`).join('')
         : `<tr><td>Alojamiento (${escapar(factura.noches)} noche(s), IVA incluido)</td><td>${escapar(factura.metodo_pago)}</td><td>${moneda.format(Number(factura.monto) || 0)}</td></tr>`;
-    const detalleFactura = esExperiencia
+    const detalleFactura = esRoomService
+        ? detalleRoomService
+        : esExperiencia
         ? `<h2>Detalle de la experiencia</h2>
            <p><strong>${escapar(factura.experiencia)}</strong></p>
            ${factura.cod_reserva ? `<p>Vinculada a la reserva #${escapar(factura.cod_reserva)}. El cobro de alojamiento se factura por separado.</p>` : ''}
@@ -305,6 +321,110 @@ function inicializarCobroExperienciasReserva() {
             boton.disabled = false;
         }
     });
+}
+
+// =======================================================
+// ROOM SERVICE: cobro desde la tabla de Reservas
+// =======================================================
+function inicializarCobroRoomServiceReserva() {
+    document.addEventListener('click', async event => {
+        const botonCobrar = event.target.closest('[data-cobrar-room-service]');
+        if (botonCobrar) {
+            abrirModalCobroRoomService(botonCobrar);
+            return;
+        }
+
+        const botonFactura = event.target.closest('[data-factura-room-service]');
+        if (!botonFactura) return;
+        const ventana = window.open('', '_blank');
+        if (!ventana) {
+            alert('Permite las ventanas emergentes para ver la factura.');
+            return;
+        }
+        botonFactura.disabled = true;
+        try {
+            const respuesta = await fetch(`../../controladores/room_service.php?accion=factura&folio=${encodeURIComponent(botonFactura.dataset.folio)}`, {
+                headers: { Accept: 'application/json' }
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
+                throw new Error(datos.mensaje || 'No se pudo cargar la factura');
+            }
+            imprimirFacturaReserva(datos.factura, ventana);
+        } catch (errorPeticion) {
+            ventana.close();
+            alert(errorPeticion.message);
+        } finally {
+            botonFactura.disabled = false;
+        }
+    });
+}
+
+let reservaCobroRoomService = null;
+
+function abrirModalCobroRoomService(boton) {
+    const modal = document.getElementById('modalCobroRoomService');
+    if (!modal) return;
+    reservaCobroRoomService = Number(boton.dataset.codRes);
+    const moneda = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+    document.getElementById('cobroRoomServiceHuesped').textContent = boton.dataset.huesped || '';
+    document.getElementById('cobroRoomServiceReserva').textContent = String(reservaCobroRoomService);
+    document.getElementById('cobroRoomServiceMonto').textContent = moneda.format(Number(boton.dataset.monto) || 0);
+    document.getElementById('cobroRoomServiceError').classList.add('hidden');
+    document.getElementById('cobroRoomServiceConfirmar').disabled = false;
+    modal.classList.remove('modal-oculto');
+    modal.classList.add('modal-visible');
+}
+
+function cerrarModalCobroRoomService(evento) {
+    if (evento && evento.target !== evento.currentTarget) return;
+    const modal = document.getElementById('modalCobroRoomService');
+    if (!modal) return;
+    modal.classList.add('modal-oculto');
+    modal.classList.remove('modal-visible');
+    reservaCobroRoomService = null;
+}
+
+async function confirmarCobroRoomService() {
+    if (!reservaCobroRoomService) return;
+    const boton = document.getElementById('cobroRoomServiceConfirmar');
+    const error = document.getElementById('cobroRoomServiceError');
+    error.classList.add('hidden');
+
+    // La ventana se abre dentro del clic para que el navegador no bloquee la impresión de la factura.
+    const ventanaFactura = window.open('', '_blank');
+    if (!ventanaFactura) {
+        error.textContent = 'Permite las ventanas emergentes para imprimir la factura.';
+        error.classList.remove('hidden');
+        return;
+    }
+
+    boton.disabled = true;
+    try {
+        const respuesta = await fetch('../../controladores/room_service.php', {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new URLSearchParams({
+                accion: 'cobrar',
+                cod_res: String(reservaCobroRoomService),
+                metodo_pago: document.getElementById('cobroRoomServiceMetodo').value,
+                csrf_token: CSRF_TOKEN
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
+            throw new Error(datos.mensaje || 'No se pudo registrar el cobro');
+        }
+        imprimirFacturaReserva(datos.factura, ventanaFactura);
+        cerrarModalCobroRoomService();
+        await refrescarTablaReservas();
+        window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
+    } catch (errorPeticion) {
+        ventanaFactura.close();
+        error.textContent = errorPeticion.message;
+        error.classList.remove('hidden');
+        boton.disabled = false;
+    }
 }
 
 function toggleNuevoHuesped() {

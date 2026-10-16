@@ -86,6 +86,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
                     <th class="p-4">Experiencias y cobros</th>
+                    <th class="p-4">Room service y total</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
@@ -100,6 +101,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'] ?? [];
                 $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
                     && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
+                $roomServicePorReserva = $datosReservasAdmin['room_service_por_reserva'] ?? [];
+                $totalesPorReserva = $datosReservasAdmin['totales_por_reserva'] ?? [];
+                $puedeCobrarRoomService = usuario_tiene_permiso($conexion, 'roomservice.gestionar')
+                    && usuario_tiene_permiso($conexion, 'finanzas.ver');
+                $formatearCopReserva = static fn($valor): string => '$' . number_format((float) $valor, 0, ',', '.');
                 $reservasAdmin = $datosReservasAdmin['reservas'] ?? [];
                 $paginacionReservas = $datosReservasAdmin['paginacion'] ?? [
                     'pagina' => 1,
@@ -209,7 +215,49 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             $experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias vinculadas</span>';
                         }
 
+                        // Room service y total que debe el huésped (alojamiento + experiencias + room service)
+                        $totalReserva = $totalesPorReserva[$id_reserva] ?? ['alojamiento' => 0, 'experiencias' => 0, 'room_service' => 0, 'total' => 0];
+                        $resumenRoomService = $roomServicePorReserva[$id_reserva] ?? ['pedidos' => [], 'pendiente' => 0, 'cantidad_pendiente' => 0];
                         $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
+                        $roomServiceTabla = '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">';
+                        foreach ([
+                            'Alojamiento' => $totalReserva['alojamiento'],
+                            'Experiencias' => $totalReserva['experiencias'],
+                            'Room service' => $totalReserva['room_service'],
+                        ] as $etiquetaTotal => $valorTotal) {
+                            $roomServiceTabla .= '<p class="flex justify-between gap-4"><span class="text-slate-500">' . $etiquetaTotal . '</span>'
+                                . '<span class="font-bold text-slate-700">' . $formatearCopReserva($valorTotal) . '</span></p>';
+                        }
+                        $roomServiceTabla .= '<p class="mt-2 flex justify-between gap-4 border-t border-slate-200 pt-2 font-black '
+                            . ((float) $totalReserva['total'] > 0 ? 'text-primary' : 'text-emerald-600') . '"><span>Total por cobrar</span><span>'
+                            . $formatearCopReserva($totalReserva['total']) . '</span></p></div>';
+
+                        $foliosMostrados = [];
+                        foreach ($resumenRoomService['pedidos'] as $pedidoRoomService) {
+                            if ($pedidoRoomService['estado'] === 'Cancelado') {
+                                continue;
+                            }
+                            $estadoPagoPedido = (string) $pedidoRoomService['estado_pago'];
+                            $claseEstadoPedido = $estadoPagoPedido === 'Pagado' ? 'text-emerald-600' : ($estadoPagoPedido === 'Pendiente' ? 'text-amber-600' : 'text-slate-400');
+                            $roomServiceTabla .= '<div class="mb-2 text-xs last:mb-0"><p class="font-black text-slate-700">Room service #' . (int) $pedidoRoomService['id_pedido']
+                                . ' · ' . htmlspecialchars((string) $pedidoRoomService['estado'], ENT_QUOTES, 'UTF-8') . '</p>'
+                                . '<p class="text-slate-500">' . htmlspecialchars((string) $pedidoRoomService['resumen'], ENT_QUOTES, 'UTF-8') . '</p>'
+                                . '<p class="font-bold ' . $claseEstadoPedido . '">' . $formatearCopReserva($pedidoRoomService['total']) . ' · ' . htmlspecialchars($estadoPagoPedido, ENT_QUOTES, 'UTF-8') . '</p></div>';
+                            if ($estadoPagoPedido === 'Pagado' && !empty($pedidoRoomService['folio']) && !in_array($pedidoRoomService['folio'], $foliosMostrados, true)) {
+                                $foliosMostrados[] = $pedidoRoomService['folio'];
+                            }
+                        }
+                        if ($puedeCobrarRoomService) {
+                            foreach ($foliosMostrados as $folioPagado) {
+                                $roomServiceTabla .= '<button type="button" data-factura-room-service data-folio="' . htmlspecialchars((string) $folioPagado, ENT_QUOTES, 'UTF-8') . '" class="mr-2 mt-1 text-[11px] font-bold text-primary underline hover:text-heading">Ver factura ' . htmlspecialchars((string) $folioPagado, ENT_QUOTES, 'UTF-8') . '</button>';
+                            }
+                            if ((float) $resumenRoomService['pendiente'] > 0) {
+                                $roomServiceTabla .= '<button type="button" data-cobrar-room-service data-cod-res="' . $id_reserva . '" data-monto="' . htmlspecialchars((string) $resumenRoomService['pendiente'], ENT_QUOTES, 'UTF-8') . '" data-huesped="' . $nombreUsuario . '" class="ui-action mt-2 w-full rounded-md bg-primary px-3 py-2 text-xs font-bold text-white hover:bg-heading">Cobrar room service ' . $formatearCopReserva($resumenRoomService['pendiente']) . '</button>';
+                            }
+                        }
+                        if ($resumenRoomService['pedidos'] === []) {
+                            $roomServiceTabla .= '<span class="text-xs italic text-slate-300">Sin pedidos de room service</span>';
+                        }
 
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
                         echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . $nombreUsuario . '</td>';
@@ -221,6 +269,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle min-w-64">' . $experienciasTabla . '</td>';
+                        echo '<td class="py-5 px-4 align-middle min-w-64">' . $roomServiceTabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
                         echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
                         echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
@@ -229,7 +278,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '</tr>';
                     }
                 } else {
-                    echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
+                    echo '<tr><td colspan="8" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
                 $huespedes_reserva = $datosReservasAdmin['huespedes'] ?? [];
@@ -253,6 +302,36 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 <?php endif; ?>
             </nav>
         </div>
+        <?php if ($puedeCobrarRoomService): ?>
+        <div id="modalCobroRoomService" onclick="cerrarModalCobroRoomService(event)" class="modal-rol-backdrop z-[100] flex items-center justify-center modal-oculto transition-all duration-300">
+            <div onclick="event.stopPropagation()" class="w-full max-w-md rounded-2xl bg-white p-7 shadow-2xl">
+                <div class="mb-5 flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Room service</p>
+                        <h4 class="mt-1 text-xl font-black text-heading">Cobrar y generar factura</h4>
+                        <p class="mt-1 text-xs font-semibold text-slate-400"><span id="cobroRoomServiceHuesped"></span> · Reserva #<span id="cobroRoomServiceReserva"></span></p>
+                    </div>
+                    <button type="button" onclick="cerrarModalCobroRoomService()" class="text-slate-400 hover:text-red-500"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total a cobrar</p>
+                    <p id="cobroRoomServiceMonto" class="mt-1 text-2xl font-black text-primary">$0</p>
+                    <p class="mt-1 text-xs text-slate-500">Incluye todos los pedidos de room service pendientes de pago de esta reserva. El alojamiento y las experiencias se facturan por separado.</p>
+                </div>
+                <label for="cobroRoomServiceMetodo" class="mb-2 mt-5 block text-[11px] font-semibold text-slate-500">Método de pago</label>
+                <select id="cobroRoomServiceMetodo" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Transferencia">Transferencia</option>
+                </select>
+                <p id="cobroRoomServiceError" class="mt-3 hidden text-xs font-bold text-rose-600" role="alert"></p>
+                <div class="mt-6 flex gap-3">
+                    <button type="button" onclick="cerrarModalCobroRoomService()" class="flex-1 rounded-xl py-3 text-sm font-bold text-slate-400 hover:bg-slate-100">Cancelar</button>
+                    <button type="button" id="cobroRoomServiceConfirmar" onclick="confirmarCobroRoomService()" class="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md hover:bg-heading disabled:cursor-wait disabled:opacity-60">Cobrar y generar factura</button>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
         <div id="noResultados" class="hidden text-center py-10 text-slate-400 text-sm font-bold">
             No se encontraron huéspedes con ese nombre.
         </div>

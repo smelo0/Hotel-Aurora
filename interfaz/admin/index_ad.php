@@ -22,7 +22,10 @@ $firma_actor_panel = hash_hmac(
 
 require_once '../../configuracion/conexion.php';
 require_once '../../configuracion/permiso.php';
+require_once '../../src/RoomService/RoomServiceSchemaMigrator.php';
 /** @var mysqli $conexion */
+// Room Service: crea tablas y permisos la primera vez (no hace nada si ya existen).
+\App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
 require_once 'componentes_ad/head.php';
 
 $permisos_usuario = [];
@@ -39,8 +42,8 @@ if ($stmt_permisos) {
 
 if ($permisos_usuario === []) {
     $permisos_usuario = $rol_sesion === 1
-        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar']
-        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver', 'experiencias.ver', 'experiencias.gestionar'];
+        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar', 'roomservice.ver', 'roomservice.gestionar']
+        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver', 'experiencias.ver', 'experiencias.gestionar', 'roomservice.ver', 'roomservice.gestionar'];
 }
 
 if (($_GET['reservas_fragmento'] ?? '') === '1') {
@@ -71,6 +74,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
             require_once 'secciones_ad/reservas.php';
             require_once 'secciones_ad/roles.php';
             require_once 'secciones_ad/experiencias.php';
+            require_once 'secciones_ad/room_service.php';
             require_once 'secciones_ad/habitaciones.php';
             require_once 'secciones_ad/operaciones.php';
             require_once 'secciones_ad/finanzas.php';
@@ -134,7 +138,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=17" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=17';"></script>
+ <script src="js_ad/admin.js?v=18" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=18';"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>

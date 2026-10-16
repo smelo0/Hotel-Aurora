@@ -71,12 +71,40 @@ final class AdminFinanceService
             $movimientosExperiencias[] = $experiencia;
         }
 
+        // Room service: los pedidos cobrados suman al total pagado del cliente.
+        $movimientosRoomService = [];
+        try {
+            if (!class_exists(\App\RoomService\RoomServiceRepository::class)) {
+                require_once __DIR__ . '/../RoomService/RoomServiceRepository.php';
+            }
+            $movimientosRoomService = (new \App\RoomService\RoomServiceRepository($this->connection))->movimientosFinanzas();
+        } catch (\Throwable $error) {
+            $movimientosRoomService = [];
+        }
+        foreach ($movimientosRoomService as $pedidoRoomService) {
+            $idUsuario = (int) ($pedidoRoomService['id_usu_pedido'] ?? 0);
+            $identificador = $idUsuario > 0
+                ? 'usuario:' . $idUsuario
+                : 'sin-cuenta:' . mb_strtolower(trim((string) ($pedidoRoomService['corr_usu'] ?? $pedidoRoomService['nom_usu'] ?? 'desconocido')), 'UTF-8');
+            $this->asegurarTotalCliente(
+                $totales,
+                $identificador,
+                (string) ($pedidoRoomService['nom_usu'] ?? 'Huésped sin cuenta asociada'),
+                (string) ($pedidoRoomService['corr_usu'] ?? '')
+            );
+            if (($pedidoRoomService['estado_pago'] ?? '') === 'Pagado') {
+                $totales[$identificador]['total_pagado'] += (float) $pedidoRoomService['total'];
+                $totales[$identificador]['pagos_aprobados']++;
+            }
+        }
+
         uasort($totales, static fn(array $a, array $b): int => $b['total_pagado'] <=> $a['total_pagado']);
 
         return [
             'pagos' => $pagos,
             'totales' => $totales,
             'movimientos_experiencias' => $movimientosExperiencias,
+            'movimientos_room_service' => $movimientosRoomService,
         ];
     }
 

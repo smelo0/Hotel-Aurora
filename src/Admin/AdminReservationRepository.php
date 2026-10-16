@@ -87,6 +87,9 @@ final class AdminReservationRepository
             }
         }
 
+        $roomServicePorReserva = $this->obtenerRoomServicePorReserva($codigosReservas);
+        $totalesPorReserva = $this->calcularTotalesPorReserva($reservas, $experienciasPorReserva, $roomServicePorReserva);
+
         $huespedes = $this->obtenerFilas(
             'SELECT id_usu, nom_usu, corr_usu FROM usuario
              WHERE cod_rol_usu = 6 AND est_usu = 1 ORDER BY nom_usu ASC'
@@ -100,6 +103,8 @@ final class AdminReservationRepository
         return [
             'reservas' => $reservas,
             'experiencias_por_reserva' => $experienciasPorReserva,
+            'room_service_por_reserva' => $roomServicePorReserva,
+            'totales_por_reserva' => $totalesPorReserva,
             'huespedes' => $huespedes,
             'habitaciones_disponibles' => $habitaciones,
             'paginacion' => [
@@ -112,6 +117,62 @@ final class AdminReservationRepository
                 'busqueda' => $search,
             ],
         ];
+    }
+
+    /** Pedidos de room service agrupados por reserva (vacío si el módulo aún no está instalado). */
+    private function obtenerRoomServicePorReserva(array $codigosReservas): array
+    {
+        if ($codigosReservas === []) {
+            return [];
+        }
+        try {
+            if (!class_exists(\App\RoomService\RoomServiceRepository::class)) {
+                require_once __DIR__ . '/../RoomService/RoomServiceRepository.php';
+            }
+            return (new \App\RoomService\RoomServiceRepository($this->connection))
+                ->resumenPorReservas(array_values($codigosReservas));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Lo que el huésped debe por reserva, desglosado:
+     *  - alojamiento: saldo pendiente (solo mientras la reserva está Pendiente, igual que el cobro de recepción)
+     *  - experiencias: programadas, con precio, sin cancelar y sin pagar
+     *  - room service: pedidos no cancelados y sin pagar
+     */
+    private function calcularTotalesPorReserva(array $reservas, array $experienciasPorReserva, array $roomServicePorReserva): array
+    {
+        $totales = [];
+        foreach ($reservas as $reserva) {
+            $codigo = (int) ($reserva['cod_res'] ?? 0);
+            if ($codigo < 1) {
+                continue;
+            }
+            $alojamiento = ($reserva['est_res'] ?? '') === 'Pendiente'
+                ? round((float) ($reserva['saldo_pendiente'] ?? 0), 2)
+                : 0.0;
+
+            $experiencias = 0.0;
+            foreach ($experienciasPorReserva[$codigo] ?? [] as $experiencia) {
+                $monto = $experiencia['monto_experiencia'] ?? null;
+                if ($monto !== null && (float) $monto > 0
+                    && ($experiencia['estado_pago_experiencia'] ?? 'Pendiente') === 'Pendiente'
+                    && ($experiencia['estado_agenda'] ?? '') !== 'Cancelada') {
+                    $experiencias += (float) $monto;
+                }
+            }
+
+            $roomService = round((float) ($roomServicePorReserva[$codigo]['pendiente'] ?? 0), 2);
+            $totales[$codigo] = [
+                'alojamiento' => $alojamiento,
+                'experiencias' => round($experiencias, 2),
+                'room_service' => $roomService,
+                'total' => round($alojamiento + $experiencias + $roomService, 2),
+            ];
+        }
+        return $totales;
     }
 
     private function obtenerFilas(string $sql, string $types = '', array $params = []): array
@@ -158,6 +219,8 @@ final class AdminReservationRepository
         return [
             'reservas' => [],
             'experiencias_por_reserva' => [],
+            'room_service_por_reserva' => [],
+            'totales_por_reserva' => [],
             'huespedes' => [],
             'habitaciones_disponibles' => [],
             'paginacion' => [
