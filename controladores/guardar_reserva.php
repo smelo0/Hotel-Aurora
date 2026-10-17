@@ -6,6 +6,9 @@ require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
+require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
+
+\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
@@ -542,6 +545,21 @@ try {
             }
         }
         $stmtEstado->close();
+    }
+
+    if ($estadoPago === 'Aprobado') {
+        \App\Billing\BillingRegistrar::registrarFactura($conexion, 'FAC-' . $idPagoNuevo, 'alojamiento', $idReservaNueva, (float) $montoFinal, (string) $metodoPago, [
+            'folio' => 'FAC-' . $idPagoNuevo,
+            'cod_reserva' => $idReservaNueva,
+            'huesped' => (string) $nombreHuespedFactura,
+            'correo' => (string) $correoHuespedFactura,
+            'habitacion' => $habitacionesTexto,
+            'fecha_entrada' => $checkinSql,
+            'fecha_salida' => $checkoutSql,
+            'noches' => $noches,
+            'metodo_pago' => (string) $metodoPago,
+            'monto' => (float) $montoFinal,
+        ]);
     }
 
     $conexion->commit();

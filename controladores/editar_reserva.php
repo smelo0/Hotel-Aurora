@@ -2,10 +2,12 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/permiso.php';
+require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 
 // Incluimos Composer y la clase Logger
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
+use App\Billing\BillingRegistrar;
 
 /**
  * Noches de una estancia contando solo las fechas (ignora la hora).
@@ -24,6 +26,7 @@ if (!function_exists('calcularNochesEstancia')) {
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 exigir_permiso($conexion, 'reservas.editar');
+BillingRegistrar::asegurarEsquema($conexion);
 
 // Obtenemos el ID del usuario actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
@@ -90,7 +93,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             && $reservaActual['est_res'] !== 'Confirmada'
         ) {
             $stmtPagoAprobado = $conexion->prepare(
-                "SELECT 1 FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' LIMIT 1"
+                "SELECT 1 FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' AND concepto = 'alojamiento' LIMIT 1"
             );
             $stmtPagoAprobado->bind_param('i', $cod_res);
             $stmtPagoAprobado->execute();
@@ -105,7 +108,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $factura = null;
         if ($accion === 'cobrar') {
             $pagosPendientes = $conexion->prepare(
-                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' FOR UPDATE"
+                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto = 'alojamiento' FOR UPDATE"
             );
             $pagosPendientes->bind_param('i', $cod_res);
             $pagosPendientes->execute();
@@ -120,7 +123,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             if ($montoCobrado <= 0) {
                 $stmtPagosAprobados = $conexion->prepare(
-                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado'"
+                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' AND concepto = 'alojamiento'"
                 );
                 $stmtPagosAprobados->bind_param('i', $cod_res);
                 $stmtPagosAprobados->execute();
@@ -150,7 +153,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($idsPagosPendientes !== []) {
                 $stmtActualizarPagos = $conexion->prepare(
                     "UPDATE pagos SET metodo_pago = ?, estado_pago = 'Aprobado', fecha_pago = CURRENT_TIMESTAMP
-                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente'"
+                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto = 'alojamiento'"
                 );
                 $stmtActualizarPagos->bind_param('si', $metodoPago, $cod_res);
                 $stmtActualizarPagos->execute();
@@ -229,6 +232,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'metodo_pago' => $metodoPago,
                 'monto' => $montoCobrado,
             ];
+            // Queda registrada en la tabla `factura` junto con el pago de `pagos`.
+            BillingRegistrar::registrarFactura($conexion, $factura['folio'], 'alojamiento', $cod_res, (float) $montoCobrado, $metodoPago, $factura);
         }
 
         $conexion->commit();

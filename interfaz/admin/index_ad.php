@@ -138,7 +138,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=18" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=18';"></script>
+ <script src="js_ad/admin.js?v=19" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=19';"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>

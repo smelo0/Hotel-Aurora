@@ -29,6 +29,7 @@ final class AdminFinanceService
                  INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
                  GROUP BY d.cod_res_det
              ) habitaciones ON habitaciones.cod_res_det = r.cod_res
+             WHERE p.concepto = 'alojamiento'
              ORDER BY p.fecha_pago DESC, p.id_pago DESC"
         );
         foreach ($resultadoPagos as $pago) {

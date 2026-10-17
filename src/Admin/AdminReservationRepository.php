@@ -46,7 +46,7 @@ final class AdminReservationRepository
                         ORDER BY h.num_hab ASC SEPARATOR '||'
                     ) AS habitaciones,
                     COALESCE(
-                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
+                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente' AND pg.concepto = 'alojamiento'),
                         GREATEST(
                             COALESCE((
                                 SELECT SUM(COALESCE(NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))
@@ -54,7 +54,7 @@ final class AdminReservationRepository
                                 INNER JOIN habitacion h2 ON h2.cod_hab = d2.cod_hab_det
                                 WHERE d2.cod_res_det = r.cod_res
                             ), 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
-                            - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
+                            - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado' AND pg2.concepto = 'alojamiento'), 0),
                             0
                         )
                     ) AS saldo_pendiente
@@ -73,7 +73,7 @@ final class AdminReservationRepository
         $codigosReservas = array_filter(array_map(static fn($reserva): int => is_array($reserva) ? (int) ($reserva['cod_res'] ?? 0) : 0, $reservas));
         
         $experiencias = $codigosReservas === [] ? [] : $this->obtenerFilas(
-            "SELECT id_agenda, cod_res_agenda, actividad, fecha_agenda, hora_agenda,
+            "SELECT id_agenda, cod_res_agenda, actividad, opcion_actividad, fecha_agenda, hora_agenda,
                     estado_agenda, estado_pago_experiencia, monto_experiencia
              FROM agenda_actividad
              WHERE cod_res_agenda IN (" . implode(',', array_fill(0, count($codigosReservas), '?')) . ")

@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
+require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
+\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 header('Content-Type: application/json; charset=utf-8');
 
 function responder_experiencias($status, $mensaje, $datos = []) {
@@ -155,6 +157,15 @@ if ($metodo === 'POST' && $accion === 'cobrar_experiencia') {
             throw new RuntimeException('pago_no_pendiente');
         }
         $stmtGuardarCobro->close();
+        // El cobro también queda en la tabla `pagos` (solo si la experiencia está ligada a una reserva).
+        \App\Billing\BillingRegistrar::registrarPago(
+            $conexion,
+            $experienciaCobro['cod_res_agenda'] === null ? null : (int) $experienciaCobro['cod_res_agenda'],
+            (float) $experienciaCobro['monto_experiencia'],
+            $metodoPago,
+            'EXP-' . $idSolicitud,
+            'experiencia'
+        );
         $conexion->commit();
         $transaccionIniciada = false;
 
@@ -184,6 +195,15 @@ if ($metodo === 'POST' && $accion === 'cobrar_experiencia') {
             'metodo_pago' => $metodoPago,
             'monto' => (float) $experienciaCobro['monto_experiencia'],
         ];
+        \App\Billing\BillingRegistrar::registrarFactura(
+            $conexion,
+            $factura['folio'],
+            'experiencia',
+            $factura['cod_reserva'],
+            (float) $factura['monto'],
+            $metodoPago,
+            $factura
+        );
         responder_experiencias(200, 'Cobro registrado correctamente', ['factura' => $factura]);
     } catch (Throwable $error) {
         if ($transaccionIniciada) {

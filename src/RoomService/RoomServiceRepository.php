@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace App\RoomService;
 
+use App\Billing\BillingRegistrar;
 use mysqli;
 use RuntimeException;
+
+require_once __DIR__ . '/../Billing/BillingRegistrar.php';
 
 /**
  * Toda la lógica de datos del room service: catálogo, pedidos del huésped,
@@ -412,7 +415,7 @@ final class RoomServiceRepository
             $filtro = $idPedido !== null ? 'p.id_pedido = ?' : 'p.cod_res_pedido = ?';
             $valorFiltro = $idPedido ?? $codRes;
             $pendientes = $this->filas(
-                "SELECT p.id_pedido FROM room_service_pedidos p
+                "SELECT p.id_pedido, p.cod_res_pedido, p.total FROM room_service_pedidos p
                  WHERE {$filtro} AND p.estado <> 'Cancelado' AND p.estado_pago = 'Pendiente' AND p.total > 0
                  ORDER BY p.id_pedido ASC FOR UPDATE",
                 'i',
@@ -437,6 +440,15 @@ final class RoomServiceRepository
                 throw new RuntimeException('sin_pendientes');
             }
 
+            // El cobro también queda en la tabla `pagos` (una fila por factura).
+            $montoCobrado = 0.0;
+            $reservaCobro = null;
+            foreach ($pendientes as $pendiente) {
+                $montoCobrado += (float) $pendiente['total'];
+                $reservaCobro ??= $pendiente['cod_res_pedido'] === null ? null : (int) $pendiente['cod_res_pedido'];
+            }
+            BillingRegistrar::registrarPago($this->db, $reservaCobro, round($montoCobrado, 2), $metodo, 'RS-' . $folio, 'room_service');
+
             $this->db->commit();
         } catch (\Throwable $error) {
             $this->db->rollback();
@@ -447,6 +459,7 @@ final class RoomServiceRepository
         if ($factura === null) {
             throw new RuntimeException('factura_no_disponible');
         }
+        BillingRegistrar::registrarFactura($this->db, $folio, 'room_service', $factura['cod_reserva'], (float) $factura['monto'], $metodo, $factura);
         return $factura;
     }
 

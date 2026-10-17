@@ -324,76 +324,117 @@ function inicializarCobroExperienciasReserva() {
 }
 
 // =======================================================
-// ROOM SERVICE: cobro desde la tabla de Reservas
+// RESERVAS: modal "Total y cobro" (alojamiento + experiencias + room service)
 // =======================================================
-function inicializarCobroRoomServiceReserva() {
-    document.addEventListener('click', async event => {
-        const botonCobrar = event.target.closest('[data-cobrar-room-service]');
-        if (botonCobrar) {
-            abrirModalCobroRoomService(botonCobrar);
-            return;
-        }
+let totalReservaActual = null;
 
-        const botonFactura = event.target.closest('[data-factura-room-service]');
-        if (!botonFactura) return;
-        const ventana = window.open('', '_blank');
-        if (!ventana) {
-            alert('Permite las ventanas emergentes para ver la factura.');
+function inicializarCobroRoomServiceReserva() {
+    document.addEventListener('click', event => {
+        const abrir = event.target.closest('[data-detalle-total]');
+        if (abrir) {
+            try {
+                abrirModalTotalReserva(JSON.parse(abrir.dataset.detalleTotal));
+            } catch (e) {
+                alert('No se pudo abrir el detalle de la reserva.');
+            }
             return;
         }
-        botonFactura.disabled = true;
-        try {
-            const respuesta = await fetch(`../../controladores/room_service.php?accion=factura&folio=${encodeURIComponent(botonFactura.dataset.folio)}`, {
-                headers: { Accept: 'application/json' }
-            });
-            const datos = await respuesta.json();
-            if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
-                throw new Error(datos.mensaje || 'No se pudo cargar la factura');
-            }
-            imprimirFacturaReserva(datos.factura, ventana);
-        } catch (errorPeticion) {
-            ventana.close();
-            alert(errorPeticion.message);
-        } finally {
-            botonFactura.disabled = false;
+    });
+
+    // El panel del modal detiene la propagación de los clics, así que sus botones se escuchan aquí mismo.
+    document.getElementById('totalReservaContenido')?.addEventListener('click', event => {
+        const cobrar = event.target.closest('[data-total-cobrar]');
+        if (cobrar) {
+            cobrarDesdeModalTotal(cobrar);
+            return;
         }
+        const factura = event.target.closest('[data-total-factura]');
+        if (factura) verFacturaRoomService(factura);
     });
 }
 
-let reservaCobroRoomService = null;
-
-function abrirModalCobroRoomService(boton) {
-    const modal = document.getElementById('modalCobroRoomService');
+function abrirModalTotalReserva(detalle) {
+    const modal = document.getElementById('modalTotalReserva');
     if (!modal) return;
-    reservaCobroRoomService = Number(boton.dataset.codRes);
-    const moneda = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-    document.getElementById('cobroRoomServiceHuesped').textContent = boton.dataset.huesped || '';
-    document.getElementById('cobroRoomServiceReserva').textContent = String(reservaCobroRoomService);
-    document.getElementById('cobroRoomServiceMonto').textContent = moneda.format(Number(boton.dataset.monto) || 0);
-    document.getElementById('cobroRoomServiceError').classList.add('hidden');
-    document.getElementById('cobroRoomServiceConfirmar').disabled = false;
+    document.getElementById('totalReservaError').classList.add('hidden');
+    pintarModalTotalReserva(detalle);
     modal.classList.remove('modal-oculto');
     modal.classList.add('modal-visible');
 }
 
-function cerrarModalCobroRoomService(evento) {
+function cerrarModalTotalReserva(evento) {
     if (evento && evento.target !== evento.currentTarget) return;
-    const modal = document.getElementById('modalCobroRoomService');
+    const modal = document.getElementById('modalTotalReserva');
     if (!modal) return;
     modal.classList.add('modal-oculto');
     modal.classList.remove('modal-visible');
-    reservaCobroRoomService = null;
+    totalReservaActual = null;
 }
 
-async function confirmarCobroRoomService() {
-    if (!reservaCobroRoomService) return;
-    const boton = document.getElementById('cobroRoomServiceConfirmar');
-    const error = document.getElementById('cobroRoomServiceError');
+function pintarModalTotalReserva(d) {
+    totalReservaActual = d;
+    const cop = valor => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(valor) || 0);
+    const esc = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+    const boton = (texto, atributos) => `<button type="button" ${atributos} class="rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-heading disabled:opacity-60">${texto}</button>`;
+    const bloque = (titulo, monto, cuerpo) => `<section class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+        <div class="flex items-center justify-between gap-3"><h5 class="text-xs font-black uppercase tracking-wider text-slate-500">${titulo}</h5>
+        <span class="font-black ${monto > 0 ? 'text-primary' : 'text-emerald-600'}">${cop(monto)}</span></div>${cuerpo}</section>`;
+    const t = d.totales;
+
+    document.getElementById('totalReservaTitulo').textContent = `${d.huesped} · Reserva #${d.cod_res}`;
+
+    const alojamiento = t.alojamiento > 0
+        ? `<div class="mt-3 flex items-center justify-between gap-3"><span class="text-xs text-slate-500">Saldo pendiente de la reserva</span>${d.puede.alojamiento ? boton('Cobrar alojamiento', 'data-total-cobrar="alojamiento"') : ''}</div>`
+        : '<p class="mt-2 text-xs text-slate-400">Sin saldo pendiente.</p>';
+
+    const experiencias = d.experiencias.length
+        ? d.experiencias.map(e => `<div class="mt-3 flex items-center justify-between gap-3 text-xs">
+            <div class="min-w-0"><p class="font-bold text-slate-700">${esc(e.nombre)}${e.opcion ? ` <span class="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-primary">${esc(e.opcion)}</span>` : ''}</p>
+            <p class="text-slate-500">${esc(e.fecha)} · ${esc(e.estado)} · ${e.monto === null ? 'Sin precio' : cop(e.monto)} · ${esc(e.pago)}</p></div>
+            ${e.cobrable ? boton('Cobrar', `data-total-cobrar="experiencia" data-id-agenda="${e.id}"`) : ''}</div>`).join('')
+        : '<p class="mt-2 text-xs text-slate-400">Sin experiencias vinculadas.</p>';
+
+    const pedidos = d.pedidos.length
+        ? d.pedidos.map(p => `<div class="mt-3 text-xs"><p class="font-bold text-slate-700">Pedido #${p.id} · ${esc(p.estado)}</p>
+            <p class="text-slate-500">${esc(p.resumen)}</p><p class="font-bold ${p.pago === 'Pagado' ? 'text-emerald-600' : 'text-amber-600'}">${cop(p.total)} · ${esc(p.pago)}</p></div>`).join('')
+        : '<p class="mt-2 text-xs text-slate-400">Sin pedidos de room service.</p>';
+    const accionesRoom = (t.room_service > 0 && d.puede.room_service
+        ? `<div class="mt-3">${boton('Cobrar room service', 'data-total-cobrar="room_service"')}</div>` : '')
+        + (d.puede.room_service ? d.folios.map(f => `<button type="button" data-total-factura data-folio="${esc(f)}" class="mr-3 mt-2 text-[11px] font-bold text-primary underline">Ver factura ${esc(f)}</button>`).join('') : '');
+
+    document.getElementById('totalReservaContenido').innerHTML =
+        bloque('Alojamiento', t.alojamiento, alojamiento) +
+        bloque('Experiencias', t.experiencias, experiencias) +
+        bloque('Room service', t.room_service, pedidos + accionesRoom) +
+        `<div class="flex items-center justify-between rounded-xl bg-primary/10 px-4 py-3"><span class="text-sm font-black text-heading">Total por cobrar</span>
+        <span class="text-xl font-black ${t.total > 0 ? 'text-primary' : 'text-emerald-600'}">${cop(t.total)}</span></div>`;
+}
+
+async function verFacturaRoomService(boton) {
+    const ventana = window.open('', '_blank');
+    if (!ventana) { alert('Permite las ventanas emergentes para ver la factura.'); return; }
+    try {
+        const respuesta = await fetch(`../../controladores/room_service.php?accion=factura&folio=${encodeURIComponent(boton.dataset.folio)}`, { headers: { Accept: 'application/json' } });
+        const datos = await respuesta.json();
+        if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) throw new Error(datos.mensaje || 'No se pudo cargar la factura');
+        imprimirFacturaReserva(datos.factura, ventana);
+    } catch (e) {
+        ventana.close();
+        alert(e.message);
+    }
+}
+
+async function cobrarDesdeModalTotal(boton) {
+    const detalle = totalReservaActual;
+    if (!detalle) return;
+    const error = document.getElementById('totalReservaError');
+    const metodo = document.getElementById('totalReservaMetodo').value;
+    const tipo = boton.dataset.totalCobrar;
     error.classList.add('hidden');
 
-    // La ventana se abre dentro del clic para que el navegador no bloquee la impresión de la factura.
-    const ventanaFactura = window.open('', '_blank');
-    if (!ventanaFactura) {
+    // La ventana se abre dentro del clic para que el navegador no bloquee la factura.
+    const ventana = window.open('', '_blank');
+    if (!ventana) {
         error.textContent = 'Permite las ventanas emergentes para imprimir la factura.';
         error.classList.remove('hidden');
         return;
@@ -401,27 +442,49 @@ async function confirmarCobroRoomService() {
 
     boton.disabled = true;
     try {
-        const respuesta = await fetch('../../controladores/room_service.php', {
-            method: 'POST',
-            headers: { Accept: 'application/json' },
-            body: new URLSearchParams({
-                accion: 'cobrar',
-                cod_res: String(reservaCobroRoomService),
-                metodo_pago: document.getElementById('cobroRoomServiceMetodo').value,
-                csrf_token: CSRF_TOKEN
-            })
-        });
+        let respuesta;
+        if (tipo === 'alojamiento') {
+            respuesta = await fetch('../../controladores/editar_reserva.php', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new URLSearchParams({
+                    accion: 'cobrar', cod_res: String(detalle.cod_res), metodo_pago: metodo,
+                    estado: 'Confirmada', notas: detalle.notas || '', csrf_token: CSRF_TOKEN
+                })
+            });
+        } else if (tipo === 'experiencia') {
+            respuesta = await fetch('../../controladores/gestionar_experiencias.php', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new URLSearchParams({
+                    accion: 'cobrar_experiencia', id_agenda: boton.dataset.idAgenda, metodo_pago: metodo, csrf_token: CSRF_TOKEN
+                })
+            });
+        } else {
+            respuesta = await fetch('../../controladores/room_service.php', {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new URLSearchParams({
+                    accion: 'cobrar', cod_res: String(detalle.cod_res), metodo_pago: metodo, csrf_token: CSRF_TOKEN
+                })
+            });
+        }
         const datos = await respuesta.json();
-        if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
+        const factura = datos.factura || datos.reserva?.factura;
+        if (!respuesta.ok || datos.status !== 'exito' || !factura) {
             throw new Error(datos.mensaje || 'No se pudo registrar el cobro');
         }
-        imprimirFacturaReserva(datos.factura, ventanaFactura);
-        cerrarModalCobroRoomService();
+        imprimirFacturaReserva(factura, ventana);
+
         await refrescarTablaReservas();
+        notificarCambioReservas();
         window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
-    } catch (errorPeticion) {
-        ventanaFactura.close();
-        error.textContent = errorPeticion.message;
+        // Vuelve a pintar el modal con los totales ya actualizados.
+        const nuevo = document.querySelector(`tr[data-reserva-id="${detalle.cod_res}"] [data-detalle-total]`);
+        if (nuevo && totalReservaActual) pintarModalTotalReserva(JSON.parse(nuevo.dataset.detalleTotal));
+    } catch (e) {
+        ventana.close();
+        error.textContent = e.message;
         error.classList.remove('hidden');
         boton.disabled = false;
     }

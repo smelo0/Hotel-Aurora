@@ -5,39 +5,38 @@
             <i class="fas fa-sync-alt mr-2"></i>Recargar Logs
         </button>
     </div>
-    
+
     <!-- Barra de Filtros -->
     <div class="flex flex-wrap gap-4 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <input type="text" id="filtroTexto" placeholder="Buscar mensaje, ID o contexto..." class="flex-1 min-w-[200px] border-slate-300 rounded-lg text-sm p-2 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500">
-        
+        <input type="text" id="filtroTexto" placeholder="Buscar por mensaje o IP..." class="flex-1 min-w-[200px] border-slate-300 rounded-lg text-sm p-2 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500">
+
         <select id="filtroNivel" class="border-slate-300 rounded-lg text-sm p-2 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500">
             <option value="">Todos los niveles</option>
             <option value="INFO">INFO</option>
             <option value="WARNING">WARNING</option>
             <option value="ERROR">ERROR</option>
         </select>
-        
+
         <input type="date" id="filtroFecha" class="border-slate-300 rounded-lg text-sm p-2 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500" title="Filtrar por fecha exacta">
-        
+
         <button onclick="limpiarFiltros()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors">
             Limpiar
         </button>
     </div>
-    
+
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse" id="tablaLogs">
                 <thead>
                     <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
-                        <th class="p-4 font-semibold" width="15%">Fecha / Hora</th>
-                        <th class="p-4 font-semibold" width="10%">Nivel</th>
-                        <th class="p-4 font-semibold" width="10%">IP</th>
-                        <th class="p-4 font-semibold" width="35%">Mensaje</th>
-                        <th class="p-4 font-semibold" width="30%">Contexto</th>
+                        <th class="p-4 font-semibold" width="20%">Fecha / Hora</th>
+                        <th class="p-4 font-semibold" width="12%">Nivel</th>
+                        <th class="p-4 font-semibold" width="15%">IP</th>
+                        <th class="p-4 font-semibold" width="53%">Mensaje</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm divide-y divide-slate-100 text-slate-700">
-                    <tr><td colspan="5" class="p-8 text-center text-slate-500">Haz clic en la sección para cargar los logs...</td></tr>
+                    <tr><td colspan="4" class="p-8 text-center text-slate-500">Haz clic en la sección para cargar los logs...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -45,14 +44,13 @@
 </section>
 
 <script>
-let todosLosLogs = []; 
+let todosLosLogs = [];
 
 async function cargarLogs() {
     const tbody = document.querySelector('#tablaLogs tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando eventos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando eventos...</td></tr>';
 
     try {
-        // Ajusta esta ruta si es necesario dependiendo de dónde se encuentre tu archivo principal de vistas respecto a 'includes'
         const respuesta = await fetch('../../includes/obtener_logs.php');
         const resultado = await respuesta.json();
 
@@ -62,7 +60,7 @@ async function cargarLogs() {
         }
 
         todosLosLogs = resultado.data;
-        aplicarFiltros(); 
+        aplicarFiltros();
 
     } catch (error) {
         console.error('Error de red:', error);
@@ -74,7 +72,7 @@ function mostrarEstadoLogs(mensaje, clases) {
     const tbody = document.querySelector('#tablaLogs tbody');
     const fila = document.createElement('tr');
     const celda = document.createElement('td');
-    celda.colSpan = 5;
+    celda.colSpan = 4;
     celda.className = clases;
     celda.textContent = mensaje;
     fila.appendChild(celda);
@@ -83,19 +81,19 @@ function mostrarEstadoLogs(mensaje, clases) {
 
 function renderizarTabla(logs) {
     const tbody = document.querySelector('#tablaLogs tbody');
-    
+
     if (logs.length === 0) {
         mostrarEstadoLogs('No hay eventos que coincidan con la búsqueda.', 'p-8 text-center text-slate-500');
         return;
     }
 
     const filas = [];
-    
+
     logs.forEach(log => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition-colors';
-        
-        let colorBadge = 'bg-blue-100 text-blue-800'; 
+
+        let colorBadge = 'bg-blue-100 text-blue-800';
         if (log.level === 'WARNING') colorBadge = 'bg-yellow-100 text-yellow-800';
         if (log.level === 'ERROR') colorBadge = 'bg-red-100 text-red-800';
 
@@ -118,21 +116,7 @@ function renderizarTabla(logs) {
         celdaMensaje.className = 'p-4 font-medium text-slate-800';
         celdaMensaje.textContent = log.message ?? '';
 
-        const celdaContexto = document.createElement('td');
-        celdaContexto.className = 'p-4';
-        if (log.context && Object.keys(log.context).length > 0) {
-            const contexto = document.createElement('pre');
-            contexto.className = 'text-xs bg-slate-100 p-2 rounded text-slate-600 whitespace-pre-wrap break-all';
-            contexto.textContent = JSON.stringify(log.context, null, 2);
-            celdaContexto.appendChild(contexto);
-        } else {
-            const sinDatos = document.createElement('span');
-            sinDatos.className = 'text-slate-400 italic';
-            sinDatos.textContent = 'Sin datos extra';
-            celdaContexto.appendChild(sinDatos);
-        }
-
-        tr.append(celdaFecha, celdaNivel, celdaIp, celdaMensaje, celdaContexto);
+        tr.append(celdaFecha, celdaNivel, celdaIp, celdaMensaje);
         filas.push(tr);
     });
 
@@ -145,14 +129,12 @@ function aplicarFiltros() {
     const fecha = document.getElementById('filtroFecha').value;
 
     const logsFiltrados = todosLosLogs.filter(log => {
-        const contextoString = JSON.stringify(log.context || {}).toLowerCase();
-        const coincideTexto = texto === '' || 
-                              log.message.toLowerCase().includes(texto) || 
-                              log.ip.toLowerCase().includes(texto) || 
-                              contextoString.includes(texto);
-        
+        const coincideTexto = texto === '' ||
+                              (log.message ?? '').toLowerCase().includes(texto) ||
+                              (log.ip ?? '').toLowerCase().includes(texto);
+
         const coincideNivel = nivel === '' || log.level === nivel;
-        const coincideFecha = fecha === '' || log.timestamp.startsWith(fecha);
+        const coincideFecha = fecha === '' || (log.timestamp ?? '').startsWith(fecha);
 
         return coincideTexto && coincideNivel && coincideFecha;
     });
@@ -167,11 +149,7 @@ function limpiarFiltros() {
     aplicarFiltros();
 }
 
-// Vincular los filtros en tiempo real
 document.getElementById('filtroTexto').addEventListener('input', aplicarFiltros);
 document.getElementById('filtroNivel').addEventListener('change', aplicarFiltros);
 document.getElementById('filtroFecha').addEventListener('change', aplicarFiltros);
-
-// Opcional: Si quieres que cargue automáticamente al abrir la sección, 
-// puedes llamar a cargarLogs() o dispararlo al hacer clic en el botón de la sidebar.
 </script>

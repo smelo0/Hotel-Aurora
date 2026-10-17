@@ -31,6 +31,7 @@ use App\RoomService\RoomServiceSchemaMigrator;
 header('Content-Type: application/json; charset=utf-8');
 
 RoomServiceSchemaMigrator::asegurar($conexion);
+\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 function rs_responder(int $status, string $mensaje, array $datos = []): never
