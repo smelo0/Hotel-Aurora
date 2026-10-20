@@ -46,7 +46,7 @@ final class AdminReservationRepository
                         ORDER BY h.num_hab ASC SEPARATOR '||'
                     ) AS habitaciones,
                     COALESCE(
-                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente' AND pg.concepto = 'alojamiento'),
+                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
                         GREATEST(
                             COALESCE((
                                 SELECT SUM(COALESCE(NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))
@@ -54,7 +54,7 @@ final class AdminReservationRepository
                                 INNER JOIN habitacion h2 ON h2.cod_hab = d2.cod_hab_det
                                 WHERE d2.cod_res_det = r.cod_res
                             ), 0) * DATEDIFF(r.fec_sal_res, r.fec_ent_res) * 1.19
-                            - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado' AND pg2.concepto = 'alojamiento'), 0),
+                            - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
                             0
                         )
                     ) AS saldo_pendiente
@@ -72,23 +72,32 @@ final class AdminReservationRepository
         $experienciasPorReserva = [];
         $codigosReservas = array_filter(array_map(static fn($reserva): int => is_array($reserva) ? (int) ($reserva['cod_res'] ?? 0) : 0, $reservas));
         
+        // Una experiencia aparece en una reserva si está vinculada a ella (cod_res_agenda) o si es del
+        // mismo huésped y su fecha cae dentro de la estancia, incluido el día de salida. Antes solo se
+        // miraba el vínculo, y una experiencia vinculada a otra reserva del huésped (p. ej. la que empieza
+        // el día de salida de la anterior) no se veía en la fila que el administrador estaba revisando.
         $experiencias = $codigosReservas === [] ? [] : $this->obtenerFilas(
-            "SELECT id_agenda, cod_res_agenda, actividad, opcion_actividad, fecha_agenda, hora_agenda,
-                    estado_agenda, estado_pago_experiencia, monto_experiencia
-             FROM agenda_actividad
-             WHERE cod_res_agenda IN (" . implode(',', array_fill(0, count($codigosReservas), '?')) . ")
-             ORDER BY fecha_agenda, hora_agenda, id_agenda",
+            "SELECT r.cod_res AS cod_res_fila, a.id_agenda, a.cod_res_agenda, a.actividad, a.fecha_agenda, a.hora_agenda,
+                    a.estado_agenda, a.estado_pago_experiencia, a.monto_experiencia
+             FROM reservas r
+             INNER JOIN agenda_actividad a
+                ON a.cod_res_agenda = r.cod_res
+                OR (
+                    a.id_usu_agenda = r.id_usu_res
+                    AND a.fecha_agenda IS NOT NULL
+                    AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                    AND LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado')
+                )
+             WHERE r.cod_res IN (" . implode(',', array_fill(0, count($codigosReservas), '?')) . ")
+             ORDER BY a.fecha_agenda, a.hora_agenda, a.id_agenda",
             str_repeat('i', count($codigosReservas)),
             array_values($codigosReservas)
         );
         foreach ($experiencias as $experiencia) {
-            if (is_array($experiencia) && isset($experiencia['cod_res_agenda'])) {
-                $experienciasPorReserva[(int) $experiencia['cod_res_agenda']][] = $experiencia;
+            if (is_array($experiencia) && isset($experiencia['cod_res_fila'])) {
+                $experienciasPorReserva[(int) $experiencia['cod_res_fila']][] = $experiencia;
             }
         }
-
-        $roomServicePorReserva = $this->obtenerRoomServicePorReserva($codigosReservas);
-        $totalesPorReserva = $this->calcularTotalesPorReserva($reservas, $experienciasPorReserva, $roomServicePorReserva);
 
         $huespedes = $this->obtenerFilas(
             'SELECT id_usu, nom_usu, corr_usu FROM usuario
@@ -103,8 +112,6 @@ final class AdminReservationRepository
         return [
             'reservas' => $reservas,
             'experiencias_por_reserva' => $experienciasPorReserva,
-            'room_service_por_reserva' => $roomServicePorReserva,
-            'totales_por_reserva' => $totalesPorReserva,
             'huespedes' => $huespedes,
             'habitaciones_disponibles' => $habitaciones,
             'paginacion' => [
@@ -117,62 +124,6 @@ final class AdminReservationRepository
                 'busqueda' => $search,
             ],
         ];
-    }
-
-    /** Pedidos de room service agrupados por reserva (vacío si el módulo aún no está instalado). */
-    private function obtenerRoomServicePorReserva(array $codigosReservas): array
-    {
-        if ($codigosReservas === []) {
-            return [];
-        }
-        try {
-            if (!class_exists(\App\RoomService\RoomServiceRepository::class)) {
-                require_once __DIR__ . '/../RoomService/RoomServiceRepository.php';
-            }
-            return (new \App\RoomService\RoomServiceRepository($this->connection))
-                ->resumenPorReservas(array_values($codigosReservas));
-        } catch (\Throwable $e) {
-            return [];
-        }
-    }
-
-    /**
-     * Lo que el huésped debe por reserva, desglosado:
-     *  - alojamiento: saldo pendiente (solo mientras la reserva está Pendiente, igual que el cobro de recepción)
-     *  - experiencias: programadas, con precio, sin cancelar y sin pagar
-     *  - room service: pedidos no cancelados y sin pagar
-     */
-    private function calcularTotalesPorReserva(array $reservas, array $experienciasPorReserva, array $roomServicePorReserva): array
-    {
-        $totales = [];
-        foreach ($reservas as $reserva) {
-            $codigo = (int) ($reserva['cod_res'] ?? 0);
-            if ($codigo < 1) {
-                continue;
-            }
-            $alojamiento = ($reserva['est_res'] ?? '') === 'Pendiente'
-                ? round((float) ($reserva['saldo_pendiente'] ?? 0), 2)
-                : 0.0;
-
-            $experiencias = 0.0;
-            foreach ($experienciasPorReserva[$codigo] ?? [] as $experiencia) {
-                $monto = $experiencia['monto_experiencia'] ?? null;
-                if ($monto !== null && (float) $monto > 0
-                    && ($experiencia['estado_pago_experiencia'] ?? 'Pendiente') === 'Pendiente'
-                    && ($experiencia['estado_agenda'] ?? '') !== 'Cancelada') {
-                    $experiencias += (float) $monto;
-                }
-            }
-
-            $roomService = round((float) ($roomServicePorReserva[$codigo]['pendiente'] ?? 0), 2);
-            $totales[$codigo] = [
-                'alojamiento' => $alojamiento,
-                'experiencias' => round($experiencias, 2),
-                'room_service' => $roomService,
-                'total' => round($alojamiento + $experiencias + $roomService, 2),
-            ];
-        }
-        return $totales;
     }
 
     private function obtenerFilas(string $sql, string $types = '', array $params = []): array
@@ -219,8 +170,6 @@ final class AdminReservationRepository
         return [
             'reservas' => [],
             'experiencias_por_reserva' => [],
-            'room_service_por_reserva' => [],
-            'totales_por_reserva' => [],
             'huespedes' => [],
             'habitaciones_disponibles' => [],
             'paginacion' => [

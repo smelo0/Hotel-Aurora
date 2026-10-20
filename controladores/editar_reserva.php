@@ -2,12 +2,10 @@
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/permiso.php';
-require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 
 // Incluimos Composer y la clase Logger
 require_once __DIR__ . '/../vendor/autoload.php';
 use App\Logger;
-use App\Billing\BillingRegistrar;
 
 /**
  * Noches de una estancia contando solo las fechas (ignora la hora).
@@ -26,7 +24,6 @@ if (!function_exists('calcularNochesEstancia')) {
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 exigir_permiso($conexion, 'reservas.editar');
-BillingRegistrar::asegurarEsquema($conexion);
 
 // Obtenemos el ID del usuario actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
@@ -78,22 +75,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('reserva_no_encontrada');
         }
 
-        if ($accion === 'cobrar' && $reservaActual['est_res'] !== 'Pendiente') {
-            throw new RuntimeException('reserva_no_pendiente');
+        // Se puede cobrar mientras la reserva no esté cancelada: así también se registra el saldo
+        // restante de una reserva ya confirmada (p. ej. pagó 50 % por adelantado) o en curso.
+        if ($accion === 'cobrar' && $reservaActual['est_res'] === 'Cancelada') {
+            throw new RuntimeException('reserva_cancelada');
         }
 
         // Las habitaciones de las nuevas reservas se asignan automáticamente por tipo/cantidad.
         // No se permite que la edición convierta una reserva múltiple en una sola habitación.
         $hab_final = null;
 
-        $estadoFinal = $accion === 'cobrar' ? 'Confirmada' : $estadoSolicitado;
+        $estadoFinal = $accion === 'cobrar'
+            ? ($reservaActual['est_res'] === 'Pendiente' ? 'Confirmada' : (string) $reservaActual['est_res'])
+            : $estadoSolicitado;
         if (
             $accion === 'guardar'
             && $estadoFinal === 'Confirmada'
             && $reservaActual['est_res'] !== 'Confirmada'
         ) {
             $stmtPagoAprobado = $conexion->prepare(
-                "SELECT 1 FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' AND concepto = 'alojamiento' LIMIT 1"
+                "SELECT 1 FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' LIMIT 1"
             );
             $stmtPagoAprobado->bind_param('i', $cod_res);
             $stmtPagoAprobado->execute();
@@ -108,7 +109,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $factura = null;
         if ($accion === 'cobrar') {
             $pagosPendientes = $conexion->prepare(
-                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto = 'alojamiento' FOR UPDATE"
+                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' FOR UPDATE"
             );
             $pagosPendientes->bind_param('i', $cod_res);
             $pagosPendientes->execute();
@@ -123,7 +124,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             if ($montoCobrado <= 0) {
                 $stmtPagosAprobados = $conexion->prepare(
-                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado' AND concepto = 'alojamiento'"
+                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado'"
                 );
                 $stmtPagosAprobados->bind_param('i', $cod_res);
                 $stmtPagosAprobados->execute();
@@ -153,7 +154,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($idsPagosPendientes !== []) {
                 $stmtActualizarPagos = $conexion->prepare(
                     "UPDATE pagos SET metodo_pago = ?, estado_pago = 'Aprobado', fecha_pago = CURRENT_TIMESTAMP
-                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto = 'alojamiento'"
+                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente'"
                 );
                 $stmtActualizarPagos->bind_param('si', $metodoPago, $cod_res);
                 $stmtActualizarPagos->execute();
@@ -232,8 +233,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'metodo_pago' => $metodoPago,
                 'monto' => $montoCobrado,
             ];
-            // Queda registrada en la tabla `factura` junto con el pago de `pagos`.
-            BillingRegistrar::registrarFactura($conexion, $factura['folio'], 'alojamiento', $cod_res, (float) $montoCobrado, $metodoPago, $factura);
+        }
+
+        if ($factura !== null) {
+            $folioFactura = (string) $factura['folio'];
+            $totalFactura = (float) $factura['monto'];
+            $codReservaFactura = (int) $factura['cod_reserva'];
+            $detalleFactura = json_encode($factura, JSON_UNESCAPED_UNICODE);
+            $stmtFactura = $conexion->prepare(
+                "INSERT INTO factura (tot_fac, est_fac, cod_res_fac, folio, tipo_fac, metodo_pago_fac, detalle_fac)
+                 VALUES (?, 'Pagada', ?, ?, 'alojamiento', ?, ?)"
+            );
+            $stmtFactura->bind_param('disss', $totalFactura, $codReservaFactura, $folioFactura, $metodoPago, $detalleFactura);
+            $stmtFactura->execute();
+            $stmtFactura->close();
         }
 
         $conexion->commit();
@@ -290,7 +303,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $mensajes = [
             'datos_invalidos' => 'Los datos enviados para la reserva no son válidos.',
             'reserva_no_encontrada' => 'No se encontró la reserva seleccionada.',
-            'reserva_no_pendiente' => 'Solo se puede cobrar una reserva pendiente.',
+            'reserva_cancelada' => 'No se puede cobrar una reserva cancelada.',
             'metodo_pago_invalido' => 'Selecciona un método de pago válido.',
             'estado_invalido' => 'Selecciona un estado válido.',
             'habitacion_invalida' => 'La habitación indicada no es válida.',

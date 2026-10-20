@@ -158,8 +158,9 @@ final class RoomServiceRepository
     // ------------------------------------------------------------------
 
     /**
-     * Habitaciones donde el huésped puede pedir ahora: reserva Confirmada o En Casa,
-     * ya iniciada y que todavía no termina.
+     * Habitaciones donde el huésped puede pedir ahora: reserva Pendiente (paga al llegar o al final),
+     * Confirmada o En Casa, ya iniciada y que todavía no termina. El pago del alojamiento
+     * no es requisito: el room service se cobra aparte desde Reservas.
      */
     public function habitacionesEnEstancia(int $userId): array
     {
@@ -169,7 +170,7 @@ final class RoomServiceRepository
              INNER JOIN detalle d ON d.cod_res_det = r.cod_res
              INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
              WHERE r.id_usu_res = ?
-               AND r.est_res IN ('Confirmada', 'En Casa')
+               AND r.est_res IN ('Pendiente', 'Confirmada', 'En Casa')
                AND DATE(r.fec_ent_res) <= CURDATE()
                AND r.fec_sal_res > NOW()
              ORDER BY (r.est_res = 'En Casa') DESC, r.fec_ent_res DESC, h.num_hab ASC",

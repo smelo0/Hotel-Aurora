@@ -150,7 +150,7 @@ try {
             $pedido = $repo->crearPedido($idCliente, $lineas, $codHab, $notas);
         } catch (RuntimeException $error) {
             $mensajes = [
-                'sin_estancia' => 'El room service está disponible durante tu estancia, en una habitación con reserva confirmada.',
+                'sin_estancia' => 'El room service está disponible durante tu estancia, en una habitación con reserva vigente (no necesitas haber pagado antes).',
                 'item_no_disponible' => 'Alguno de los artículos ya no está disponible. Actualiza el catálogo e inténtalo de nuevo.',
                 'carrito_invalido' => 'Revisa tu pedido: elige al menos un artículo.',
                 'demasiados_pedidos' => 'Ya tienes varios pedidos en curso. Espera a que lleguen para hacer otro.',

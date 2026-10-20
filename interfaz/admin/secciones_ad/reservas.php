@@ -57,7 +57,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
     <div class="bg-white rounded-xl p-8 border border-primary/10 shadow-sm">
         <div class="flex justify-between items-end mb-8">
             <div>
-                <h3 class="text-2xl font-black text-primary tracking-tight">Gestion de Reservas</h3>
+                <h3 class="text-2xl font-black text-primary tracking-tight">Gestión de Reservas</h3>
                 <p class="text-xs text-slate-400 mt-1">Directorio de ingresos y salidas.</p>
             </div>
 
@@ -81,11 +81,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
                 <tr>
                     <th class="p-4">Huésped</th>
-                    <th class="p-4">Habitacion</th>
+                    <th class="p-4">Habitación</th>
                     <th class="p-4">Fechas</th>
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
-                    <th class="p-4">Total y cobro</th>
+                    <th class="p-4">Experiencias y cobros</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
@@ -98,16 +98,64 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     $busquedaReservas
                 );
                 $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'] ?? [];
+                $reservasAdmin = $datosReservasAdmin['reservas'] ?? [];
+
+                // CONSULTA DIRECTA Y ADAPTABLE DE ROOM SERVICE POR RESERVA Y NÚMERO DE HABITACIÓN
+                $roomServicePorReserva = [];
+                if (!empty($reservasAdmin)) {
+                    foreach ($reservasAdmin as $reserva) {
+                        $idRes = (int) ($reserva['cod_res'] ?? 0);
+                        if ($idRes <= 0) continue;
+
+                        // Extraer los números de habitación de la cadena devuelta por el repositorio
+                        $numsHabitaciones = [];
+                        foreach (explode('||', (string) ($reserva['habitaciones'] ?? '')) as $hItem) {
+                            $hItem = trim($hItem);
+                            if ($hItem === '') continue;
+                            $partesH = explode(' · ', $hItem, 2);
+                            $numH = trim($partesH[0]);
+                            if ($numH !== '') {
+                                $numsHabitaciones[] = $conexion->real_escape_string($numH);
+                            }
+                        }
+
+                        // Construir filtros flexibles para la tabla de room service
+                        $condiciones = ["p.cod_res = $idRes"];
+                        if (!empty($numsHabitaciones)) {
+                            $listaHabStr = "'" . implode("','", $numsHabitaciones) . "'";
+                            $condiciones[] = "p.num_hab IN ($listaHabStr)";
+                        }
+                        $whereClausula = implode(' OR ', $condiciones);
+
+                        $sqlRs = "SELECT p.*, GROUP_CONCAT(CONCAT(i.cantidad, 'x ', item.nombre) SEPARATOR ', ') as resumen_items 
+                                  FROM pedidos_room_service p 
+                                  LEFT JOIN items_pedido_room_service i ON p.id_pedido = i.id_pedido
+                                  LEFT JOIN catalogoroomservice item ON i.id_item = item.id
+                                  WHERE ($whereClausula)
+                                  GROUP BY p.id_pedido 
+                                  ORDER BY p.id_pedido DESC";
+                        try {
+                            $resRs = $conexion->query($sqlRs);
+                            if ($resRs) {
+                                while ($rowRs = $resRs->fetch_assoc()) {
+                                    $roomServicePorReserva[$idRes][] = [
+                                        'id_pedido' => $rowRs['id_pedido'] ?? '',
+                                        'resumen'   => $rowRs['resumen_items'] ?? 'Consumo Room Service',
+                                        'monto'     => (float) ($rowRs['total'] ?? 0),
+                                        'estado'    => $rowRs['estado'] ?? 'Entregado',
+                                        'pago'      => $rowRs['estado_pago'] ?? 'Pendiente'
+                                    ];
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            // En caso de discrepancia menor en la estructura
+                        }
+                    }
+                }
+
                 $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
                     && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
-                $roomServicePorReserva = $datosReservasAdmin['room_service_por_reserva'] ?? [];
-                $totalesPorReserva = $datosReservasAdmin['totales_por_reserva'] ?? [];
-                $puedeCobrarAlojamientoReserva = usuario_tiene_permiso($conexion, 'reservas.editar')
-                    && usuario_tiene_permiso($conexion, 'finanzas.ver');
-                $puedeCobrarRoomService = usuario_tiene_permiso($conexion, 'roomservice.gestionar')
-                    && usuario_tiene_permiso($conexion, 'finanzas.ver');
-                $formatearCopReserva = static fn($valor): string => '$' . number_format((float) $valor, 0, ',', '.');
-                $reservasAdmin = $datosReservasAdmin['reservas'] ?? [];
+                
                 $paginacionReservas = $datosReservasAdmin['paginacion'] ?? [
                     'pagina' => 1,
                     'paginas' => 1,
@@ -137,7 +185,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         if ($estado === 'En Casa') $color_clase = 'bg-blue-100 text-blue-700';
                         if ($estado === 'Cancelada') $color_clase = 'bg-red-100 text-red-700';
 
-                        // Habitaciones asignadas: el repositorio devuelve "num · tipo" separadas por '||'
                         $habitacionesAsignadas = [];
                         foreach (explode('||', (string) ($reserva['habitaciones'] ?? '')) as $habitacionItem) {
                             $habitacionItem = trim($habitacionItem);
@@ -148,12 +195,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 'tipo' => trim($partesHabitacion[1] ?? ''),
                             ];
                         }
-                        $habitacion = $habitacionesAsignadas === []
-                            ? 'Sin asignar'
-                            : implode(', ', array_map(
-                                static fn(array $h): string => 'Habitación ' . $h['numero'] . ($h['tipo'] !== '' ? ' · ' . $h['tipo'] : ''),
-                                $habitacionesAsignadas
-                            ));
                         $habitacionesHtml = '';
                         foreach ($habitacionesAsignadas as $h) {
                             $habitacionesHtml .= '<div class="leading-tight"><span class="block">Habitación '
@@ -178,71 +219,59 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
                         $id_reserva = (int) ($reserva['cod_res'] ?? 0);
                         $notas_seguras = htmlspecialchars($notas_db, ENT_QUOTES, 'UTF-8');
-                        $hab_segura = htmlspecialchars($habitacion, ENT_QUOTES, 'UTF-8');
+                        $hab_segura = htmlspecialchars(is_array($habitacionesAsignadas) ? implode(', ', array_column($habitacionesAsignadas, 'numero')) : '', ENT_QUOTES, 'UTF-8');
                         $saldo_pendiente = number_format((float) ($reserva['saldo_pendiente'] ?? 0), 2, '.', '');
-                        // Detalle para el modal "Total y cobro" (alojamiento + experiencias + room service)
-                        $totalReserva = $totalesPorReserva[$id_reserva] ?? ['alojamiento' => 0, 'experiencias' => 0, 'room_service' => 0, 'total' => 0];
-                        $resumenRoomService = $roomServicePorReserva[$id_reserva] ?? ['pedidos' => [], 'pendiente' => 0, 'cantidad_pendiente' => 0];
+                        $experienciasTabla = '';
+
+                        foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
+                            $idAgenda = (int) ($experienciaReserva['id_agenda'] ?? 0);
+                            $nombreExperiencia = htmlspecialchars((string) ($experienciaReserva['actividad'] ?? ''), ENT_QUOTES, 'UTF-8');
+                            $fechaExperiencia = htmlspecialchars(
+                                date('d M Y', strtotime((string) ($experienciaReserva['fecha_agenda'] ?? 'now'))) . ' · ' . substr((string) ($experienciaReserva['hora_agenda'] ?? '00:00'), 0, 5),
+                                ENT_QUOTES,
+                                'UTF-8'
+                            );
+                            $estadoExperiencia = htmlspecialchars((string) (($experienciaReserva['estado_agenda'] ?? '') ?: 'Pendiente'), ENT_QUOTES, 'UTF-8');
+                            $estadoPagoExperiencia = (string) ($experienciaReserva['estado_pago_experiencia'] ?? 'Pendiente');
+                            $reservaVinculadaExperiencia = (int) ($experienciaReserva['cod_res_agenda'] ?? 0);
+                            $notaVinculoExperiencia = $reservaVinculadaExperiencia !== $id_reserva
+                                ? '<p class="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">'
+                                    . ($reservaVinculadaExperiencia > 0 ? 'Vinculada a la reserva #' . $reservaVinculadaExperiencia : 'Sin reserva vinculada')
+                                    . '</p>'
+                                : '';
+                            $montoExperiencia = ($experienciaReserva['monto_experiencia'] ?? null) === null
+                                ? 'Sin precio'
+                                : '$' . number_format((float) $experienciaReserva['monto_experiencia'], 0, ',', '.');
+                            $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
+                                . '<p class="font-black text-slate-700">' . $nombreExperiencia . '</p>'
+                                . '<p class="mt-1 text-xs text-slate-500">' . $fechaExperiencia . ' · ' . $estadoExperiencia . '</p>'
+                                . $notaVinculoExperiencia
+                                . '<p class="mt-1 text-xs font-bold text-slate-600">Experiencia: ' . htmlspecialchars($montoExperiencia, ENT_QUOTES, 'UTF-8')
+                                . ' · Pago: ' . htmlspecialchars($estadoPagoExperiencia, ENT_QUOTES, 'UTF-8') . '</p>';
+                            if ($puedeCobrarExperienciasReserva && $estadoPagoExperiencia === 'Pendiente'
+                                && ($experienciaReserva['monto_experiencia'] ?? null) !== null
+                                && (float) $experienciaReserva['monto_experiencia'] > 0
+                                && $estadoExperiencia !== 'Cancelada') {$experienciasTabla .= '<div class="mt-2 flex flex-wrap items-center gap-2">'
+                                    . '<select data-metodo-pago-experiencia class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold">'
+                                    . '<option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option></select>'
+                                    . '<button type="button" data-cobrar-experiencia-reserva data-id-agenda="' . $idAgenda . '" class="ui-action rounded-md bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-heading">Cobrar y facturar</button>'
+                                    . '</div><p data-error-cobro-experiencia class="mt-1 hidden text-xs text-rose-600"></p>';
+                            }
+                            $experienciasTabla .= '</div>';
+                        }
+                        if ($experienciasTabla === '') {$experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias vinculadas</span>';
+                        }
+
                         $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
 
-                        $experienciasDetalle = [];
-                        foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
-                            $montoExperiencia = ($experienciaReserva['monto_experiencia'] ?? null) === null ? null : (float) $experienciaReserva['monto_experiencia'];
-                            $estadoExperiencia = (string) (($experienciaReserva['estado_agenda'] ?? '') ?: 'Pendiente');
-                            $estadoPagoExperiencia = (string) ($experienciaReserva['estado_pago_experiencia'] ?? 'Pendiente');
-                            $experienciasDetalle[] = [
-                                'id' => (int) ($experienciaReserva['id_agenda'] ?? 0),
-                                'nombre' => (string) ($experienciaReserva['actividad'] ?? ''),
-                                'opcion' => (string) ($experienciaReserva['opcion_actividad'] ?? ''),
-                                'fecha' => date('d M Y', strtotime((string) ($experienciaReserva['fecha_agenda'] ?? 'now'))) . ' · ' . substr((string) ($experienciaReserva['hora_agenda'] ?? '00:00'), 0, 5),
-                                'estado' => $estadoExperiencia,
-                                'monto' => $montoExperiencia,
-                                'pago' => $estadoPagoExperiencia,
-                                'cobrable' => $puedeCobrarExperienciasReserva && $estadoPagoExperiencia === 'Pendiente'
-                                    && $montoExperiencia !== null && $montoExperiencia > 0 && $estadoExperiencia !== 'Cancelada',
-                            ];
-                        }
-
-                        $pedidosDetalle = [];
-                        $foliosRoomService = [];
-                        foreach ($resumenRoomService['pedidos'] as $pedidoRoomService) {
-                            if ($pedidoRoomService['estado'] === 'Cancelado') {
-                                continue;
-                            }
-                            $pedidosDetalle[] = [
-                                'id' => (int) $pedidoRoomService['id_pedido'],
-                                'estado' => (string) $pedidoRoomService['estado'],
-                                'pago' => (string) $pedidoRoomService['estado_pago'],
-                                'total' => (float) $pedidoRoomService['total'],
-                                'resumen' => (string) $pedidoRoomService['resumen'],
-                            ];
-                            if ($pedidoRoomService['estado_pago'] === 'Pagado' && !empty($pedidoRoomService['folio'])) {
-                                $foliosRoomService[$pedidoRoomService['folio']] = true;
-                            }
-                        }
-
-                        $detalleCobro = [
-                            'cod_res' => $id_reserva,
-                            'huesped' => (string) ($reserva['nom_usu'] ?? 'Huésped'),
-                            'estado' => (string) $estado,
-                            'notas' => (string) $notas_db,
-                            'totales' => $totalReserva,
-                            'puede' => [
-                                'alojamiento' => $puedeCobrarAlojamientoReserva,
-                                'room_service' => $puedeCobrarRoomService,
-                            ],
-                            'experiencias' => $experienciasDetalle,
-                            'pedidos' => $pedidosDetalle,
-                            'folios' => array_keys($foliosRoomService),
-                        ];
-                        $totalNumerico = (float) $totalReserva['total'];
-                        $celdaTotal = '<div class="w-44">'
-                            . '<p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total por cobrar</p>'
-                            . '<p class="text-lg font-black ' . ($totalNumerico > 0 ? 'text-primary' : 'text-emerald-600') . '">' . $formatearCopReserva($totalNumerico) . '</p>'
-                            . ($totalNumerico > 0 ? '' : '<p class="text-[11px] font-bold text-emerald-600">Al día</p>')
-                            . '<button type="button" data-detalle-total="' . htmlspecialchars(json_encode($detalleCobro, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES, 'UTF-8') . '" '
-                            . 'class="ui-action mt-2 w-full rounded-md border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary hover:text-white">'
-                            . ($totalNumerico > 0 ? 'Ver y cobrar' : 'Ver detalle') . '</button></div>';
+                        // Inyección segura del JSON con room_service mapeado
+                        $detallesJson = htmlspecialchars(json_encode([
+                            'id' => $id_reserva,
+                            'huesped' => $nombreUsuario,
+                            'saldo_alojamiento' => (float) ($reserva['saldo_pendiente'] ?? 0),
+                            'experiencias' => $experienciasPorReserva[$id_reserva] ?? [],
+                            'room_service' => $roomServicePorReserva[$id_reserva] ?? []
+                        ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
 
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
                         echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . $nombreUsuario . '</td>';
@@ -253,9 +282,9 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '<td class="py-5 px-4 align-middle text-slate-500"><div class="flex items-center gap-2 text-xs font-bold"><span>' . htmlspecialchars($fecha_in, ENT_QUOTES, 'UTF-8') . '</span><span class="material-symbols-outlined text-[15px] text-slate-300">arrow_forward</span><span>' . htmlspecialchars($fecha_out, ENT_QUOTES, 'UTF-8') . '</span></div></td>';
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
-                        echo '<td class="py-5 px-4 align-middle">' . $celdaTotal . '</td>';
+                        echo '<td class="py-5 px-4 align-middle min-w-64">' . $experienciasTabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
-                        echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
+                        echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\" data-detalles-json=\"$detallesJson\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
                         echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
                         echo '</div>';
                         echo '</td>';
@@ -265,15 +294,16 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
-                $huespedes_reserva = $datosReservasAdmin['huespedes'] ?? [];
-                $habitaciones_disponibles = $datosReservasAdmin['habitaciones_disponibles'] ?? [];
+                $huespedes_reserva =$datosReservasAdmin['huespedes'] ?? [];
+                $habitaciones_disponibles =$datosReservasAdmin['habitaciones_disponibles'] ?? [];
                 ?>
             </tbody>
         </table>
 
+        <!-- Paginación -->
         <div id="reservasPaginacion" class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <p class="text-xs text-slate-500">
-                Mostrando <?php echo (int) $paginacionReservas['desde']; ?>-<?php echo (int) $paginacionReservas['hasta']; ?>
+                Mostrando <?php echo (int) $paginacionReservas['desde']; ?>-<?php echo (int)$paginacionReservas['hasta']; ?>
                 de <?php echo (int) $paginacionReservas['total']; ?> reservas
             </p>
             <nav class="flex items-center gap-2" aria-label="Paginación de reservas">
@@ -286,214 +316,108 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 <?php endif; ?>
             </nav>
         </div>
-        <div id="modalTotalReserva" onclick="cerrarModalTotalReserva(event)" class="modal-rol-backdrop z-[100] flex items-center justify-center modal-oculto transition-all duration-300">
-            <div onclick="event.stopPropagation()" class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-7 shadow-2xl">
-                <div class="mb-5 flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Total y cobro</p>
-                        <h4 id="totalReservaTitulo" class="mt-1 text-xl font-black text-heading"></h4>
-                    </div>
-                    <button type="button" onclick="cerrarModalTotalReserva()" class="text-slate-400 hover:text-red-500" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
-                </div>
-                <div id="totalReservaContenido" class="space-y-3 text-sm"></div>
-                <label for="totalReservaMetodo" class="mb-2 mt-5 block text-[11px] font-semibold text-slate-500">Método de pago</label>
-                <select id="totalReservaMetodo" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                    <option value="Transferencia">Transferencia</option>
-                </select>
-                <p id="totalReservaError" class="mt-3 hidden text-xs font-bold text-rose-600" role="alert"></p>
-            </div>
-        </div>
-        <div id="noResultados" class="hidden text-center py-10 text-slate-400 text-sm font-bold">
-            No se encontraron huéspedes con ese nombre.
-        </div>
     </div>
 
-    <div id="modalReserva" class="modal-reserva-shell hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="modal-reserva-card bg-white rounded-2xl shadow-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto border border-slate-100">
-            <div class="px-7 pt-7 pb-2">
-                <h4 class="font-black text-heading text-xl">Registrar Reserva</h4>
-                <p class="text-[12px] text-slate-400 font-semibold mt-1">Completa el flujo en tres grupos para registrar la estancia.</p>
-            </div>
-
-            <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="px-7 pb-7 space-y-6">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-3">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Huésped</label>
-                    <div id="contenedorBuscadorHuespedReserva" class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">person_search</span>
-                        <input type="search" id="buscadorHuespedReserva" oninput="filtrarHuespedesReservaPremium()" placeholder="Buscar por nombre o correo" class="reserva-field w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold outline-none">
-                    </div>
-                    <input type="hidden" id="tipo_huesped" name="tipo_huesped" required>
-                    <input type="hidden" id="nuevo_nombre_hidden" name="nuevo_nombre" value="">
-                    <input type="hidden" id="nuevo_correo_hidden" name="nuevo_correo" value="">
-                    <div id="huespedSeleccionadoReserva" class="hidden items-center justify-between gap-3 rounded-xl border border-primary/10 bg-primary/5 px-4 py-3">
-                        <div>
-                            <p id="huespedSeleccionadoNombre" class="text-sm font-black text-heading leading-tight"></p>
-                            <p id="huespedSeleccionadoCorreo" class="text-[11px] font-semibold text-slate-400 mt-0.5"></p>
-                        </div>
-                        <button type="button" onclick="limpiarHuespedSeleccionado()" class="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors font-black">×</button>
-                    </div>
-                    <div id="listaHuespedesReserva" class="max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100"></div>
-                    <div class="flex justify-end">
-                        <button type="button" onclick="abrirSubModalNuevoHuesped()" class="ui-action text-primary text-xs font-black tracking-wide px-3 py-2 rounded-lg hover:bg-primary/10">+ Nuevo Huésped</button>
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-4">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Estancia</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[11px] font-semibold text-slate-500 mb-2">Check-in</label>
-                            <input type="date" name="fecha_in" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-semibold text-slate-500 mb-2">Check-out</label>
-                            <input type="date" name="fecha_out" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <label class="block text-[11px] font-semibold text-slate-500 mb-2">Cantidad de Huéspedes</label>
-                        <input type="hidden" id="cantAdultosReserva" name="cant_adultos" value="1">
-                        <input type="hidden" id="cantNinosReserva" name="cant_ninos" value="0">
-                        <button type="button" onclick="togglePopoverHuespedesAdmin()" class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none flex items-center justify-between">
-                            <span id="resumenHuespedesAdmin">1 Adulto, 0 Niños</span>
-                            <span class="material-symbols-outlined text-slate-400 text-[18px]">expand_more</span>
-                        </button>
-                        <div id="popoverHuespedesAdmin" class="hidden absolute left-0 right-0 top-[72px] z-[75] bg-white border border-slate-200 rounded-xl shadow-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-bold text-slate-700">Adultos</span>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" onclick="cambiarHuespedesAdmin('adultos', -1)" class="w-8 h-8 rounded-full border border-slate-200 font-black">-</button>
-                                    <span id="contadorAdultosAdmin" class="w-6 text-center font-black">1</span>
-                                    <button type="button" onclick="cambiarHuespedesAdmin('adultos', 1)" class="w-8 h-8 rounded-full bg-primary text-white font-black">+</button>
-                                </div>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-bold text-slate-700">Niños</span>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" onclick="cambiarHuespedesAdmin('ninos', -1)" class="w-8 h-8 rounded-full border border-slate-200 font-black">-</button>
-                                    <span id="contadorNinosAdmin" class="w-6 text-center font-black">0</span>
-                                    <button type="button" onclick="cambiarHuespedesAdmin('ninos', 1)" class="w-8 h-8 rounded-full bg-primary text-white font-black">+</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-4">
-                    <label class="block text-[11px] font-semibold text-slate-500 tracking-wide">Habitacion</label>
-                    <select name="id_habitacion" id="selectorHabitacionDisponible" required class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-                        <option value="" selected disabled>Seleccionar habitacion disponible...</option>
-                        <?php foreach ($habitaciones_disponibles as$hab): ?>
-                            <?php $precioBase = (float) ($hab['pre_hab'] ?? 0) ?: (float) ($hab['precio_hab'] ?? 0) ?: 0; ?>
-                            <option value="<?php echo (int) ($hab['cod_hab'] ?? 0); ?>" data-price="<?php echo htmlspecialchars((string) $precioBase, ENT_QUOTES, 'UTF-8'); ?>">
-                                Habitacion <?php echo (int) ($hab['num_hab'] ?? 0); ?> - <?php echo htmlspecialchars($hab['tipo_hab'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-
-                    <div class="rounded-xl border border-primary/10 bg-white p-4">
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <p class="text-[11px] font-black uppercase tracking-widest text-slate-500">Total a pagar</p>
-                                <p id="totalReservaPreview" class="mt-1 text-2xl font-black text-primary">$0</p>
-                            </div>
-                            <div class="w-1/2">
-                                <label for="metodoPagoReserva" class="mb-2 block text-[11px] font-semibold text-slate-500">Método de pago al cobrar</label>
-                                <select id="metodoPagoReserva" name="metodo_pago" class="reserva-field w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Tarjeta">Tarjeta</option>
-                                    <option value="Transferencia">Transferencia</option>
-                                </select>
-                            </div>
-                        </div>
-                        <p id="detalleTotalReservaPreview" class="mt-2 text-xs text-slate-400">Selecciona una habitación y las fechas para calcular el total con IVA incluido.</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 mb-2">Peticiones Especiales (Opcional)</label>
-                        <textarea name="notas_reserva" rows="3" placeholder="Ej: alergias, cuna, piso alto..." class="reserva-field w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none resize-none"></textarea>
-                    </div>
-                </div>
-
-                <div class="flex flex-col sm:flex-row gap-3 pt-1">
-                    <button type="button" onclick="cerrarModalReserva()" class="ui-action flex-1 text-slate-500 font-semibold py-3 rounded-xl hover:bg-slate-100">Cancelar</button>
-                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-slate-700">Guardar sin cobrar</button>
-                    <button type="submit" name="accion" value="cobrar" class="ui-action flex-1 bg-primary text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg">Cobrar y generar factura</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="subModalNuevoHuesped" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-[8px]">
-        <div class="bg-white w-full max-w-sm rounded-2xl border border-slate-100 shadow-2xl p-5">
-            <h5 class="text-base font-black text-heading mb-1">Nuevo Huésped</h5>
-            <p class="text-xs text-slate-400 font-semibold mb-4">Registra nombre y correo para continuar.</p>
-            <div class="space-y-3">
-                <input type="text" id="nuevo_nombre" name="nuevo_nombre" placeholder="Nombre completo" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-                <input type="email" id="nuevo_correo" name="nuevo_correo" placeholder="Correo electronico" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none">
-            </div>
-            <div class="flex justify-end gap-2 pt-4">
-                <button type="button" onclick="cerrarSubModalNuevoHuesped()" class="ui-action text-slate-500 font-semibold px-3 py-2 rounded-lg hover:bg-slate-100">Cancelar</button>
-                <button type="button" onclick="confirmarNuevoHuespedEnModal()" class="ui-action bg-primary text-white font-bold px-4 py-2 rounded-lg shadow-sm hover:shadow-md">Usar en reserva</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- MODAL DE EDICIÓN Y COBRO UNIFICADO -->
     <div id="modalEditarReserva" class="modal-editar-reserva-shell hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="modal-editar-reserva-card bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+        <div class="modal-editar-reserva-card bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+            
             <div class="bg-slate-50 px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-                <h4 class="font-black text-heading">Editar Reserva</h4>
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Gestión Financiera de Reserva</p>
+                    <h4 class="font-black text-heading text-xl">Editar Reserva</h4>
+                </div>
+                <button type="button" onclick="cerrarModalEditar()" class="text-slate-400 hover:text-slate-600 text-2xl font-black">&times;</button>
             </div>
 
-            <form id="formEditarReserva" action="../../controladores/editar_reserva.php" method="POST" class="p-6 space-y-4">
+            <form id="formEditarReserva" action="../../controladores/editar_reserva.php" method="POST" class="p-6 space-y-5 overflow-y-auto flex-1">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="cod_res" id="edit_cod_res">
 
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Habitaciones asignadas</label>
-                    <div id="edit_habitacion" class="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600">
-                        Se asignan automáticamente según el tipo y cantidad solicitados.
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase mb-2">Habitaciones asignadas</label>
+                        <div id="edit_habitacion" class="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600">
+                            Cargando...
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-slate-500 uppercase mb-2">Estado de la reserva</label>
+                        <select name="estado" id="edit_estado" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 outline-none">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Confirmada">Confirmada</option>
+                            <option value="En Casa">En Casa</option>
+                            <option value="Cancelada">Cancelada</option>
+                        </select>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase mb-2">Estado</label>
-                    <select name="estado" id="edit_estado" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none">
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Confirmada">Confirmada</option>
-                        <option value="En Casa">En Casa</option>
-                        <option value="Cancelada">Cancelada</option>
-                    </select>
+                <!-- BLOQUES DESGLOSADOS SEPARADOS -->
+                <div class="space-y-3">
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest">Desglose de Consumos y Saldos</label>
+                    
+                    <!-- 1. Alojamiento -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-black text-slate-700 flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-primary">hotel</span> Alojamiento</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Saldo pendiente del hospedaje</p>
+                        </div>
+                        <span id="editDesgloseAlojamientoMonto" class="text-sm font-bold text-slate-800">$0</span>
+                    </div>
+
+                    <!-- 2. Experiencias -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">celebration</span> Experiencias</p>
+                        <div id="editDesgloseExperienciasContainer" class="space-y-1 text-xs text-slate-500">
+                            <span class="italic">Cargando experiencias...</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Room Service -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">room_service</span> Room Service</p>
+                        <div id="editDesgloseRoomServiceContainer" class="space-y-1 text-xs text-slate-500">
+                            <span class="italic">Cargando pedidos de room service...</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Peticiones Especiales</label>
-                    <textarea name="notas" id="edit_notas" rows="3" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-600 outline-none resize-none"></textarea>
+                    <textarea name="notas" id="edit_notas" rows="2" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 outline-none resize-none"></textarea>
                 </div>
 
-                <div id="editPagoControles" class="hidden rounded-xl border border-primary/10 bg-primary/5 p-4">
-                    <label for="edit_metodo_pago" class="mb-2 block text-xs font-black uppercase tracking-widest text-slate-500">Método de pago recibido</label>
-                    <select name="metodo_pago" id="edit_metodo_pago" class="reserva-field w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Transferencia">Transferencia</option>
-                    </select>
-                    <p class="mt-2 text-sm font-black text-primary">Saldo a cobrar: <span id="editMontoCobro">$0</span></p>
-                    <p class="mt-2 text-xs text-slate-500">Al cobrar, se registrará el pago pendiente y la reserva pasará a Confirmada.</p>
+                <!-- CONTROLES DE PAGO GLOBAL -->
+                <div id="editPagoControles" class="rounded-2xl border border-emerald-500/20 bg-emerald-50/50 p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700">Total Global Pendiente</p>
+                            <p class="text-2xl font-black text-emerald-900" id="editMontoCobro">$0</p>
+                        </div>
+                        <div>
+                            <label for="edit_metodo_pago" class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Método de pago</label>
+                            <select name="metodo_pago" id="edit_metodo_pago" class="reserva-field rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Si el cliente ya pagó la reserva desde su casa, el sistema descuenta los abonos previos y solo calcula el remanente pendiente.</p>
                 </div>
 
-                <div class="flex gap-3 pt-4 border-t border-slate-100 mt-6">
-                    <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-lg hover:bg-slate-50">Cancelar</button>
-                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-slate-700">Actualizar reserva</button>
-                    <button type="submit" id="editAccionCobrar" name="accion" value="cobrar" class="hidden ui-action flex-1 bg-primary text-white font-bold py-3 rounded-lg shadow-md hover:bg-heading">Cobrar y confirmar</button>
+                <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-xl hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-slate-700">Actualizar datos</button>
+                    <button type="submit" id="editAccionCobrar" name="accion" value="cobrar" class="ui-action flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-emerald-700 flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">payments</span> Cobrar Todo
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- SCRIPT JAVASCRIPT -->
     <script>
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const huespedesAdminState = { adultos: 1, ninos: 0 };
@@ -529,7 +453,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
         document.getElementById('formCrearReserva')?.querySelectorAll('[name="fecha_in"], [name="fecha_out"], #selectorHabitacionDisponible')
             .forEach(campo => campo.addEventListener('change', actualizarTotalReservaPreview));
-        actualizarTotalReservaPreview();
 
         function confirmarEliminacion(idReserva) {
             if (typeof confirmarEliminacionReservaPremium === 'function') {
@@ -642,14 +565,77 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             const notas = boton.getAttribute('data-notas');
             const saldoPendiente = Number(boton.getAttribute('data-saldo-pendiente') || 0);
 
+            let detalles = {};
+            try {
+                detalles = JSON.parse(boton.getAttribute('data-detalles-json') || '{}');
+            } catch (e) {
+                detalles = {};
+            }
+
             document.getElementById('edit_cod_res').value = id;
             document.getElementById('edit_estado').value = estado;
             document.getElementById('edit_habitacion').textContent = (habitacion === 'Sin asignar') ? 'Sin habitaciones asignadas' : habitacion;
             document.getElementById('edit_notas').value = (notas === 'Ninguna' ? '' : notas);
-            const permiteCobrar = estado === 'Pendiente';
+            
+            document.getElementById('editMontoCobro').textContent = formatoMonedaReserva.format(saldoPendiente);
+            document.getElementById('editDesgloseAlojamientoMonto').textContent = formatoMonedaReserva.format(saldoPendiente);
+
+            // 1. RENDERIZAR EXPERIENCIAS
+            const containerExp = document.getElementById('editDesgloseExperienciasContainer');
+            if (containerExp) {
+                let htmlExp = '';
+                if (detalles.experiencias && detalles.experiencias.length > 0) {
+                    detalles.experiencias.forEach(exp => {
+                        const montoExp = exp.monto_experiencia ? formatoMonedaReserva.format(exp.monto_experiencia) : 'Sin precio';
+                        const estadoPago = exp.estado_pago_experiencia || 'Pendiente';
+                        const clasePago = estadoPago === 'Pagado' ? 'text-emerald-600' : 'text-amber-600';
+                        
+                        htmlExp += `
+                            <div class="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                                <div>
+                                    <p class="font-bold text-slate-700">${exp.actividad || 'Experiencia'}</p>
+                                    <p class="text-[10px] text-slate-400">${exp.fecha_agenda || ''} · <span class="${clasePago} font-bold">${estadoPago}</span></p>
+                                </div>
+                                <span class="font-bold text-slate-700">${montoExp}</span>
+                            </div>`;
+                    });
+                } else {
+                    htmlExp = '<p class="italic text-slate-400 text-xs py-1">Sin experiencias registradas.</p>';
+                }
+                containerExp.innerHTML = htmlExp;
+            }
+
+            // 2. RENDERIZAR ROOM SERVICE
+            const containerRs = document.getElementById('editDesgloseRoomServiceContainer');
+            if (containerRs) {
+                let htmlRs = '';
+                if (detalles.room_service && detalles.room_service.length > 0) {
+                    detalles.room_service.forEach(pedido => {
+                        const montoVal = Number(pedido.monto || 0);
+                        const totalPedido = formatoMonedaReserva.format(montoVal);
+                        const estadoPago = pedido.pago || 'Pendiente';
+                        const clasePago = (estadoPago === 'Pagado' || estadoPago === 'Pagada') ? 'text-emerald-600' : 'text-amber-600';
+                        const resumenPedido = pedido.resumen || `Pedido #${pedido.id_pedido || ''}`;
+                        const estadoEntrega = pedido.estado || 'Entregado';
+
+                        htmlRs += `
+                            <div class="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                                <div>
+                                    <p class="font-bold text-slate-700">Pedido #${pedido.id_pedido} · ${resumenPedido}</p>
+                                    <p class="text-[10px] text-slate-400">Estado: <span class="font-semibold text-slate-600">${estadoEntrega}</span> · Pago: <span class="${clasePago} font-bold">${estadoPago}</span></p>
+                                </div>
+                                <span class="font-bold text-slate-700">${totalPedido}</span>
+                            </div>`;
+                    });
+                } else {
+                    htmlRs = '<p class="italic text-slate-400 text-xs py-1">Sin pedidos de room service registrados.</p>';
+                }
+                containerRs.innerHTML = htmlRs;
+            }
+
+            const permiteCobrar = estado !== 'Cancelada' && saldoPendiente > 0;
             document.getElementById('editPagoControles').classList.toggle('hidden', !permiteCobrar);
             document.getElementById('editAccionCobrar').classList.toggle('hidden', !permiteCobrar);
-            document.getElementById('editMontoCobro').textContent = formatoMonedaReserva.format(saldoPendiente);
 
             const modal = document.getElementById('modalEditarReserva');
             modal.classList.remove('hidden');

@@ -619,7 +619,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         <div id="rsSinEstancia" class="hidden rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
             <span class="material-symbols-outlined text-4xl text-emerald-700">room_service</span>
             <p class="mt-3 text-lg font-black text-slate-800">El room service está disponible durante tu estancia.</p>
-            <p class="mt-2 text-sm text-slate-600">Cuando tengas una reserva confirmada en curso, podrás pedir comidas y objetos para tu habitación desde aquí.</p>
+            <p class="mt-2 text-sm text-slate-600">Cuando tengas una reserva en curso (aunque vayas a pagar al llegar o al final), podrás pedir comidas y objetos para tu habitación desde aquí.</p>
         </div>
 
         <div id="rsContenido" class="grid gap-8 lg:grid-cols-[1.6fr_1fr]">

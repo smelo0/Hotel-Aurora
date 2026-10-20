@@ -31,8 +31,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $cod_res = (int) $cod_res;
 
-        // Opcional: Podrías verificar si la reserva realmente existe antes de borrarla, 
-        // pero el flujo transaccional igual lo manejará.
+        // Una reserva con pagos aprobados o facturas NO se elimina: borrarla arrastraba
+        // (ON DELETE CASCADE) todos sus registros de la tabla `pagos`. Debe cancelarse.
+        $stmtPagosAprobados = $conexion->prepare("SELECT COUNT(*) FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Aprobado'");
+        $stmtPagosAprobados->bind_param('i', $cod_res);
+        $stmtPagosAprobados->execute();
+        $stmtPagosAprobados->bind_result($totalPagosAprobados);
+        $stmtPagosAprobados->fetch();
+        $stmtPagosAprobados->close();
+
+        $stmtFacturas = $conexion->prepare('SELECT COUNT(*) FROM factura WHERE cod_res_fac = ?');
+        $stmtFacturas->bind_param('i', $cod_res);
+        $stmtFacturas->execute();
+        $stmtFacturas->bind_result($totalFacturas);
+        $stmtFacturas->fetch();
+        $stmtFacturas->close();
+
+        if ((int) $totalPagosAprobados > 0 || (int) $totalFacturas > 0) {
+            throw new Exception('reserva_con_pagos');
+        }
+
+        // Solo quedan pagos pendientes/fallidos (sin dinero recibido): se retiran de forma explícita.
+        $stmtPagosPendientes = $conexion->prepare('DELETE FROM pagos WHERE cod_res_pago = ?');
+        $stmtPagosPendientes->bind_param('i', $cod_res);
+        $stmtPagosPendientes->execute();
+        $stmtPagosPendientes->close();
 
         $sql_det = "DELETE FROM detalle WHERE cod_res_det = ?";
         $stmt_det = $conexion->prepare($sql_det);
@@ -64,6 +87,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             'error_excepcion' => $e->getMessage(),
             'error_db' => $conexion->error
         ]);
+
+        if ($e->getMessage() === 'reserva_con_pagos') {
+            http_response_code(422);
+            echo json_encode([
+                'status' => 'error',
+                'mensaje' => 'Esta reserva tiene pagos o facturas registrados y no se puede eliminar. Cancélala para conservar el historial de pagos.',
+            ], JSON_UNESCAPED_UNICODE);
+            exit();
+        }
 
         http_response_code(400);
         echo json_encode(['status' => 'error', 'mensaje' => 'No se pudo eliminar la reserva']);

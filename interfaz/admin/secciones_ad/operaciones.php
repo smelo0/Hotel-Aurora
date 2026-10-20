@@ -66,7 +66,7 @@ if (typeof window.renderHousekeeping !== 'function') {
                                 class="aspect-square rounded-lg ${clases} text-white font-black text-sm shadow-sm transition-transform hover:scale-105"
                                 title="Habitación ${Number(h.numero)} · ${estado}"
                                 data-cod-hab="${Number(h.id)}"
-                                data-estado="${estado}">
+                                dzata-estado="${estado}">
                             ${Number(h.numero)}
                         </button>`;
             }).join('');
