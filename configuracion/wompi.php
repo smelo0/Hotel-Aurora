@@ -16,7 +16,7 @@ function wompiApiUrl(string $transactionId): string
     return 'https://production.wompi.co/v1/transactions/' . rawurlencode($transactionId);
 }
 
-function verificarTransaccionWompi(string $transactionId, int $amountInCents): array
+function verificarTransaccionWompi(string $transactionId, ?int $amountInCents = null): array
 {
     $privateKey = wompiPrivateKey();
     if ($privateKey === '') {
@@ -53,7 +53,7 @@ function verificarTransaccionWompi(string $transactionId, int $amountInCents): a
     }
 
     if (($transaction['currency'] ?? '') !== 'COP'
-        || (int) ($transaction['amount_in_cents'] ?? 0) !== $amountInCents) {
+        || ($amountInCents !== null && (int) ($transaction['amount_in_cents'] ?? 0) !== $amountInCents)) {
         throw new RuntimeException('wompi_transaction_amount_mismatch');
     }
 

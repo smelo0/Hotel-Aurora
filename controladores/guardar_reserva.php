@@ -224,6 +224,16 @@ $estadoPago = ($metodoPago === 'Recepción') ? 'Pendiente' : 'Aprobado';
 $idUsuarioFinal = 0;
 /**@var mysqli $conexion */
 try {
+    $transaccionWompiPrevalidada = null;
+    if ($metodoPago === 'Wompi') {
+        if ($wompiTransactionId === '') {
+            throw new RuntimeException('wompi_transaction_missing');
+        }
+
+        // La red nunca se consulta mientras la transacción de habitaciones está abierta.
+        $transaccionWompiPrevalidada = verificarTransaccionWompi($wompiTransactionId);
+    }
+
     $conexion->begin_transaction();
 
     $usuarioSesion = $_SESSION['user_auth'] ?? $_SESSION['emp_auth'] ?? [];
@@ -498,11 +508,10 @@ try {
     $refFinal = '';
 
     if ($metodoPago === 'Wompi') {
-        if ($wompiTransactionId === '') {
-            throw new RuntimeException('wompi_transaction_missing');
+        $transaccionWompi = $transaccionWompiPrevalidada;
+        if ((int) ($transaccionWompi['amount_in_cents'] ?? 0) !== (int) round($montoFinal * 100)) {
+            throw new RuntimeException('wompi_transaction_amount_mismatch');
         }
-
-        $transaccionWompi = verificarTransaccionWompi($wompiTransactionId, (int) round($montoFinal * 100));
         $refFinal = (string) ($transaccionWompi['id'] ?? '');
         if ($refFinal === '' || $refFinal !== $wompiTransactionId) {
             throw new RuntimeException('wompi_transaction_invalid');
