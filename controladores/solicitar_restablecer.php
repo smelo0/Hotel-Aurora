@@ -39,17 +39,29 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     redirectBack('error=invalid_email');
 }
 
-// Asegurar que exista la tabla para guardar los tokens
-$create = "CREATE TABLE IF NOT EXISTS password_resets (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL,
-    token VARCHAR(128) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX (email),
-    INDEX (token)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
-$conexion->query($create);
+$userStatement = $conexion->prepare('SELECT 1 FROM usuario WHERE corr_usu = ? LIMIT 1');
+$userStatement->bind_param('s', $email);
+$userStatement->execute();
+$userStatement->store_result();
+$userExists = $userStatement->num_rows === 1;
+$userStatement->close();
+
+if (!$userExists) {
+    redirectBack('exito=1');
+}
+
+$rateLimitStatement = $conexion->prepare(
+    'SELECT 1 FROM password_resets WHERE email = ? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE) LIMIT 1'
+);
+$rateLimitStatement->bind_param('s', $email);
+$rateLimitStatement->execute();
+$rateLimitStatement->store_result();
+$rateLimited = $rateLimitStatement->num_rows === 1;
+$rateLimitStatement->close();
+
+if ($rateLimited) {
+    redirectBack('exito=1');
+}
 
 $token = bin2hex(random_bytes(24));
 $tokenHash = hash('sha256', $token);
@@ -91,8 +103,6 @@ $resetUrlHtml = htmlspecialchars($resetUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'
 $subject = 'Restablece tu contraseña · Hotel Aurora';
 $message = "<p>Hola,</p>\n<p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el siguiente enlace para establecer una nueva contraseña (válido 1 hora):</p>\n<p><a href=\"{$resetUrlHtml}\">Restablecer contraseña</a></p>\n<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>\n<p>Saludos,<br>Hotel Aurora</p>";
 
-$sent = false;
-
 if (class_exists(PHPMailer::class)) {
     try {
         $mail = new PHPMailer(true);
@@ -122,13 +132,10 @@ if (class_exists(PHPMailer::class)) {
         $mail->Body    = $message;
 
         $mail->send();
-        $sent = true;
 
     } catch (Exception $e) {
         error_log('Password reset email delivery failed: ' . $mail->ErrorInfo);
     }
 }
 
-// Si la ejecución concluye exitosamente, realiza la redirección indicando éxito:
-$query = 'exito=1&sent=' . ($sent ? '1' : '0');
-redirectBack($query);
+redirectBack('exito=1');

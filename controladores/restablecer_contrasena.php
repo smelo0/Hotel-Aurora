@@ -49,10 +49,10 @@ if (!$conexion->begin_transaction()) {
 try {
     $tokenStatement = $conexion->prepare(
         'SELECT email FROM password_resets
-         WHERE token IN (?, ?) AND expires_at > NOW()
+         WHERE token = ? AND expires_at > NOW()
          ORDER BY id DESC LIMIT 1 FOR UPDATE'
     );
-    $tokenStatement->bind_param('ss', $tokenHash, $token);
+    $tokenStatement->bind_param('s', $tokenHash);
     $tokenStatement->execute();
     $tokenStatement->bind_result($email);
     $tokenValid = $tokenStatement->fetch();

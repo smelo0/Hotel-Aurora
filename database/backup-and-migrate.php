@@ -110,6 +110,7 @@ try {
     $conexion->set_charset('utf8mb4');
 
     (new \App\Database\ExperienceSchemaMigrator($conexion))->migrate();
+    (new \App\Database\PasswordResetSchemaMigrator($conexion))->migrate();
     \App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
     \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
     fwrite(STDOUT, "Respaldo verificado y migración completada: {$backupPath}\n");

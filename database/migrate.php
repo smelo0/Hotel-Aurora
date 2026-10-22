@@ -12,6 +12,7 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 try {
     (new \App\Database\ExperienceSchemaMigrator($conexion))->migrate();
+    (new \App\Database\PasswordResetSchemaMigrator($conexion))->migrate();
     \App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
     \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
     fwrite(STDOUT, "Migraciones completadas.\n");

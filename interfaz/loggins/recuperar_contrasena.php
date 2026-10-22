@@ -5,14 +5,9 @@ require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 $error = '';
 $message = '';
 $exito = isset($_GET['exito']) ? (string) $_GET['exito'] : '';
-$sent = isset($_GET['sent']) ? (string) $_GET['sent'] : '';
 
 if ($exito === '1') {
-    if ($sent === '1') {
-        $message = 'Correo enviado correctamente. Revisa tu bandeja de entrada (y la carpeta de spam).';
-    } else {
-        $message = 'Se intentó enviar el correo pero no fue posible completar el envío. Por favor contacta soporte si no recibes instrucciones.';
-    }
+    $message = 'Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.';
 }
 if (isset($_GET['error'])) {
     $err = $_GET['error'];
