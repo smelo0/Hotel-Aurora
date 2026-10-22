@@ -1,6 +1,12 @@
 <?php
 
-require_once __DIR__ . '../../configuracion/conexion.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use Dotenv\Dotenv;
+
+// 2. Inicializar y cargar las variables del archivo .env
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
+$dotenv->load();
 
 if (php_sapi_name() !== 'cli') {
     die("Este script solo se puede ejecutar desde la línea de comandos.\n");
@@ -42,7 +48,9 @@ do {
         if (($usuario && password_verify($passwordTyped, $usuario['psw_usu'])) && ($usuario['cod_rol_usu'] == "1")){
             echo "\n[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "\n";
             
+            require __DIR__ . "/options/selectTasks.php";
             $sessionLoged = true;
+            break;
         
         } else {
             echo "Clave o usuario incorrecto " . PHP_EOL;
