@@ -85,7 +85,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <th class="p-4">Fechas</th>
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
-                    <th class="p-4">Experiencias y cobros</th>
+                    <th class="p-4">Experiencias y room service</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
@@ -100,57 +100,18 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 $experienciasPorReserva = $datosReservasAdmin['experiencias_por_reserva'] ?? [];
                 $reservasAdmin = $datosReservasAdmin['reservas'] ?? [];
 
-                // CONSULTA DIRECTA Y ADAPTABLE DE ROOM SERVICE POR RESERVA Y NÚMERO DE HABITACIÓN
+                // Room service por reserva (tablas room_service_pedidos / room_service_pedido_items)
                 $roomServicePorReserva = [];
-                if (!empty($reservasAdmin)) {
-                    foreach ($reservasAdmin as $reserva) {
-                        $idRes = (int) ($reserva['cod_res'] ?? 0);
-                        if ($idRes <= 0) continue;
-
-                        // Extraer los números de habitación de la cadena devuelta por el repositorio
-                        $numsHabitaciones = [];
-                        foreach (explode('||', (string) ($reserva['habitaciones'] ?? '')) as $hItem) {
-                            $hItem = trim($hItem);
-                            if ($hItem === '') continue;
-                            $partesH = explode(' · ', $hItem, 2);
-                            $numH = trim($partesH[0]);
-                            if ($numH !== '') {
-                                $numsHabitaciones[] = $conexion->real_escape_string($numH);
-                            }
-                        }
-
-                        // Construir filtros flexibles para la tabla de room service
-                        $condiciones = ["p.cod_res = $idRes"];
-                        if (!empty($numsHabitaciones)) {
-                            $listaHabStr = "'" . implode("','", $numsHabitaciones) . "'";
-                            $condiciones[] = "p.num_hab IN ($listaHabStr)";
-                        }
-                        $whereClausula = implode(' OR ', $condiciones);
-
-                        $sqlRs = "SELECT p.*, GROUP_CONCAT(CONCAT(i.cantidad, 'x ', item.nombre) SEPARATOR ', ') as resumen_items 
-                                  FROM pedidos_room_service p 
-                                  LEFT JOIN items_pedido_room_service i ON p.id_pedido = i.id_pedido
-                                  LEFT JOIN catalogoroomservice item ON i.id_item = item.id
-                                  WHERE ($whereClausula)
-                                  GROUP BY p.id_pedido 
-                                  ORDER BY p.id_pedido DESC";
-                        try {
-                            $resRs = $conexion->query($sqlRs);
-                            if ($resRs) {
-                                while ($rowRs = $resRs->fetch_assoc()) {
-                                    $roomServicePorReserva[$idRes][] = [
-                                        'id_pedido' => $rowRs['id_pedido'] ?? '',
-                                        'resumen'   => $rowRs['resumen_items'] ?? 'Consumo Room Service',
-                                        'monto'     => (float) ($rowRs['total'] ?? 0),
-                                        'estado'    => $rowRs['estado'] ?? 'Entregado',
-                                        'pago'      => $rowRs['estado_pago'] ?? 'Pendiente'
-                                    ];
-                                }
-                            }
-                        } catch (\Throwable $e) {
-                            // En caso de discrepancia menor en la estructura
-                        }
+                try {
+                    require_once __DIR__ . '/../../../src/RoomService/RoomServiceRepository.php';
+                    $resumenRoomService = (new \App\RoomService\RoomServiceRepository($conexion))->resumenPorReservas(
+                        array_map(static fn($filaReserva): int => (int) ($filaReserva['cod_res'] ?? 0), $reservasAdmin)
+                    );
+                    foreach ($resumenRoomService as $codigoReservaRs => $datosReservaRs) {
+                        $roomServicePorReserva[(int) $codigoReservaRs] = $datosReservaRs['pedidos'] ?? [];
                     }
+                } catch (\Throwable $errorRoomService) {
+                    error_log('No se pudo cargar el room service de las reservas: ' . $errorRoomService->getMessage());
                 }
 
                 $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
@@ -259,18 +220,29 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             }
                             $experienciasTabla .= '</div>';
                         }
-                        if ($experienciasTabla === '') {$experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias vinculadas</span>';
+                        foreach ($roomServicePorReserva[$id_reserva] ?? [] as $pedidoRoomService) {
+                            if (($pedidoRoomService['estado'] ?? '') === 'Cancelado' || (float) ($pedidoRoomService['total'] ?? 0) <= 0) {
+                                continue;
+                            }
+                            $pedidoPagado = ($pedidoRoomService['estado_pago'] ?? '') === 'Pagado';
+                            $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
+                                . '<p class="font-black text-slate-700">Room service #' . (int) $pedidoRoomService['id_pedido'] . '</p>'
+                                . '<p class="mt-1 text-xs text-slate-500">' . htmlspecialchars((string) ($pedidoRoomService['resumen'] ?? ''), ENT_QUOTES, 'UTF-8')
+                                . ' · ' . htmlspecialchars((string) ($pedidoRoomService['estado'] ?? ''), ENT_QUOTES, 'UTF-8') . '</p>'
+                                . '<p class="mt-1 text-xs font-bold text-slate-600">$' . number_format((float) $pedidoRoomService['total'], 0, ',', '.')
+                                . ' · Pago: <span class="' . ($pedidoPagado ? 'text-emerald-600' : 'text-amber-600') . '">' . ($pedidoPagado ? 'Pagado' : 'Pendiente') . '</span></p>'
+                                . '</div>';
+                        }
+                        if ($experienciasTabla === '') {
+                            $experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias ni room service</span>';
                         }
 
                         $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
 
-                        // Inyección segura del JSON con room_service mapeado
+                        // Datos mínimos para abrir el modal; la cuenta completa se consulta en cuenta_reserva.php.
                         $detallesJson = htmlspecialchars(json_encode([
                             'id' => $id_reserva,
                             'huesped' => $nombreUsuario,
-                            'saldo_alojamiento' => (float) ($reserva['saldo_pendiente'] ?? 0),
-                            'experiencias' => $experienciasPorReserva[$id_reserva] ?? [],
-                            'room_service' => $roomServicePorReserva[$id_reserva] ?? []
                         ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
 
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
@@ -352,33 +324,19 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     </div>
                 </div>
 
-                <!-- BLOQUES DESGLOSADOS SEPARADOS -->
+                <!-- CUENTA DE LA RESERVA: alojamiento + experiencias + room service -->
                 <div class="space-y-3">
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-widest">Desglose de Consumos y Saldos</label>
-                    
-                    <!-- 1. Alojamiento -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-black text-slate-700 flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-primary">hotel</span> Alojamiento</p>
-                            <p class="text-[11px] text-slate-400 mt-0.5">Saldo pendiente del hospedaje</p>
-                        </div>
-                        <span id="editDesgloseAlojamientoMonto" class="text-sm font-bold text-slate-800">$0</span>
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-widest">Desglose de Consumos y Saldos</label>
+                        <button type="button" onclick="cargarCuentaReserva()" class="text-[11px] font-bold text-primary underline">Actualizar cuenta</button>
                     </div>
-
-                    <!-- 2. Experiencias -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">celebration</span> Experiencias</p>
-                        <div id="editDesgloseExperienciasContainer" class="space-y-1 text-xs text-slate-500">
-                            <span class="italic">Cargando experiencias...</span>
-                        </div>
+                    <div id="editCuentaLineas" class="space-y-3">
+                        <span class="text-xs italic text-slate-400">Cargando cuenta...</span>
                     </div>
-
-                    <!-- 3. Room Service -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">room_service</span> Room Service</p>
-                        <div id="editDesgloseRoomServiceContainer" class="space-y-1 text-xs text-slate-500">
-                            <span class="italic">Cargando pedidos de room service...</span>
-                        </div>
+                    <div id="editCuentaTotales" class="hidden grid grid-cols-3 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                        <div><p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Total</p><p id="editCuentaTotal" class="text-sm font-black text-slate-700">$0</p></div>
+                        <div><p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Pagado</p><p id="editCuentaPagado" class="text-sm font-black text-emerald-600">$0</p></div>
+                        <div><p class="text-[10px] font-black uppercase tracking-wider text-slate-400">Por cobrar</p><p id="editCuentaPendiente" class="text-sm font-black text-amber-600">$0</p></div>
                     </div>
                 </div>
 
@@ -387,31 +345,37 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <textarea name="notas" id="edit_notas" rows="2" class="reserva-field w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 outline-none resize-none"></textarea>
                 </div>
 
-                <!-- CONTROLES DE PAGO GLOBAL -->
-                <div id="editPagoControles" class="rounded-2xl border border-emerald-500/20 bg-emerald-50/50 p-5 space-y-4">
-                    <div class="flex items-center justify-between">
+                <!-- COBRO: selección, división de la cuenta o todo -->
+                <div id="editCuentaCobro" class="hidden rounded-2xl border border-emerald-500/20 bg-emerald-50/50 p-5 space-y-4">
+                    <div class="flex flex-wrap items-end justify-between gap-4">
                         <div>
-                            <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700">Total Global Pendiente</p>
-                            <p class="text-2xl font-black text-emerald-900" id="editMontoCobro">$0</p>
+                            <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700">A cobrar ahora (selección)</p>
+                            <p class="text-2xl font-black text-emerald-900" id="editCuentaSeleccion">$0</p>
                         </div>
                         <div>
-                            <label for="edit_metodo_pago" class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Método de pago</label>
-                            <select name="metodo_pago" id="edit_metodo_pago" class="reserva-field rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                            <label for="editCuentaMetodo" class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Método de pago</label>
+                            <select id="editCuentaMetodo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
                                 <option value="Efectivo">Efectivo</option>
                                 <option value="Tarjeta">Tarjeta</option>
                                 <option value="Transferencia">Transferencia</option>
                             </select>
                         </div>
                     </div>
-                    <p class="text-[11px] text-slate-500">Si el cliente ya pagó la reserva desde su casa, el sistema descuenta los abonos previos y solo calcula el remanente pendiente.</p>
+                    <p class="text-[11px] text-slate-500">Para dividir la cuenta marca solo lo que se paga ahora, cambia el monto del alojamiento o elige un método distinto en cada línea. Lo que el cliente ya pagó desde su casa aparece como pagado y no se vuelve a cobrar.</p>
+                    <p id="editCuentaError" class="hidden text-xs font-bold text-rose-600"></p>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" id="btnCobrarSeleccion" onclick="cobrarSeleccionCuenta()" class="ui-action flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-emerald-700 flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">checklist</span> Cobrar selección
+                        </button>
+                        <button type="button" id="btnCobrarTodo" onclick="cobrarTodoCuenta()" class="ui-action flex-1 bg-primary text-white font-bold py-3 rounded-xl shadow-md hover:bg-heading flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">payments</span> Cobrar todo
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                     <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-xl hover:bg-slate-50">Cancelar</button>
                     <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-slate-700">Actualizar datos</button>
-                    <button type="submit" id="editAccionCobrar" name="accion" value="cobrar" class="ui-action flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-emerald-700 flex items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-sm">payments</span> Cobrar Todo
-                    </button>
                 </div>
             </form>
         </div>
@@ -558,88 +522,248 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             cerrarSubModalNuevoHuesped();
         }
 
+        let cuentaReservaActual = null;
+
+        function escaparCuenta(valor) {
+            return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
         function abrirEdicion(boton) {
             const id = boton.getAttribute('data-id');
             const estado = boton.getAttribute('data-estado');
             const habitacion = boton.getAttribute('data-habitacion');
             const notas = boton.getAttribute('data-notas');
-            const saldoPendiente = Number(boton.getAttribute('data-saldo-pendiente') || 0);
-
-            let detalles = {};
-            try {
-                detalles = JSON.parse(boton.getAttribute('data-detalles-json') || '{}');
-            } catch (e) {
-                detalles = {};
-            }
 
             document.getElementById('edit_cod_res').value = id;
             document.getElementById('edit_estado').value = estado;
             document.getElementById('edit_habitacion').textContent = (habitacion === 'Sin asignar') ? 'Sin habitaciones asignadas' : habitacion;
             document.getElementById('edit_notas').value = (notas === 'Ninguna' ? '' : notas);
-            
-            document.getElementById('editMontoCobro').textContent = formatoMonedaReserva.format(saldoPendiente);
-            document.getElementById('editDesgloseAlojamientoMonto').textContent = formatoMonedaReserva.format(saldoPendiente);
 
-            // 1. RENDERIZAR EXPERIENCIAS
-            const containerExp = document.getElementById('editDesgloseExperienciasContainer');
-            if (containerExp) {
-                let htmlExp = '';
-                if (detalles.experiencias && detalles.experiencias.length > 0) {
-                    detalles.experiencias.forEach(exp => {
-                        const montoExp = exp.monto_experiencia ? formatoMonedaReserva.format(exp.monto_experiencia) : 'Sin precio';
-                        const estadoPago = exp.estado_pago_experiencia || 'Pendiente';
-                        const clasePago = estadoPago === 'Pagado' ? 'text-emerald-600' : 'text-amber-600';
-                        
-                        htmlExp += `
-                            <div class="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
-                                <div>
-                                    <p class="font-bold text-slate-700">${exp.actividad || 'Experiencia'}</p>
-                                    <p class="text-[10px] text-slate-400">${exp.fecha_agenda || ''} · <span class="${clasePago} font-bold">${estadoPago}</span></p>
-                                </div>
-                                <span class="font-bold text-slate-700">${montoExp}</span>
-                            </div>`;
-                    });
-                } else {
-                    htmlExp = '<p class="italic text-slate-400 text-xs py-1">Sin experiencias registradas.</p>';
-                }
-                containerExp.innerHTML = htmlExp;
-            }
-
-            // 2. RENDERIZAR ROOM SERVICE
-            const containerRs = document.getElementById('editDesgloseRoomServiceContainer');
-            if (containerRs) {
-                let htmlRs = '';
-                if (detalles.room_service && detalles.room_service.length > 0) {
-                    detalles.room_service.forEach(pedido => {
-                        const montoVal = Number(pedido.monto || 0);
-                        const totalPedido = formatoMonedaReserva.format(montoVal);
-                        const estadoPago = pedido.pago || 'Pendiente';
-                        const clasePago = (estadoPago === 'Pagado' || estadoPago === 'Pagada') ? 'text-emerald-600' : 'text-amber-600';
-                        const resumenPedido = pedido.resumen || `Pedido #${pedido.id_pedido || ''}`;
-                        const estadoEntrega = pedido.estado || 'Entregado';
-
-                        htmlRs += `
-                            <div class="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
-                                <div>
-                                    <p class="font-bold text-slate-700">Pedido #${pedido.id_pedido} · ${resumenPedido}</p>
-                                    <p class="text-[10px] text-slate-400">Estado: <span class="font-semibold text-slate-600">${estadoEntrega}</span> · Pago: <span class="${clasePago} font-bold">${estadoPago}</span></p>
-                                </div>
-                                <span class="font-bold text-slate-700">${totalPedido}</span>
-                            </div>`;
-                    });
-                } else {
-                    htmlRs = '<p class="italic text-slate-400 text-xs py-1">Sin pedidos de room service registrados.</p>';
-                }
-                containerRs.innerHTML = htmlRs;
-            }
-
-            const permiteCobrar = estado !== 'Cancelada' && saldoPendiente > 0;
-            document.getElementById('editPagoControles').classList.toggle('hidden', !permiteCobrar);
-            document.getElementById('editAccionCobrar').classList.toggle('hidden', !permiteCobrar);
+            cuentaReservaActual = null;
+            document.getElementById('editCuentaLineas').innerHTML = '<span class="text-xs italic text-slate-400">Cargando cuenta...</span>';
+            document.getElementById('editCuentaTotales').classList.add('hidden');
+            document.getElementById('editCuentaCobro').classList.add('hidden');
+            document.getElementById('editCuentaError').classList.add('hidden');
+            cargarCuentaReserva();
 
             const modal = document.getElementById('modalEditarReserva');
             modal.classList.remove('hidden');
             requestAnimationFrame(() => modal.classList.add('modal-editar-reserva-visible'));
+        }
+
+        async function cargarCuentaReserva() {
+            const codRes = document.getElementById('edit_cod_res').value;
+            if (!codRes) return;
+            try {
+                const respuesta = await fetch(`../../controladores/cuenta_reserva.php?cod_res=${encodeURIComponent(codRes)}`, {
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const datos = await respuesta.json();
+                if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudo cargar la cuenta');
+                pintarCuentaReserva(datos.cuenta);
+            } catch (e) {
+                document.getElementById('editCuentaLineas').innerHTML = `<span class="text-xs font-bold text-rose-600">${escaparCuenta(e.message)}</span>`;
+            }
+        }
+
+        function pintarCuentaReserva(cuenta) {
+            cuentaReservaActual = cuenta;
+            const moneda = valor => formatoMonedaReserva.format(Number(valor) || 0);
+            const secciones = [
+                ['alojamiento', 'hotel', 'Alojamiento'],
+                ['experiencia', 'celebration', 'Experiencias'],
+                ['room_service', 'room_service', 'Room Service'],
+            ];
+            const metodos = '<option value="">Método general</option><option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option>';
+            let html = '';
+            secciones.forEach(([tipo, icono, titulo]) => {
+                const lineas = cuenta.lineas.filter(l => l.tipo === tipo);
+                let cuerpo = '';
+                if (!lineas.length) {
+                    cuerpo = `<p class="italic text-slate-400 text-xs py-1">${tipo === 'experiencia' ? 'Sin experiencias registradas.' : 'Sin pedidos de room service registrados.'}</p>`;
+                }
+                lineas.forEach(l => {
+                    const clave = `${l.tipo}|${l.id}`;
+                    const pagada = l.pendiente <= 0 && l.total > 0;
+                    const parcial = l.pagado > 0 && l.pendiente > 0;
+                    const etiqueta = pagada
+                        ? '<span class="font-bold text-emerald-600">Pagado</span>'
+                        : (parcial
+                            ? `<span class="font-bold text-amber-600">Pagado ${moneda(l.pagado)} · Pendiente ${moneda(l.pendiente)}</span>`
+                            : (l.total > 0 ? '<span class="font-bold text-amber-600">Pendiente</span>' : '<span class="font-bold text-slate-400">Sin cobro</span>'));
+                    const controles = l.cobrable ? `
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                                <input type="checkbox" data-cuenta-check="${escaparCuenta(clave)}" checked class="rounded border-slate-300"> Cobrar ahora
+                            </label>
+                            ${l.tipo === 'alojamiento' ? `<input type="number" data-cuenta-monto="${escaparCuenta(clave)}" min="1" max="${l.pendiente}" step="any" value="${l.pendiente}"
+                                class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700" title="Monto a cobrar (puedes cobrar solo una parte)">` : ''}
+                            <select data-cuenta-metodo="${escaparCuenta(clave)}" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">${metodos}</select>
+                        </div>` : '';
+                    cuerpo += `
+                        <div class="py-2 border-b border-slate-100 last:border-0">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-700">${escaparCuenta(l.concepto)}</p>
+                                    <p class="text-[10px] text-slate-400">${escaparCuenta(l.detalle)}</p>
+                                    <p class="text-[11px] mt-0.5">${etiqueta}${l.nota ? ` <span class="text-slate-400">· ${escaparCuenta(l.nota)}</span>` : ''}</p>
+                                </div>
+                                <span class="font-bold text-slate-700 whitespace-nowrap">${l.total > 0 ? moneda(l.total) : 'Sin precio'}</span>
+                            </div>${controles}
+                        </div>`;
+                });
+                html += `
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">${icono}</span> ${titulo}</p>
+                        <div class="text-xs text-slate-500">${cuerpo}</div>
+                    </div>`;
+            });
+            document.getElementById('editCuentaLineas').innerHTML = html;
+            document.getElementById('editCuentaTotal').textContent = moneda(cuenta.totales.total);
+            document.getElementById('editCuentaPagado').textContent = moneda(cuenta.totales.pagado);
+            document.getElementById('editCuentaPendiente').textContent = moneda(cuenta.totales.pendiente);
+            document.getElementById('editCuentaTotales').classList.remove('hidden');
+            document.getElementById('edit_estado').value = cuenta.estado;
+
+            const hayCobrables = cuenta.lineas.some(l => l.cobrable);
+            document.getElementById('editCuentaCobro').classList.toggle('hidden', !hayCobrables);
+            document.querySelectorAll('#editCuentaLineas [data-cuenta-check], #editCuentaLineas [data-cuenta-monto]').forEach(campo => {
+                campo.addEventListener('input', actualizarSeleccionCuenta);
+                campo.addEventListener('change', actualizarSeleccionCuenta);
+                campo.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+            });
+            actualizarSeleccionCuenta();
+        }
+
+        function montoLineaCuenta(linea) {
+            const campo = document.querySelector(`#editCuentaLineas [data-cuenta-monto="${CSS.escape(linea.tipo + '|' + linea.id)}"]`);
+            if (!campo) return linea.pendiente;
+            const valor = Number(campo.value);
+            return Number.isFinite(valor) ? Math.min(Math.max(valor, 0), linea.pendiente) : 0;
+        }
+
+        function lineasSeleccionadasCuenta() {
+            if (!cuentaReservaActual) return [];
+            return cuentaReservaActual.lineas
+                .filter(l => l.cobrable)
+                .filter(l => document.querySelector(`#editCuentaLineas [data-cuenta-check="${CSS.escape(l.tipo + '|' + l.id)}"]`)?.checked)
+                .map(l => {
+                    const metodo = document.querySelector(`#editCuentaLineas [data-cuenta-metodo="${CSS.escape(l.tipo + '|' + l.id)}"]`)?.value || '';
+                    const linea = { tipo: l.tipo, id: l.id, metodo };
+                    if (l.tipo === 'alojamiento') linea.monto = montoLineaCuenta(l);
+                    return linea;
+                });
+        }
+
+        function actualizarSeleccionCuenta() {
+            if (!cuentaReservaActual) return;
+            let total = 0;
+            lineasSeleccionadasCuenta().forEach(sel => {
+                const l = cuentaReservaActual.lineas.find(x => x.tipo === sel.tipo && x.id === sel.id);
+                total += sel.tipo === 'alojamiento' ? sel.monto : l.pendiente;
+            });
+            document.getElementById('editCuentaSeleccion').textContent = formatoMonedaReserva.format(total);
+        }
+
+        function cobrarSeleccionCuenta() {
+            cobrarCuentaReserva(lineasSeleccionadasCuenta());
+        }
+
+        function cobrarTodoCuenta() {
+            if (!cuentaReservaActual) return;
+            cobrarCuentaReserva(cuentaReservaActual.lineas.filter(l => l.cobrable).map(l => ({ tipo: l.tipo, id: l.id, metodo: '' })));
+        }
+
+        async function cobrarCuentaReserva(lineas) {
+            const error = document.getElementById('editCuentaError');
+            error.classList.add('hidden');
+            error.classList.remove('text-amber-700');
+            error.classList.add('text-rose-600');
+            if (!lineas.length) {
+                error.textContent = 'Selecciona al menos un concepto para cobrar.';
+                error.classList.remove('hidden');
+                return;
+            }
+            const montoInvalido = lineas.find(l => l.tipo === 'alojamiento' && !(l.monto > 0));
+            if (montoInvalido) {
+                error.textContent = 'Indica un monto válido para el alojamiento.';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            // La ventana se abre dentro del clic para que el navegador no bloquee la factura.
+            const ventana = window.open('', '_blank');
+            if (!ventana) {
+                error.textContent = 'Permite las ventanas emergentes para poder imprimir la factura.';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            const botones = [document.getElementById('btnCobrarSeleccion'), document.getElementById('btnCobrarTodo')];
+            botones.forEach(b => { b.disabled = true; });
+            try {
+                const respuesta = await fetch('../../controladores/cuenta_reserva.php', {
+                    method: 'POST',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({
+                        cod_res: document.getElementById('edit_cod_res').value,
+                        metodo_pago: document.getElementById('editCuentaMetodo').value,
+                        lineas: JSON.stringify(lineas),
+                        csrf_token: document.querySelector('#formEditarReserva [name="csrf_token"]').value,
+                    })
+                });
+                const datos = await respuesta.json();
+                if (datos.cuenta) pintarCuentaReserva(datos.cuenta);
+                if (!datos.facturas || !datos.facturas.length) {
+                    ventana.close();
+                    throw new Error(datos.mensaje || 'No se pudo registrar el cobro');
+                }
+                if (datos.facturas.length === 1 && typeof imprimirFacturaReserva === 'function') {
+                    imprimirFacturaReserva(datos.facturas[0], ventana);
+                } else {
+                    imprimirComprobanteCuenta(datos.facturas, datos.cuenta, ventana);
+                }
+                if (datos.status === 'parcial') {
+                    error.textContent = datos.mensaje;
+                    error.classList.remove('text-rose-600');
+                    error.classList.add('text-amber-700');
+                    error.classList.remove('hidden');
+                }
+                if (typeof refrescarTablaReservas === 'function') await refrescarTablaReservas();
+                if (typeof notificarCambioReservas === 'function') notificarCambioReservas();
+                window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
+            } catch (e) {
+                error.textContent = e.message;
+                error.classList.remove('hidden');
+            } finally {
+                botones.forEach(b => { b.disabled = false; });
+            }
+        }
+
+        // Comprobante único cuando un mismo cobro incluye varios conceptos (cada uno queda además con su factura).
+        function imprimirComprobanteCuenta(facturas, cuenta, ventana) {
+            const moneda = valor => formatoMonedaReserva.format(Number(valor) || 0);
+            const concepto = f => f.tipo === 'experiencia'
+                ? `Experiencia: ${f.experiencia}`
+                : (f.tipo === 'room_service'
+                    ? `Room service ${(f.pedidos || []).map(id => '#' + id).join(', ')}`
+                    : `Alojamiento (${f.noches} noche(s), IVA incluido)`);
+            const filas = facturas.map(f => `<tr><td>${escaparCuenta(f.folio)}</td><td>${escaparCuenta(concepto(f))}</td><td>${escaparCuenta(f.metodo_pago)}</td><td>${moneda(f.monto)}</td></tr>`).join('');
+            const total = facturas.reduce((suma, f) => suma + (Number(f.monto) || 0), 0);
+            ventana.document.open();
+            ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Comprobante de pago</title>
+                <style>body{font-family:Arial,sans-serif;color:#172b3d;margin:0;padding:36px}main{max-width:760px;margin:0 auto;border:1px solid #d8e0e8;padding:36px}
+                header{border-bottom:2px solid #17354f;padding-bottom:20px}h1{margin:0 0 8px;font-size:26px}p{margin:6px 0;color:#475569}
+                table{width:100%;border-collapse:collapse;margin-top:28px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e2e8f0}
+                th:last-child,td:last-child{text-align:right}.total{font-size:19px;font-weight:bold}footer{margin-top:32px;text-align:center;color:#64748b;font-size:12px}
+                @media print{body{padding:0}main{border:0;padding:12mm}}</style></head><body><main>
+                <header><h1>Hotel Aurora</h1><p>Comprobante de pago · Reserva #${escaparCuenta(cuenta ? cuenta.cod_res : '')}</p></header>
+                <p><strong>${escaparCuenta(cuenta ? cuenta.huesped : '')}</strong></p><p>${escaparCuenta(cuenta ? cuenta.correo : '')}</p>
+                <table><thead><tr><th>Factura</th><th>Concepto</th><th>Pago</th><th>Total</th></tr></thead><tbody>${filas}</tbody>
+                <tfoot><tr><td colspan="3" class="total">Total pagado</td><td class="total">${moneda(total)}</td></tr></tfoot></table>
+                <footer>Cada concepto queda registrado con su propia factura. Gracias por elegir Hotel Aurora.</footer></main>
+                <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));<\/script></body></html>`);
+            ventana.document.close();
         }
 
         function cerrarModalEditar() {

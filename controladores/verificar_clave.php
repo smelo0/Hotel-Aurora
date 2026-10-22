@@ -14,8 +14,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 exigir_csrf();
 
-$idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? $_SESSION['emp_auth']['id_usuario'] ?? 0);
+// En un mismo navegador pueden coexistir una sesión de cliente (user_auth) y una de empleado/administrador
+// (emp_auth). La contraseña debe compararse con la cuenta del panel que mostró el aviso de inactividad
+// (se deduce de la página de origen); antes se tomaba siempre la del cliente y rechazaba la clave del administrador.
+$idEmpleado = (int) ($_SESSION['emp_auth']['id_usuario'] ?? 0);
+$idCliente = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+$rutaOrigen = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH);
+
+if ($idEmpleado > 0 && preg_match('~/interfaz/(admin|empleado)/~i', $rutaOrigen) === 1) {
+    $idsCandidatos = [$idEmpleado];
+} elseif ($idCliente > 0 && preg_match('~/(interfaz_usu\.php|interfaz/usuario/)~i', $rutaOrigen) === 1) {
+    $idsCandidatos = [$idCliente];
+} else {
+    // Sin página de origen reconocible: se acepta la clave de cualquiera de las cuentas abiertas en esta sesión.
+    $idsCandidatos = array_values(array_unique(array_filter([$idEmpleado, $idCliente])));
+}
+
+$idUsuario = $idsCandidatos[0] ?? 0;
 $bloqueadaEn = (int) ($_SESSION['sesion_bloqueada_en'] ?? 0);
+
 if ($idUsuario === 0 || empty($_SESSION['sesion_bloqueada']) || $bloqueadaEn === 0) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'valido' => false]);
@@ -26,6 +43,7 @@ $ahora = time();
 $pausaConcedida = !empty($_SESSION['sesion_bloqueo_pausa_concedida']);
 $venceEn = $bloqueadaEn + SESSION_LOCK_COUNTDOWN_SECONDS
     + ($pausaConcedida ? SESSION_UNLOCK_PAUSE_SECONDS : 0);
+
 if ($ahora >= $venceEn) {
     expirar_sesion_por_inactividad(true);
 }
@@ -69,13 +87,22 @@ if (!$stmt) {
     echo json_encode(['status' => 'error', 'valido' => false]);
     exit;
 }
-$stmt->bind_param('i', $idUsuario);
-$stmt->execute();
-$stmt->bind_result($hashGuardado);
-$stmt->fetch();
-$stmt->close();
 
-$valido = $hashGuardado && password_verify($clave, $hashGuardado);
+$valido = false;
+foreach ($idsCandidatos as $idCandidato) {
+    $hashGuardado = null;
+    $stmt->bind_param('i', $idCandidato);
+    $stmt->execute();
+    $stmt->bind_result($hashGuardado);
+    $stmt->fetch();
+    $stmt->free_result();
+    
+    if ($hashGuardado && password_verify($clave, $hashGuardado)) {
+        $valido = true;
+        break;
+    }
+}
+$stmt->close();
 
 if ($valido) {
     unset(

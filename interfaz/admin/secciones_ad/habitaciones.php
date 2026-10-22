@@ -75,7 +75,9 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
             </div>
             <div>
                 <label for="precioHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Precio por noche (COP)</label>
-                <input type="number" id="precioHabitacion" min="1" max="99999999" step="1" inputmode="numeric" required placeholder="Ej. 85000" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
+                <input type="text" id="precioHabitacion" list="preciosHabitacionSugeridos" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required placeholder="Ej. 85000" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
+                <datalist id="preciosHabitacionSugeridos"></datalist>
+                <p id="ayudaPrecioHabitacion" class="mt-1 text-[11px] text-slate-400">Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.</p>
             </div>
             <div>
                 <label for="imagenHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Foto (JPG, PNG o WebP; máximo 5 MB)</label>
@@ -218,6 +220,47 @@ function renderizarHabitaciones() {
     }).join('') || `<tr><td colspan="8" class="px-6 py-8 text-center text-slate-400 text-sm">${datosHabitaciones.habitaciones.length ? 'No hay habitaciones con ese filtro.' : 'Aún no hay habitaciones registradas.'}</td></tr>`;
 }
 
+// Precios por noche habituales en COP según el tipo de habitación (sin IVA; el sistema suma el 19 % al cobrar).
+const PRECIOS_SUGERIDOS_HABITACION = {
+    sencilla: [70000, 80000, 90000, 100000, 120000, 150000],
+    doble: [110000, 130000, 150000, 180000, 200000, 250000],
+    suite: [250000, 300000, 350000, 400000, 450000, 500000],
+    premium: [450000, 550000, 650000, 800000, 1000000],
+    general: [80000, 100000, 150000, 200000, 300000, 500000],
+};
+
+function sugerenciasPrecioHabitacion(tipo) {
+    const t = String(tipo || '').toLowerCase();
+    if (t.includes('premium')) return PRECIOS_SUGERIDOS_HABITACION.premium;
+    if (t.includes('suite')) return PRECIOS_SUGERIDOS_HABITACION.suite;
+    if (t.includes('doble') || t.includes('matrimonial') || t.includes('familiar')) return PRECIOS_SUGERIDOS_HABITACION.doble;
+    if (t.includes('sencilla') || t.includes('individual') || t.includes('simple')) return PRECIOS_SUGERIDOS_HABITACION.sencilla;
+    return PRECIOS_SUGERIDOS_HABITACION.general;
+}
+
+function actualizarSugerenciasPrecioHabitacion() {
+    const lista = document.getElementById('preciosHabitacionSugeridos');
+    lista.innerHTML = sugerenciasPrecioHabitacion(document.getElementById('tipoHabitacion').value)
+        .map(valor => `<option value="${valor}" label="${precioHabitacionLegible(valor)}"></option>`).join('');
+}
+
+function actualizarAyudaPrecioHabitacion() {
+    const ayuda = document.getElementById('ayudaPrecioHabitacion');
+    const valor = Number(document.getElementById('precioHabitacion').value);
+    if (!Number.isFinite(valor) || valor < 1) {
+        ayuda.textContent = 'Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.';
+        return;
+    }
+    ayuda.textContent = `${precioHabitacionLegible(valor)} por noche · con IVA (19 %): ${precioHabitacionLegible(Math.round(valor * 1.19))}`;
+}
+
+document.getElementById('tipoHabitacion').addEventListener('input', actualizarSugerenciasPrecioHabitacion);
+document.getElementById('precioHabitacion').addEventListener('input', evento => {
+    // Solo dígitos: el precio es un monto entero en pesos (sin puntos, comas ni signos).
+    evento.target.value = evento.target.value.replace(/\D/g, '').slice(0, 8);
+    actualizarAyudaPrecioHabitacion();
+});
+
 function abrirModalNuevaHabitacion() { abrirModalHabitacion(null); }
 function abrirEditarHabitacion(id) { abrirModalHabitacion(datosHabitaciones.habitaciones.find(h => h.id === id) || null); }
 
@@ -228,6 +271,8 @@ function abrirModalHabitacion(habitacion) {
     document.getElementById('numeroHabitacion').value = habitacion?.numero ?? '';
     document.getElementById('tipoHabitacion').value = habitacion?.tipo || '';
     document.getElementById('precioHabitacion').value = habitacion ? Math.round(habitacion.precio) : '';
+    actualizarSugerenciasPrecioHabitacion();
+    actualizarAyudaPrecioHabitacion();
     document.getElementById('descripcionHabitacion').value = habitacion?.descripcion || '';
     document.getElementById('contadorDescripcionHabitacion').textContent = (habitacion?.descripcion || '').length;
     document.getElementById('comodidadesHabitacion').value = (habitacion?.comodidades || []).join('\n');

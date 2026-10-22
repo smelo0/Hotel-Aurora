@@ -7,7 +7,7 @@ require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
-
+/**@var mysqli $conexion */
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
 header('Content-Type: application/json; charset=utf-8');

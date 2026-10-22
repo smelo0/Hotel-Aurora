@@ -18,6 +18,10 @@
                 <span class="text-xs font-bold text-slate-500">Ocupada</span>
             </div>
             <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-sky-500 rounded-md"></div>
+                <span class="text-xs font-bold text-slate-500">Reservada</span>
+            </div>
+            <div class="flex items-center gap-2">
                 <div class="w-4 h-4 bg-stone-600 rounded-md"></div>
                 <span class="text-xs font-bold text-slate-500">Sucia</span>
             </div>
@@ -29,50 +33,3 @@
 
     </div>
 </section>
-
-<script>
-// Solo se define si el archivo principal NO trae ya un renderHousekeeping.
-if (typeof window.renderHousekeeping !== 'function') {
-    window.renderHousekeeping = async function() {
-        const grid = document.getElementById('gridHousekeeping');
-        if (!grid) return;
-
-        grid.innerHTML = '<p class="col-span-full text-xs text-slate-400">Cargando habitaciones...</p>';
-
-        try {
-            const respuesta = await fetch('../../controladores/gestionar_habitaciones.php?accion=listar', {
-                headers: { Accept: 'application/json' },
-                cache: 'no-store'
-            });
-            const datos = await respuesta.json();
-            if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las habitaciones.');
-
-            const habitaciones = datos.habitaciones || [];
-            if (habitaciones.length === 0) {
-                grid.innerHTML = '<p class="col-span-full text-xs text-slate-400">Aún no hay habitaciones registradas.</p>';
-                return;
-            }
-
-            grid.innerHTML = habitaciones.map(h => {
-                const estado = String(h.estado || 'Disponible').trim();
-                const clases = {
-                    'Disponible':    'bg-green-500 hover:bg-green-600',
-                    'Ocupada':       'bg-orange-500 hover:bg-orange-600',
-                    'Sucia':         'bg-stone-600 hover:bg-stone-700',
-                    'Mantenimiento': 'bg-red-500 hover:bg-red-600'
-                }[estado] || 'bg-slate-400 hover:bg-slate-500';
-
-                return `<button type="button"
-                                class="aspect-square rounded-lg ${clases} text-white font-black text-sm shadow-sm transition-transform hover:scale-105"
-                                title="Habitación ${Number(h.numero)} · ${estado}"
-                                data-cod-hab="${Number(h.id)}"
-                                dzata-estado="${estado}">
-                            ${Number(h.numero)}
-                        </button>`;
-            }).join('');
-        } catch (error) {
-            grid.innerHTML = `<p class="col-span-full text-xs text-red-500">${error.message}</p>`;
-        }
-    };
-}
-</script>

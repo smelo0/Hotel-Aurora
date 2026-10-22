@@ -75,6 +75,7 @@ window.addEventListener('storage', event => {
 
     if (event.key === 'tareas_actualizadas') {
         renderTareasAdmin();
+        actualizarContadorTareasAdmin();
         reiniciarSincronizacionTareasAdmin();
     }
 
@@ -537,32 +538,48 @@ function obtenerUIPrioridad(prioridad) {
     return { icono: '&#9679;', clases: 'text-green-600 bg-green-50 border-green-100', texto: 'No urgente' };
 }
 
-function obtenerClaseHousekeeping(estado) {
-    if (estado === 'Mantenimiento') return 'room-dot--mantenimiento';
-    if (estado === 'Sucia') return 'room-dot--sucia';
-    if (estado === 'Ocupada') return 'room-dot--ocupada';
-    if (estado === 'Limpio') return 'room-dot--limpio';
-    return 'room-dot--disponible';
-}
-
+// ✅ FUNCIÓN CORREGIDA DE HOUSEKEEPING
 async function renderHousekeeping() {
     const grid = document.getElementById('gridHousekeeping');
     if (!grid) return;
 
     try {
-        const respuesta = await fetch('../../controladores/obtener_habitaciones.php', { cache: 'no-store' });
-        const habitaciones = await respuesta.json();
+        // Usamos el endpoint correcto que trae la info de reservas y ocupación
+        const respuesta = await fetch('../../controladores/gestionar_habitaciones.php?accion=listar', {
+            headers: { Accept: 'application/json' },
+            cache: 'no-store'
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las habitaciones.');
 
+        const habitaciones = datos.habitaciones || [];
         habitacionesHousekeeping = new Map();
         grid.innerHTML = '';
 
         habitaciones.forEach(habitacion => {
-            const esMantenimiento = habitacion.estado === 'Mantenimiento';
-            const claseEstado = obtenerClaseHousekeeping(habitacion.estado);
+            // Lógica para combinar el estado físico con el estado de las reservas
+            let estado = habitacion.estado;
+            if (estado !== 'Mantenimiento' && estado !== 'Sucia') {
+                if (estado === 'Ocupada' || habitacion.ocupacion === 'en_curso') {
+                    estado = 'Ocupada';
+                } else if (habitacion.ocupacion === 'reservada') {
+                    estado = 'Reservada';
+                }
+            }
+
+            const esMantenimiento = estado === 'Mantenimiento';
             const motivo = obtenerMotivoMantenimiento(habitacion.observacion);
             const prioridad = obtenerPrioridadMantenimiento(habitacion.observacion);
             const accionClick = esMantenimiento ? `onclick="abrirModalMantenimiento(${Number(habitacion.id)})"` : '';
-            const accesibilidad = esMantenimiento ? 'role="button" tabindex="0" aria-label="Ver motivo de mantenimiento"' : 'aria-label="Habitacion sin mantenimiento"';
+
+            // Usamos los colores de Tailwind que tienes en tu leyenda
+            const clasesColor = {
+                'Disponible': 'bg-green-500 hover:bg-green-600',
+                'Ocupada': 'bg-orange-500 hover:bg-orange-600',
+                'Reservada': 'bg-sky-500 hover:bg-sky-600',
+                'Sucia': 'bg-stone-600 hover:bg-stone-700',
+                'Mantenimiento': 'bg-red-500 hover:bg-red-600'
+            }[estado] || 'bg-slate-400 hover:bg-slate-500';
 
             if (esMantenimiento) {
                 habitacionesHousekeeping.set(String(habitacion.id), {
@@ -572,14 +589,16 @@ async function renderHousekeeping() {
                 });
             }
 
+            // Renderizamos como botones cuadrados con Tailwind
             grid.insertAdjacentHTML('beforeend', `
-                <div id="housekeeping-room-${Number(habitacion.id)}" ${accionClick} ${accesibilidad} class="room-dot ${claseEstado} ${esMantenimiento ? 'room-dot--clickable' : ''} shadow-sm">
+                <button type="button" ${accionClick} class="aspect-square rounded-lg ${clasesColor} text-white font-black text-sm shadow-sm transition-transform hover:scale-105 flex flex-col items-center justify-center relative cursor-pointer" title="Habitación ${Number(habitacion.numero)} · ${estado}">
                     <span>${escaparHTMLHousekeeping(habitacion.numero)}</span>
-                </div>
+                </button>
             `);
         });
     } catch (error) {
         console.error('Error al sincronizar Housekeeping:', error);
+        grid.innerHTML = `<p class="col-span-full text-xs text-red-500 text-center">Error al cargar habitaciones: ${error.message}</p>`;
     }
 }
 
@@ -805,28 +824,61 @@ function marcarTareaComoHecha(id, botonHTML) {
     return marcarTareaComoHechaAdmin(id, botonHTML);
 }
 
-function actualizarContadorTareasAdmin() {
+// ✅ FUNCIÓN CORREGIDA PARA EXTRAER SOLO EL NÚMERO DEL JSON
+async function actualizarContadorTareasAdmin() {
     const contenedor = document.getElementById('contenedorTareasAdmin');
     const badge = document.getElementById('badgeNotificacionesAdmin');
     const contadorDashboard = document.getElementById('contador-tareas');
-    if (!contenedor) return;
 
-    const cantidad = contenedor.querySelectorAll('.task-item').length;
-    if (badge) {
-        if (cantidad > 0) {
+    // 1. Si estamos en la vista donde están las tarjetas de tareas, contamos desde el DOM
+    if (contenedor && contenedor.children.length > 0) {
+        const cantidad = contenedor.querySelectorAll('.task-item').length;
+        if (badge) {
             badge.innerText = cantidad;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+            badge.classList.toggle('hidden', cantidad === 0);
+        }
+        if (contadorDashboard) contadorDashboard.innerText = cantidad;
+    } 
+    // 2. Si estamos en el Dashboard (no hay contenedor de tareas), hacemos la petición AJAX
+    else if (contadorDashboard) {
+        try {
+            const respuesta = await fetch('../../controladores/obtener_tareas.php', {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
+            const datos = await respuesta.json();
+            
+            // Extraemos el número: si es un array usamos su longitud, si es objeto usamos .total
+            let total = 0;
+            if (Array.isArray(datos)) {
+                total = datos.length;
+            } else if (datos && typeof datos === 'object' && datos.total !== undefined) {
+                total = datos.total;
+            }
+            
+            // ✅ Aquí asignamos SOLO EL NÚMERO al HTML, nunca el JSON completo
+            contadorDashboard.innerText = total;
+            if (badge) {
+                badge.innerText = total;
+                badge.classList.toggle('hidden', total === 0);
+            }
+        } catch (error) {
+            console.error('Error al actualizar el contador del dashboard:', error);
         }
     }
-
-    if (contadorDashboard) contadorDashboard.innerText = cantidad;
 }
 
 function iniciarSincronizacionTareasAdmin() {
     if (intervaloColaAdmin) return;
-    intervaloColaAdmin = setInterval(renderTareasAdmin, 3000);
+    intervaloColaAdmin = setInterval(() => {
+        // Si estamos en la vista de tareas, renderizamos la cola (esto actualiza el contador internamente)
+        if (document.getElementById('contenedorTareasAdmin')) {
+            renderTareasAdmin();
+        } else {
+            // Si estamos en el dashboard, solo actualizamos el número del contador
+            actualizarContadorTareasAdmin();
+        }
+    }, 3000);
 }
 
 function reiniciarSincronizacionTareasAdmin() {
@@ -1225,6 +1277,7 @@ window.eliminarReservaEnVivo = async function(idReserva) {
         alert(err instanceof Error ? err.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.');
     }
 };
+
 
 document.addEventListener('submit', async function(e) {
     const form = e.target;

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../configuracion/permiso.php';
+/** @var mysqli $conexion */
 if (!usuario_tiene_permiso($conexion, 'dashboard.ver')) {
     return;
 }
@@ -25,7 +26,7 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Reservas Hoy</p>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Hoy</p>
             <h3 class="text-4xl font-black text-heading">$<?php echo number_format($resumenAdmin['ingresos_hoy'], 0, ',', '.'); ?></h3>
         </div>
         
@@ -51,20 +52,4 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
             <?php endif; ?>
         </div>
     </div>
-    <script>
-        function actualizarContadorTareas() {
-            fetch('../../controladores/api_tareas_pendientes.php')
-                .then(response => response.text())
-                .then(data => {
-                    const contador = document.getElementById('contador-tareas');
-                    if(contador) {
-                        contador.innerText = data;
-                    }
-                })
-                .catch(error => console.error('Error al actualizar tareas:', error));
-        }
-
-        actualizarContadorTareas();
-        setInterval(actualizarContadorTareas, 5000); 
-    </script>
 </section>
