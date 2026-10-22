@@ -22,10 +22,7 @@ $firma_actor_panel = hash_hmac(
 
 require_once '../../configuracion/conexion.php';
 require_once '../../configuracion/permiso.php';
-require_once '../../src/RoomService/RoomServiceSchemaMigrator.php';
 /** @var mysqli $conexion */
-// Room Service: crea tablas y permisos la primera vez (no hace nada si ya existen).
-\App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
 require_once 'componentes_ad/head.php';
 
 $permisos_usuario = [];

@@ -9,8 +9,7 @@ use mysqli;
  * Crea (una sola vez) las tablas del room service, registra sus permisos y
  * carga un catálogo inicial editable desde el panel del administrador.
  *
- * Es idempotente: se puede llamar en cada petición, solo hace trabajo si falta algo.
- * El mismo esquema está en SQL/room_service.sql por si prefieres importarlo a mano.
+ * Es idempotente y se ejecuta desde database/migrate.php durante el despliegue.
  */
 final class RoomServiceSchemaMigrator
 {

@@ -8,8 +8,6 @@ require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 
-\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
-
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 if (!isset($_SESSION['user_auth']) && !isset($_SESSION['emp_auth'])) {

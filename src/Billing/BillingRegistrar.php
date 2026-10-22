@@ -15,6 +15,7 @@ use mysqli;
  *
  * Los métodos de registro nunca lanzan: si algo falla lo dejan en el log y devuelven null,
  * para que un problema de contabilidad no tumbe el cobro que ya se está haciendo.
+ * La actualización del esquema se ejecuta únicamente desde database/migrate.php.
  */
 final class BillingRegistrar
 {

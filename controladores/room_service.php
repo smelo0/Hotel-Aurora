@@ -20,18 +20,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
-require_once __DIR__ . '/../src/RoomService/RoomServiceSchemaMigrator.php';
 require_once __DIR__ . '/../src/RoomService/RoomServiceRepository.php';
 
 use App\Logger;
 use App\RoomService\RoomServiceRepository;
-use App\RoomService\RoomServiceSchemaMigrator;
 
 /** @var mysqli $conexion */
 header('Content-Type: application/json; charset=utf-8');
 
-RoomServiceSchemaMigrator::asegurar($conexion);
-\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 function rs_responder(int $status, string $mensaje, array $datos = []): never

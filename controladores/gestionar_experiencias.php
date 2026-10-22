@@ -3,7 +3,6 @@ require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
-\App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 header('Content-Type: application/json; charset=utf-8');
 
 function responder_experiencias($status, $mensaje, $datos = []) {
@@ -231,17 +230,6 @@ if ($metodo === 'POST' && $accion === 'cobrar_experiencia') {
 
 if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) {
     responder_experiencias(403, 'No tienes permiso para consultar las experiencias');
-}
-
-// Si la base de datos viene de una exportación antigua le faltan columnas de experiencias: sin ellas el historial
-// salía vacío sin avisar. Se corrige una sola vez con el mismo migrador de database/migrate-experiences.php.
-try {
-    $migradorExperiencias = new \App\Database\ExperienceSchemaMigrator($conexion);
-    if ($migradorExperiencias->requiereMigracion()) {
-        $migradorExperiencias->migrate();
-    }
-} catch (Throwable $error) {
-    error_log('No se pudo actualizar la estructura de experiencias: ' . $error->getMessage());
 }
 
 if ($metodo === 'GET' && $accion === 'listar') {
