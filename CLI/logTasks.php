@@ -42,11 +42,8 @@ do {
         if (($usuario && password_verify($passwordTyped, $usuario['psw_usu'])) && ($usuario['cod_rol_usu'] == "1")){
             echo "\n[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "\n";
             
-            /*
-            require __DIR__ . "/options/selectorTasksCLI.php";
-            break;
-            */
             $sessionLoged = true;
+        
         } else {
             echo "Clave o usuario incorrecto " . PHP_EOL;
             echo "" . PHP_EOL;
@@ -57,4 +54,3 @@ do {
 
 } while ($sessionLoged != true);
 
-echo "\nCargando panel de administración...\n";

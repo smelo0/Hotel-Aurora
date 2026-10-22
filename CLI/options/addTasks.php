@@ -1,3 +1,7 @@
 <?php
 
-echo "estas en el modulo de añadir tareas";
+echo "\n";
+echo "*********************************************************" . PHP_EOL;
+echo "=====================Añadir Tareas=======================" . PHP_EOL;
+echo "*********************************************************" . PHP_EOL;
+echo "" . PHP_EOL;
