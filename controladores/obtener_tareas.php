@@ -13,7 +13,6 @@ if (
 ) {
     http_response_code(401);
     echo json_encode(['status' => 'error', 'mensaje' => 'No estás autorizado'], JSON_UNESCAPED_UNICODE);
-    $conexion->close();
     exit();
 }
 
