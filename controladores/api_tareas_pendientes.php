@@ -1,18 +1,16 @@
 <?php
-// ARCHIVO: controladores/api_tareas_pendientes.php
+declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/sesion_seguridad.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Obtención flexible de datos de sesión
-$idUsuario = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['id_usuario'] ?? null;
-$rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? $_SESSION['rol_usuario'] ?? 0);
+$idUsuario = $_SESSION['emp_auth']['id_usuario'] ?? null;
+$rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
 
 // Si no hay sesión válida de admin/gestor, responde 0 sin arrojar error 403 de servidor
 if (!$idUsuario || !in_array($rolUsuario, [1, 2], true)) {
+    http_response_code(401);
     echo json_encode(['total' => 0, 'status' => 'unauthorized']);
     exit();
 }
@@ -28,4 +26,5 @@ if ($resultado && $fila = $resultado->fetch_assoc()) {
 } else {
     echo json_encode(['total' => 0, 'status' => 'vacio']);
 }
+$conexion->close();
 exit();
