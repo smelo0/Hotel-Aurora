@@ -159,7 +159,10 @@ CREATE TABLE `habitacion` (
   `pre_hab` decimal(10,2) DEFAULT NULL,
   `est_hab` varchar(20) DEFAULT 'Disponible',
   `precio_hab` decimal(10,2) DEFAULT 0.00,
-  `obs_hab` text DEFAULT NULL
+  `obs_hab` text DEFAULT NULL,
+  `des_hab` text DEFAULT NULL,
+  `img_hab` varchar(255) DEFAULT NULL,
+  `car_hab` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

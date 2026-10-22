@@ -111,6 +111,7 @@ try {
 
     (new \App\Database\ExperienceSchemaMigrator($conexion))->migrate();
     (new \App\Database\PasswordResetSchemaMigrator($conexion))->migrate();
+    (new \App\Database\RoomCatalogSchemaMigrator($conexion))->migrate();
     \App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
     \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
     fwrite(STDOUT, "Respaldo verificado y migración completada: {$backupPath}\n");

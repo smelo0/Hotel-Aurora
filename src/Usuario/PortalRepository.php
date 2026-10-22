@@ -124,8 +124,8 @@ final class PortalRepository
     public function fetchRoomCatalog(mysqli $connection): array
     {
         $statement = $connection->prepare(
-            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab,
-                    NULL AS img_hab, NULL AS car_hab
+            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab,
+                    COALESCE(NULLIF(h.des_hab, ''), h.obs_hab) AS obs_hab, h.img_hab, h.car_hab
              FROM habitacion h
              WHERE LOWER(TRIM(h.est_hab)) = 'disponible' OR h.est_hab IS NULL OR h.est_hab = ''
              ORDER BY h.num_hab ASC"
