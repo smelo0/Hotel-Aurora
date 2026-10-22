@@ -4,18 +4,26 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-// 2. Inicializar y cargar las variables del archivo .env
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
-$dotenv->load();
+// El archivo .env es opcional: producción puede entregar estas variables desde Apache.
+$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->safeLoad();
 
-// Configuracion de base de datos con soporte para variables de entorno.
-// En XAMPP/Windows, 127.0.0.1 evita bloqueos ocasionales de resolucion con "localhost".
-$servidor = $_ENV['DB_HOST'];
-$usuario =  $_ENV['DB_USER'];
-$password =  $_ENV['DB_PASS'];
-$base_datos =  $_ENV['DB_NAME'];
-$puerto = (int)  $_ENV['DB_PORT'];
-$timeout = (int)  $_ENV['DB_TIMEOUT'];
+$configurar = static function (string $nombre, ?string $porDefecto = null): ?string {
+    $valor = getenv($nombre);
+    if ($valor !== false && $valor !== '') {
+        return $valor;
+    }
+
+    $valor = $_ENV[$nombre] ?? $_SERVER[$nombre] ?? $porDefecto;
+    return $valor === null ? null : (string) $valor;
+};
+
+$servidor = $configurar('DB_HOST');
+$usuario = $configurar('DB_USER');
+$password = $configurar('DB_PASS', '');
+$base_datos = $configurar('DB_NAME');
+$puerto = filter_var($configurar('DB_PORT'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+$timeout = filter_var($configurar('DB_TIMEOUT', '5'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 30]]);
 
 mysqli_report(MYSQLI_REPORT_OFF);
 
@@ -42,6 +50,10 @@ function responder_error_conexion_bd($mensaje) {
         . '<p>Abre el Panel de Control de XAMPP e inicia <strong>MySQL</strong>. Luego recarga esta pagina.</p>'
         . '</div>'
     );
+}
+
+if ($servidor === null || $usuario === null || $base_datos === null || $puerto === false || $timeout === false) {
+    responder_error_conexion_bd('Falta o es inválida la configuración de conexión a la base de datos.');
 }
 
 $conexion = mysqli_init();
