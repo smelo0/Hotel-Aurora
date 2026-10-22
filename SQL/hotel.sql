@@ -75,8 +75,7 @@ CREATE TABLE `experiencias` (
 -- Volcado de datos para la tabla `agenda_actividad`
 --
 
-INSERT INTO `agenda_actividad` (`id_agenda`, `actividad`, `fecha_agenda`, `hora_agenda`, `nombre_contacto`, `correo_contacto`, `id_usu_agenda`, `estado_agenda`, `creado_en`) VALUES
-(1, 'Paseo náutico', '2026-08-05', '10:57:00', 'adssa', 'yuli.aa.gomez@gmail.com', 0, 'Pendiente', '2026-08-03 09:56:17');
+-- No se versionan solicitudes reales de huéspedes en este repositorio.
 
 -- --------------------------------------------------------
 
@@ -480,30 +479,31 @@ CREATE TABLE `usuario` (
 -- Volcado de datos para la tabla `usuario`
 --
 
+-- Datos exclusivamente de demostración. Contraseña de todos: ChangeMe123!
 INSERT INTO `usuario` (`id_usu`, `doc_usu`, `nom_usu`, `tel_usu`, `corr_usu`, `psw_usu`, `est_usu`, `cod_rol_usu`, `foto_usu`, `tema_usu`, `idioma_usu`, `data_consent`, `consent_date`, `consent_ip`) VALUES
-(1, NULL, 'Steven', NULL, 'gerente@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 1, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(2, NULL, 'Yulli Recepcionista', NULL, 'yulli@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(3, NULL, 'Samuel Conserje', NULL, 'samuel@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 4, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(4, NULL, 'Samantha Limpieza', NULL, 'samantha@hotel.com', '$2y$10$atnAuiX6XjARmfTHLF1yGuSAcjbhkQ//nRu7G2oN3.tL8UjGYT/1u', 1, 5, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(7, NULL, 'Santiago Melo', NULL, 'gestorIngresos@hotel.com', '$2y$10$RblI4EQmg67F15qPDHF9Q.wJxoWvXd6/lDVOEjb5oj.G1bOvBXg2a', 1, 2, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(10, NULL, 'Will Smith', NULL, 'will@actor.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(14, NULL, 'Adam Samdler', NULL, 'adam@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(16, NULL, 'Michael Jordan Cruz', NULL, 'mich@g.com', '', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(17, NULL, 'Camilo', NULL, 'camilo@g.com', '$2y$10$C5MOvFA77zrRQz9IMR1Bv..iZMVmzobsnqz1u.ywBiDKvE8EvQVCi', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(18, NULL, 'Camila', NULL, 'camila@g.com', '$2y$10$xiSIbm7gVkloBJERPufmgeAGoavh5Q0vBIGwG9.X4T.TqYTRWuBNu', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(19, NULL, 'Fernando Castro Pinzon', NULL, 'ferdinan@g.com', '$2y$10$YAHpYmVFCl0wre6hKamhs.Ir5/SqtcNUfBuul/No289f/4UKzoFVC', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(21, NULL, 'Rafael Orozco', NULL, 'rafael@g.com', '$2y$10$534ZvxIYsYyJ2D.i7xUd1.M1dgU7faF24LI1lIwhj8QasRZypLyl6', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(22, NULL, 'Luis Miguel', NULL, 'luismi@g.com', '$2y$10$8HiIzSpkbPAVBfclTyACL.wyUgK.A.NvdyKvR5E.ns9sejfMoAA8q', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(23, NULL, 'Laura Muñoz', NULL, 'lauritagomezochoa@g.com', '$2y$10$mvWep4bDRpLcTEYfFIFM2.oRqJ.24TEwLgtKk5iV5I2OHTgkGq4xq', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(24, NULL, 'Rafael Dominguez', NULL, 'rafa@g.com', '$2y$10$rQzRhByDkGBr3K3S6gf4MuzQgsqW985z6h1yguZHXeodm7THBESaq', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(26, NULL, 'dana sara perez', NULL, 'dana_sara123@gmail.com', '$2y$10$vEZAxUJz4A3H1ounGeSnVukImYZaxHd6FTaGJfsdtkjEeHS7cjA8a', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(27, NULL, 'yulieth gomez', NULL, 'yuli.aa.gomez@gmsil.com', '$2y$10$i8rAos5Too9viPz8DOxI3OBIjCNOqqHT88T.mUUpHP8ENAFXcctU2', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(28, NULL, 'qasdsf', NULL, 'yuli.aa.gomez@gmail.com', '$2y$10$EFfRu1.iOeLkqxCl0/g3q.EYx8tX31TFxRjtQj9zWHnljusNxQw1G', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(29, NULL, 'noes', NULL, 'pylo@gmail.com', '$2y$10$NWneLtjhhaL4e96Mo0rWmeN4PqmeTgNfs1oM9c7T.3vPXOvWsngeG', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(30, NULL, 'yulieth gomez', NULL, 'i.aa.gomez@gmail.com', '$2y$10$0rcuXkMcvUajFBjgkphZeeCEBAggafd3IoM6QfV9LCd0wDMi5Ke2m', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(31, NULL, 'yulieth gome', NULL, 'aa.gomez@gmail.com', '$2y$10$0wRclmBPAly5kI/F85GOE.5zr4B/ycqI1S1kjFLBpaMWklkHQW3dK', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(32, NULL, 'papito3000', NULL, 'papicho@gmail.coom', '$2y$10$50Ou6sLfQjhv.kd/tm.NreDBq0fPyL9qR6aQFVzooP2ShNVIpUWAy', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(33, NULL, 'juandavid', NULL, 'juan_david@gmail.com', '$2y$10$ieQC3T6cWrRTjiu9U3y7D.HfKjxiKr9Ztn5r3hnjDXm7CgwZLtyT6', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-09-01 08:25:17', '::1');
+(1, NULL, 'Administrador Demo', NULL, 'admin@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 1, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(2, NULL, 'Recepción Demo', NULL, 'recepcion@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(3, NULL, 'Conserjería Demo', NULL, 'conserjeria@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 4, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(4, NULL, 'Limpieza Demo', NULL, 'limpieza@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 5, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(7, NULL, 'Ingresos Demo', NULL, 'ingresos@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 2, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(10, NULL, 'Recepción Pruebas 1', NULL, 'recepcion-1@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(14, NULL, 'Recepción Pruebas 2', NULL, 'recepcion-2@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(16, NULL, 'Recepción Pruebas 3', NULL, 'recepcion-3@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(17, NULL, 'Recepción Pruebas 4', NULL, 'recepcion-4@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(18, NULL, 'Recepción Pruebas 5', NULL, 'recepcion-5@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(19, NULL, 'Recepción Pruebas 6', NULL, 'recepcion-6@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(21, NULL, 'Recepción Pruebas 7', NULL, 'recepcion-7@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(22, NULL, 'Recepción Pruebas 8', NULL, 'recepcion-8@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(23, NULL, 'Recepción Pruebas 9', NULL, 'recepcion-9@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(24, NULL, 'Recepción Pruebas 10', NULL, 'recepcion-10@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 3, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(26, NULL, 'Huésped Demo 1', NULL, 'guest-1@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(27, NULL, 'Huésped Demo 2', NULL, 'guest-2@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(28, NULL, 'Huésped Demo 3', NULL, 'guest-3@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(29, NULL, 'Huésped Demo 4', NULL, 'guest-4@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(30, NULL, 'Huésped Demo 5', NULL, 'guest-5@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(31, NULL, 'Huésped Demo 6', NULL, 'guest-6@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(32, NULL, 'Huésped Demo 7', NULL, 'guest-7@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(33, NULL, 'Huésped Demo 8', NULL, 'guest-8@example.test', '$2y$10$QVrr/Sm4NTOOjXBHMNE92OEt.3u7IB6.pqqs55Xu6nK25euLl6czm', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL);
 
 --
 -- Índices para tablas volcadas

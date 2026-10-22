@@ -5,3 +5,6 @@
 .htaccess
 !.htaccess
 logs/
+backups/
+SQL/*.local.sql
+SQL/*.sql.gz
