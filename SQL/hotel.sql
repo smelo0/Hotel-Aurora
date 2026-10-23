@@ -2,12 +2,13 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Servidor: 127.0.0.1:3308
--- Tiempo de generación: 02-09-2026 a las 18:10:32
+-- Servidor: 127.0.0.1
+-- Tiempo de generación: 15-10-2026 a las 02:42:37
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+-- En MariaDB, el DDL puede confirmar cambios aunque el volcado abra una transaccion.
 START TRANSACTION;
 SET time_zone = "+00:00";
 
@@ -32,51 +33,29 @@ CREATE TABLE `agenda_actividad` (
   `actividad` varchar(150) NOT NULL,
   `opcion_actividad` varchar(100) NOT NULL DEFAULT '',
   `selecciones_personas_json` text DEFAULT NULL,
-  `monto_experiencia` decimal(12,2) DEFAULT NULL,
-  `precios_personas_json` text DEFAULT NULL,
-  `fecha_agenda` date NOT NULL,
-  `hora_agenda` time NOT NULL,
+  `fecha_agenda` date DEFAULT NULL,
+  `hora_agenda` time DEFAULT NULL,
   `nombre_contacto` varchar(140) NOT NULL,
   `correo_contacto` varchar(140) NOT NULL,
   `id_usu_agenda` bigint(20) DEFAULT NULL,
   `estado_agenda` varchar(30) DEFAULT 'Pendiente',
+  `creado_en` datetime DEFAULT current_timestamp(),
   `estado_pago_experiencia` varchar(20) NOT NULL DEFAULT 'Pendiente',
   `fecha_pago_experiencia` datetime DEFAULT NULL,
   `metodo_pago_experiencia` varchar(30) DEFAULT NULL,
   `cod_res_agenda` bigint(20) DEFAULT NULL,
-  `creado_en` datetime DEFAULT current_timestamp(),
-  KEY `idx_agenda_reserva` (`cod_res_agenda`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Estructura de tabla para la tabla `experiencias`
---
-
-CREATE TABLE `experiencias` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `categoria` varchar(50) NOT NULL,
-  `nombre` varchar(150) NOT NULL,
-  `descripcion` text NOT NULL,
-  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
-  `imagen` varchar(255) DEFAULT NULL,
-  `opcion_1` varchar(100) NOT NULL DEFAULT '',
-  `opcion_2` varchar(100) NOT NULL DEFAULT '',
-  `opcion_3` varchar(100) NOT NULL DEFAULT '',
-  `precio_opcion_1` decimal(12,2) DEFAULT NULL,
-  `precio_opcion_2` decimal(12,2) DEFAULT NULL,
-  `precio_opcion_3` decimal(12,2) DEFAULT NULL,
-  `horarios_json` text DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `monto_experiencia` decimal(12,2) DEFAULT NULL,
+  `precios_personas_json` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `agenda_actividad`
 --
 
-INSERT INTO `agenda_actividad` (`id_agenda`, `actividad`, `fecha_agenda`, `hora_agenda`, `nombre_contacto`, `correo_contacto`, `id_usu_agenda`, `estado_agenda`, `creado_en`) VALUES
-(1, 'Paseo náutico', '2026-08-05', '10:57:00', 'adssa', 'yuli.aa.gomez@gmail.com', 0, 'Pendiente', '2026-08-03 09:56:17');
+INSERT INTO `agenda_actividad` (`id_agenda`, `actividad`, `opcion_actividad`, `selecciones_personas_json`, `fecha_agenda`, `hora_agenda`, `nombre_contacto`, `correo_contacto`, `id_usu_agenda`, `estado_agenda`, `creado_en`, `estado_pago_experiencia`, `fecha_pago_experiencia`, `metodo_pago_experiencia`, `cod_res_agenda`, `monto_experiencia`, `precios_personas_json`) VALUES
+(1, 'Paseo náutico', '', NULL, '2026-08-05', '10:57:00', 'adssa', 'yuli.aa.gomez@gmail.com', NULL, 'Pendiente', '2026-08-03 09:56:17', 'Cancelada', NULL, NULL, NULL, NULL, NULL),
+(2, 'Gastronomía', '', NULL, '2026-02-11', '20:00:00', 'yulieth', 'aa.gomez@gmail.com', NULL, 'Pendiente', '2026-09-28 07:31:57', 'Pendiente', NULL, NULL, NULL, NULL, NULL),
+(3, 'Comida', 'Personalizada', '[\"Solicitud personalizada\"]', NULL, NULL, 'Luisa Peralta', 'luisita@gmail.com', 36, 'Pendiente', '2026-10-05 19:39:29', 'Cancelada', NULL, NULL, 48, NULL, '[null]');
 
 -- --------------------------------------------------------
 
@@ -96,10 +75,10 @@ CREATE TABLE `detalle` (
 --
 
 INSERT INTO `detalle` (`cod_det`, `can_noc_det`, `cod_res_det`, `cod_hab_det`) VALUES
-(5, 0, 6, 10),
-(7, 0, 8, 18),
-(9, 0, 10, 24),
-(10, 0, 11, 30),
+(5, 5, 6, 10),
+(7, 6, 8, 18),
+(9, 4, 10, 24),
+(10, 7, 11, 30),
 (12, 27, 13, 4),
 (13, 27, 14, 5),
 (14, 27, 15, 6),
@@ -131,7 +110,47 @@ INSERT INTO `detalle` (`cod_det`, `can_noc_det`, `cod_res_det`, `cod_hab_det`) V
 (40, 3, 41, 2),
 (41, 1, 42, 36),
 (42, 2, 43, 3),
-(43, 1, 44, 9);
+(43, 1, 44, 9),
+(44, 14, 45, 33),
+(45, 1, 46, 22),
+(46, 4, 47, 34),
+(47, 8, 48, 4),
+(48, 6, 49, 31),
+(49, 1, 50, 5),
+(50, 2, 51, 6);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `experiencias`
+--
+
+CREATE TABLE `experiencias` (
+  `id` int(11) NOT NULL,
+  `categoria` varchar(50) NOT NULL,
+  `nombre` varchar(150) NOT NULL,
+  `descripcion` text NOT NULL,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
+  `imagen` varchar(255) DEFAULT NULL,
+  -- Campos heredados: la aplicacion actual aun los consulta y actualiza.
+  `opcion_1` varchar(100) NOT NULL DEFAULT '',
+  `opcion_2` varchar(100) NOT NULL DEFAULT '',
+  `opcion_3` varchar(100) NOT NULL DEFAULT '',
+  `precio_opcion_1` decimal(12,2) DEFAULT NULL,
+  `precio_opcion_2` decimal(12,2) DEFAULT NULL,
+  `precio_opcion_3` decimal(12,2) DEFAULT NULL,
+  `horarios_json` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `experiencias`
+--
+
+INSERT INTO `experiencias` (`id`, `categoria`, `nombre`, `descripcion`, `fecha_creacion`, `imagen`, `opcion_1`, `opcion_2`, `opcion_3`, `precio_opcion_1`, `precio_opcion_2`, `precio_opcion_3`, `horarios_json`) VALUES
+(1, 'Diversión y entretenimiento', 'Planes especiales', 'Rituales de relajación, masajes premium y circuitos privados para renovar cuerpo y mente. jjjj', '2026-09-28 12:28:52', NULL, '', '', '', NULL, NULL, NULL, NULL),
+(2, 'Bienestar y comodidad', 'Actividades', 'Agenda actividades guiadas y experiencias a la medida durante tu estancia.', '2026-09-28 12:28:52', NULL, '', '', '', NULL, NULL, NULL, NULL),
+(3, 'Sabores exclusivos', 'Gastronomía', 'Menú costero, cocina de autor y maridajes elegantes para una velada inolvidable.', '2026-09-28 12:28:52', NULL, '', '', '', NULL, NULL, NULL, NULL),
+(5, 'Entretenimiento', 'Parque Acuatico', 'Diviertete en el mundo acuatico!!!', '2026-10-06 04:45:58', NULL, 'Tobogan Triple', '', '', 30000.00, NULL, NULL, '{\"1\":{\"2026-10-06\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-07\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-08\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-09\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-10\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-11\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-12\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-13\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-14\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-15\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-16\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-17\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-18\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-19\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-20\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-21\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-22\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-23\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-24\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-25\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-26\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-27\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-28\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-29\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"},\"2026-10-30\":{\"inicio\":\"08:00\",\"fin\":\"19:00\"}},\"2\":[],\"3\":[]}');
 
 -- --------------------------------------------------------
 
@@ -157,9 +176,11 @@ CREATE TABLE `habitacion` (
   `cod_hab` bigint(20) NOT NULL,
   `num_hab` int(11) NOT NULL,
   `tipo_hab` varchar(50) DEFAULT NULL,
+  -- precio_hab se conserva por compatibilidad hasta migrar la aplicacion.
   `pre_hab` decimal(10,2) DEFAULT NULL,
   `est_hab` varchar(20) DEFAULT 'Disponible',
   `precio_hab` decimal(10,2) DEFAULT 0.00,
+  `capacidad_max` int(11) NOT NULL DEFAULT 4,
   `obs_hab` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -168,9 +189,9 @@ CREATE TABLE `habitacion` (
 --
 
 INSERT INTO `habitacion` (`cod_hab`, `num_hab`, `tipo_hab`, `pre_hab`, `est_hab`, `precio_hab`, `obs_hab`) VALUES
-(1, 101, 'Sencilla', 50000.00, 'Mantenimiento', 0.00, NULL),
+(1, 101, 'Sencilla', 50000.00, 'Limpio', 0.00, ''),
 (2, 201, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
-(3, 102, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
+(3, 102, 'Sencilla', 50000.00, 'Ocupada', 0.00, ''),
 (4, 103, 'Sencilla', 50000.00, 'Ocupada', 0.00, NULL),
 (5, 104, 'Doble', 85000.00, 'Ocupada', 0.00, NULL),
 (6, 105, 'Doble', 85000.00, 'Ocupada', 0.00, NULL),
@@ -189,9 +210,9 @@ INSERT INTO `habitacion` (`cod_hab`, `num_hab`, `tipo_hab`, `pre_hab`, `est_hab`
 (19, 209, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
 (20, 210, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
 (21, 301, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
-(22, 302, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
-(23, 303, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
-(24, 304, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
+(22, 302, 'Sencilla', 50000.00, 'Ocupada', 0.00, ''),
+(23, 303, 'Doble', 85000.00, 'Ocupada', 0.00, ''),
+(24, 304, 'Doble', 85000.00, 'Ocupada', 0.00, ''),
 (25, 305, 'Suite', 150000.00, 'Disponible', 0.00, NULL),
 (26, 306, 'Suite', 150000.00, 'Disponible', 0.00, NULL),
 (27, 307, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
@@ -200,14 +221,14 @@ INSERT INTO `habitacion` (`cod_hab`, `num_hab`, `tipo_hab`, `pre_hab`, `est_hab`
 (30, 310, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
 (31, 401, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
 (32, 402, 'Sencilla', 50000.00, 'Disponible', 0.00, NULL),
-(33, 403, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
-(34, 404, 'Doble', 85000.00, 'Disponible', 0.00, NULL),
+(33, 403, 'Doble', 85000.00, 'Ocupada', 0.00, NULL),
+(34, 404, 'Doble', 85000.00, 'Ocupada', 0.00, ''),
 (35, 405, 'Suite Premium', 200000.00, 'Disponible', 0.00, NULL),
-(36, 406, 'Suite Premium', 200000.00, 'Disponible', 0.00, NULL),
+(36, 406, 'Suite Premium', 200000.00, 'Ocupada', 0.00, ''),
 (37, 407, 'Sencilla', 50000.00, 'Ocupada', 0.00, NULL),
 (38, 408, 'Sencilla', 50000.00, 'Sucia', 0.00, NULL),
 (39, 409, 'Doble', 85000.00, 'Mantenimiento', 0.00, NULL),
-(40, 410, 'Doble', 85000.00, 'Disponible', 0.00, NULL);
+(40, 410, 'Doble', 85000.00, 'Ocupada', 0.00, '');
 
 -- --------------------------------------------------------
 
@@ -234,7 +255,33 @@ INSERT INTO `pagos` (`id_pago`, `cod_res_pago`, `monto`, `metodo_pago`, `referen
 (17, 41, 303450.00, 'Transferencia', 'REF-1786030375-41', 'Aprobado', '2026-08-06 10:32:55'),
 (18, 42, 119000.00, 'Tarjeta', 'REF-1786030793-42', 'Aprobado', '2026-08-06 10:39:53'),
 (19, 43, 119000.00, 'Recepción', 'REF-1787230558-43', 'Pendiente', '2026-08-20 07:55:58'),
-(20, 44, 59500.00, 'Recepción', 'REF-1787238618-44', 'Pendiente', '2026-08-20 10:10:18');
+(20, 44, 59500.00, 'Recepción', 'REF-1787238618-44', 'Pendiente', '2026-08-20 10:10:18'),
+(21, 45, 1416100.00, 'Tarjeta', 'REF-1790682515-45', 'Aprobado', '2026-09-29 06:48:35'),
+(22, 46, 59500.00, 'Tarjeta', 'REF-1790682591-46', 'Aprobado', '2026-09-29 06:49:51'),
+(23, 47, 404600.00, 'Tarjeta', 'REF-2fe96b309e19c28d304b5f33dd29ac26', 'Aprobado', '2026-10-05 16:38:19'),
+(24, 48, 476000.00, 'Recepción', 'REF-277c168b5d76f85d0358d83ae0757682', 'Pendiente', '2026-10-05 19:08:58'),
+(25, 49, 357000.00, 'Transferencia', 'REF-bc770a7d6cf920c82f71e10186849973', 'Aprobado', '2026-10-05 23:31:30'),
+(26, 50, 101150.00, 'Transferencia', 'REF-3cfa6adfdb96d6535a767985c1bc2e2a', 'Aprobado', '2026-10-14 17:20:47'),
+(27, 51, 202300.00, 'Efectivo', 'REF-2a2170f9074b6e58591a5e8ee6e77f35', 'Aprobado', '2026-10-14 17:24:44');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `password_resets`
+--
+
+CREATE TABLE `password_resets` (
+  `id` bigint(20) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `token` varchar(128) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `password_resets`
+--
+-- No exportar tokens: son secretos temporales y los registros del respaldo ya expiraron.
 
 -- --------------------------------------------------------
 
@@ -257,8 +304,11 @@ INSERT INTO `permiso` (`cod_permiso`, `modulo`, `accion`, `des_permiso`) VALUES
 ('configuracion.editar', 'configuracion', 'editar', 'Editar la configuración del sistema'),
 ('configuracion.ver', 'configuracion', 'ver', 'Ver la sección de seguridad/configuración'),
 ('dashboard.ver', 'dashboard', 'ver', 'Ver el panel principal'),
+('experiencias.gestionar', 'experiencias', 'gestionar', 'Crear, editar y eliminar experiencias'),
+('experiencias.ver', 'experiencias', 'ver', 'Ver la sección de Experiencias en el panel'),
 ('finanzas.exportar', 'finanzas', 'exportar', 'Exportar reportes financieros'),
 ('finanzas.ver', 'finanzas', 'ver', 'Ver reportes financieros'),
+('logs.ver', 'logs', 'ver', 'ver logs'),
 ('operaciones.editar', 'operaciones', 'editar', 'Cambiar el estado de las habitaciones (aseo, mantenimiento, etc.)'),
 ('operaciones.ver', 'operaciones', 'ver', 'Ver el estado de las habitaciones'),
 ('reservas.crear', 'reservas', 'crear', 'Crear nuevas reservas'),
@@ -325,7 +375,14 @@ INSERT INTO `reservas` (`cod_res`, `fec_res`, `fec_ent_res`, `fec_sal_res`, `est
 (41, '2026-08-06 10:32:55', '2026-09-16 15:00:00', '2026-09-19 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Transferencia\nPorcentaje de cobro: 100%', 31),
 (42, '2026-08-06 10:39:53', '2026-08-26 15:00:00', '2026-08-27 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Tarjeta\nPorcentaje de cobro: 50%', 31),
 (43, '2026-08-20 07:55:58', '2026-09-15 15:00:00', '2026-09-17 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31),
-(44, '2026-08-20 10:10:18', '2026-09-02 15:00:00', '2026-09-03 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31);
+(44, '2026-08-20 10:10:18', '2026-09-02 15:00:00', '2026-09-03 12:00:00', 'Pendiente', 'Adultos: 2 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 31),
+(45, '2026-09-29 06:48:35', '2026-09-16 15:00:00', '2026-09-30 12:00:00', 'Confirmada', 'Adultos: 1 | Niños: 0 | Pago: Tarjeta', 28),
+(46, '2026-09-29 06:49:51', '2026-09-30 15:00:00', '2026-10-01 12:00:00', 'Confirmada', 'Adultos: 1 | Niños: 0 | Pago: Tarjeta\ngccg', 28),
+(47, '2026-10-05 16:38:19', '2026-10-06 15:00:00', '2026-10-10 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Tarjeta\n1 Cortel para cenar', 35),
+(48, '2026-10-05 19:08:58', '2026-10-06 15:00:00', '2026-10-14 12:00:00', 'Pendiente', 'Adultos: 1 | Niños: 0 | Pago: Recepción\nPorcentaje de cobro: 100%', 36),
+(49, '2026-10-05 23:31:30', '2026-10-06 15:00:00', '2026-10-12 12:00:00', 'Confirmada', 'Adultos: 1 | Niños: 0 | Pago: Transferencia\nVista a la piscina', 26),
+(50, '2026-10-14 17:18:28', '2026-10-14 15:00:00', '2026-10-15 12:00:00', 'Confirmada', 'Adultos: 50 | Niños: 56 | Pago: Recepción\r\nPorcentaje de cobro: 100%', 39),
+(51, '2026-10-14 17:24:13', '2026-10-14 15:00:00', '2026-10-16 12:00:00', 'Confirmada', 'Adultos: 2 | Niños: 0 | Pago: Recepción\r\nPorcentaje de cobro: 100%', 39);
 
 -- --------------------------------------------------------
 
@@ -345,11 +402,12 @@ CREATE TABLE `rol` (
 
 INSERT INTO `rol` (`cod_rol`, `des_rol`, `detalle_rol`) VALUES
 (1, 'Gerente General', ''),
-(2, 'Gestor de Ingresos', NULL),
-(3, 'Recepcionista', NULL),
-(4, 'Conserje', NULL),
+(2, 'Gestor de Ingresos', ''),
+(3, 'Recepcionista', ''),
+(4, 'Conserje', ''),
 (5, 'Personal de Limpieza', NULL),
-(6, 'Cliente', NULL);
+(6, 'Cliente', ''),
+(11, 'Guardia', 'Guardia  de Seguridad, encargado de registrar tareas y otras tareas sencillas');
 
 -- --------------------------------------------------------
 
@@ -370,8 +428,11 @@ INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
 (1, 'configuracion.editar'),
 (1, 'configuracion.ver'),
 (1, 'dashboard.ver'),
+(1, 'experiencias.gestionar'),
+(1, 'experiencias.ver'),
 (1, 'finanzas.exportar'),
 (1, 'finanzas.ver'),
+(1, 'logs.ver'),
 (1, 'operaciones.editar'),
 (1, 'operaciones.ver'),
 (1, 'reservas.crear'),
@@ -382,25 +443,28 @@ INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
 (1, 'roles.gestionar'),
 (1, 'roles.ver'),
 (2, 'dashboard.ver'),
+(2, 'experiencias.ver'),
 (2, 'finanzas.exportar'),
 (2, 'finanzas.ver'),
 (2, 'operaciones.ver'),
 (2, 'reservas.crear'),
 (2, 'reservas.editar'),
-(2, 'reservas.eliminar'),
 (2, 'reservas.ver'),
-(2, 'roles.ver'),
 (3, 'dashboard.ver'),
+(3, 'operaciones.editar'),
 (3, 'operaciones.ver'),
-(3, 'reservas.crear'),
-(3, 'reservas.editar'),
 (3, 'reservas.ver'),
 (4, 'dashboard.ver'),
 (4, 'operaciones.editar'),
 (4, 'operaciones.ver'),
 (5, 'dashboard.ver'),
 (5, 'operaciones.editar'),
-(5, 'operaciones.ver');
+(5, 'operaciones.ver'),
+(6, 'reservas.crear'),
+(6, 'reservas.ver'),
+(11, 'dashboard.ver'),
+(11, 'operaciones.editar'),
+(11, 'operaciones.ver');
 
 -- --------------------------------------------------------
 
@@ -450,8 +514,15 @@ INSERT INTO `tarea` (`cod_tar`, `tit_tar`, `cat_tar`, `prioridad_tar`, `des_tar`
 (24, 'Reabastecimiento', 'URGENTE', 'Media', 'Despensa', 'Completada', '2026-04-24 13:44:22', 3),
 (25, 'Trapear', 'GENERAL', 'Media', 'piso 1', 'Completada', '2026-04-24 13:46:18', 4),
 (26, 'Trapear', 'URGENTE', 'Media', 'Piso 4, habitacion 401', 'Pendiente', '2026-04-24 13:57:32', 2),
-(27, 'Trapear', 'URGENTE', 'Media', 'gfgfh', 'Pendiente', '2026-04-24 15:32:27', 2),
-(28, 'fsa', 'GENERAL', 'Media', 'asd', 'Pendiente', '2026-09-02 17:45:27', 1);
+(27, 'Trapear', 'URGENTE', 'Media', 'gfgfh', 'Completada', '2026-04-24 15:32:27', 2),
+(28, 'fsa', 'GENERAL', 'Media', 'asd', 'Completada', '2026-09-02 17:45:27', 1),
+(29, 'Quezo', 'GENERAL', 'Media', 'Piso 2', 'Completada', '2026-09-30 23:22:49', 2),
+(30, 'Mugre', 'GENERAL', 'Media', 'Limpiar el pasillo 3 del piso 4', 'Pendiente', '2026-10-01 00:24:40', 2),
+(31, 'Al fin VIDAAAAA', 'URGENTE', 'Media', 'color', 'Completada', '2026-10-05 05:34:53', 1),
+(32, 'Mugre', 'LIMPIEZA', 'Media', 'Sala de reservas', 'Pendiente', '2026-10-06 00:44:02', 2),
+(33, 'Trapear las escaleras', 'URGENTE', 'Media', 'Piso 2', 'Completada', '2026-10-06 00:48:22', 1),
+(34, 'Limpiar las ventanas', 'LIMPIEZA', 'Media', 'Habs. del piso 3.', 'Completada', '2026-10-06 03:43:28', 2),
+(35, 'Mugre', 'GENERAL', 'Media', 'Piso 3, cerca de las escaleras', 'Completada', '2026-10-06 05:24:32', 2);
 
 -- --------------------------------------------------------
 
@@ -503,7 +574,12 @@ INSERT INTO `usuario` (`id_usu`, `doc_usu`, `nom_usu`, `tel_usu`, `corr_usu`, `p
 (30, NULL, 'yulieth gomez', NULL, 'i.aa.gomez@gmail.com', '$2y$10$0rcuXkMcvUajFBjgkphZeeCEBAggafd3IoM6QfV9LCd0wDMi5Ke2m', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
 (31, NULL, 'yulieth gome', NULL, 'aa.gomez@gmail.com', '$2y$10$0wRclmBPAly5kI/F85GOE.5zr4B/ycqI1S1kjFLBpaMWklkHQW3dK', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
 (32, NULL, 'papito3000', NULL, 'papicho@gmail.coom', '$2y$10$50Ou6sLfQjhv.kd/tm.NreDBq0fPyL9qR6aQFVzooP2ShNVIpUWAy', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
-(33, NULL, 'juandavid', NULL, 'juan_david@gmail.com', '$2y$10$ieQC3T6cWrRTjiu9U3y7D.HfKjxiKr9Ztn5r3hnjDXm7CgwZLtyT6', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-09-01 08:25:17', '::1');
+(33, NULL, 'juandavid', NULL, 'juan_david@gmail.com', '$2y$10$ieQC3T6cWrRTjiu9U3y7D.HfKjxiKr9Ztn5r3hnjDXm7CgwZLtyT6', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-09-01 08:25:17', '::1'),
+(34, NULL, 'David Gonzales Perez', NULL, 'david@gmail.com', '$2y$10$6kX4XO1HyyvzZW9Es0.4MeQzTMiiGmGXAlkYzpu9lnzctGRlo5QzO', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-09-30 16:39:53', '::1'),
+(35, NULL, 'Diana', NULL, 'dianita@gmail.com', '$2y$10$VXV7sgD5k3ZkjXWn38sjB.m1of6gjSUd4hRIqYnL7D7cW/hCo5OuC', 1, 6, 'default_avatar.png', 'claro', 'es', 0, NULL, NULL),
+(36, NULL, 'Luisa Peralta', NULL, 'luisita@gmail.com', '$2y$10$msEP/b0oSLZAdpP2Dt4Jg.4SuuOlorLuifJuwIruyTiyEETbkLjF6', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-10-05 19:07:51', '::1'),
+(38, NULL, 'Camilo Cruz', NULL, 'camilo@gmail.com', '$2y$10$2nrC.5m2W4y2pjBTEDxi1eCRAiRVz4j4FcqiAIzOIooG5bPfr/8gu', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-10-07 21:22:25', '::1'),
+(39, NULL, 'Enrique Hernan', NULL, 'enriquesito@gmail.com', '$2y$10$qf6C2o15SJb7grV5dElwGeeK.pIQncsZ.M.DAHlB63vcuR/WM0uOG', 1, 6, 'default_avatar.png', 'claro', 'es', 1, '2026-10-14 17:11:39', '::1');
 
 --
 -- Índices para tablas volcadas
@@ -513,7 +589,9 @@ INSERT INTO `usuario` (`id_usu`, `doc_usu`, `nom_usu`, `tel_usu`, `corr_usu`, `p
 -- Indices de la tabla `agenda_actividad`
 --
 ALTER TABLE `agenda_actividad`
-  ADD PRIMARY KEY (`id_agenda`);
+  ADD PRIMARY KEY (`id_agenda`),
+  ADD KEY `idx_agenda_reserva` (`cod_res_agenda`),
+  ADD KEY `idx_agenda_usuario` (`id_usu_agenda`);
 
 --
 -- Indices de la tabla `detalle`
@@ -522,6 +600,12 @@ ALTER TABLE `detalle`
   ADD PRIMARY KEY (`cod_det`),
   ADD KEY `cod_res_det` (`cod_res_det`),
   ADD KEY `cod_hab_det` (`cod_hab_det`);
+
+--
+-- Indices de la tabla `experiencias`
+--
+ALTER TABLE `experiencias`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indices de la tabla `factura`
@@ -542,7 +626,16 @@ ALTER TABLE `habitacion`
 --
 ALTER TABLE `pagos`
   ADD PRIMARY KEY (`id_pago`),
-  ADD KEY `cod_res_pago` (`cod_res_pago`);
+  ADD KEY `cod_res_pago` (`cod_res_pago`),
+  ADD UNIQUE KEY `uq_pagos_referencia` (`referencia_pago`);
+
+--
+-- Indices de la tabla `password_resets`
+--
+ALTER TABLE `password_resets`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `email` (`email`),
+  ADD UNIQUE KEY `uq_password_resets_token` (`token`);
 
 --
 -- Indices de la tabla `permiso`
@@ -561,11 +654,7 @@ ALTER TABLE `reservas`
 -- Indices de la tabla `rol`
 --
 ALTER TABLE `rol`
-  ADD PRIMARY KEY (`cod_rol`),
-  ADD KEY `cod_rol` (`cod_rol`),
-  ADD KEY `cod_rol_2` (`cod_rol`),
-  ADD KEY `cod_rol_3` (`cod_rol`),
-  ADD KEY `cod_rol_4` (`cod_rol`);
+  ADD PRIMARY KEY (`cod_rol`);
 
 --
 -- Indices de la tabla `rol_permiso`
@@ -579,9 +668,7 @@ ALTER TABLE `rol_permiso`
 --
 ALTER TABLE `tarea`
   ADD PRIMARY KEY (`cod_tar`),
-  ADD KEY `cod_usu_tar` (`cod_usu_tar`),
-  ADD KEY `cod_tar` (`cod_tar`),
-  ADD KEY `cod_usu_tar_2` (`cod_usu_tar`);
+  ADD KEY `cod_usu_tar` (`cod_usu_tar`);
 
 --
 -- Indices de la tabla `usuario`
@@ -599,13 +686,19 @@ ALTER TABLE `usuario`
 -- AUTO_INCREMENT de la tabla `agenda_actividad`
 --
 ALTER TABLE `agenda_actividad`
-  MODIFY `id_agenda` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_agenda` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `detalle`
 --
 ALTER TABLE `detalle`
-  MODIFY `cod_det` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `cod_det` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+
+--
+-- AUTO_INCREMENT de la tabla `experiencias`
+--
+ALTER TABLE `experiencias`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `factura`
@@ -623,31 +716,37 @@ ALTER TABLE `habitacion`
 -- AUTO_INCREMENT de la tabla `pagos`
 --
 ALTER TABLE `pagos`
-  MODIFY `id_pago` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id_pago` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+
+--
+-- AUTO_INCREMENT de la tabla `password_resets`
+--
+ALTER TABLE `password_resets`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `reservas`
 --
 ALTER TABLE `reservas`
-  MODIFY `cod_res` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `cod_res` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT de la tabla `rol`
 --
 ALTER TABLE `rol`
-  MODIFY `cod_rol` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `cod_rol` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT de la tabla `tarea`
 --
 ALTER TABLE `tarea`
-  MODIFY `cod_tar` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `cod_tar` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT de la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  MODIFY `id_usu` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `id_usu` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
 
 --
 -- Restricciones para tablas volcadas
@@ -658,25 +757,45 @@ ALTER TABLE `usuario`
 --
 ALTER TABLE `detalle`
   ADD CONSTRAINT `detalle_ibfk_1` FOREIGN KEY (`cod_res_det`) REFERENCES `reservas` (`cod_res`),
-  ADD CONSTRAINT `detalle_ibfk_2` FOREIGN KEY (`cod_hab_det`) REFERENCES `habitacion` (`cod_hab`);
+  ADD CONSTRAINT `detalle_ibfk_2` FOREIGN KEY (`cod_hab_det`) REFERENCES `habitacion` (`cod_hab`),
+  ADD CONSTRAINT `chk_detalle_noches` CHECK (`can_noc_det` >= 0);
 
 --
 -- Filtros para la tabla `factura`
 --
 ALTER TABLE `factura`
-  ADD CONSTRAINT `factura_ibfk_1` FOREIGN KEY (`cod_res_fac`) REFERENCES `reservas` (`cod_res`);
+  ADD CONSTRAINT `factura_ibfk_1` FOREIGN KEY (`cod_res_fac`) REFERENCES `reservas` (`cod_res`),
+  ADD CONSTRAINT `chk_factura_total` CHECK (`tot_fac` IS NULL OR `tot_fac` >= 0);
+
+ALTER TABLE `habitacion`
+  ADD CONSTRAINT `chk_habitacion_pre_hab` CHECK (`pre_hab` IS NULL OR `pre_hab` >= 0),
+  ADD CONSTRAINT `chk_habitacion_precio_hab` CHECK (`precio_hab` IS NULL OR `precio_hab` >= 0);
+
+ALTER TABLE `experiencias`
+  ADD CONSTRAINT `chk_experiencia_precio_1` CHECK (`precio_opcion_1` IS NULL OR `precio_opcion_1` >= 0),
+  ADD CONSTRAINT `chk_experiencia_precio_2` CHECK (`precio_opcion_2` IS NULL OR `precio_opcion_2` >= 0),
+  ADD CONSTRAINT `chk_experiencia_precio_3` CHECK (`precio_opcion_3` IS NULL OR `precio_opcion_3` >= 0);
 
 --
 -- Filtros para la tabla `pagos`
 --
 ALTER TABLE `pagos`
-  ADD CONSTRAINT `pagos_ibfk_1` FOREIGN KEY (`cod_res_pago`) REFERENCES `reservas` (`cod_res`) ON DELETE CASCADE;
+  ADD CONSTRAINT `pagos_ibfk_1` FOREIGN KEY (`cod_res_pago`) REFERENCES `reservas` (`cod_res`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `chk_pago_monto` CHECK (`monto` >= 0);
 
 --
 -- Filtros para la tabla `reservas`
 --
 ALTER TABLE `reservas`
-  ADD CONSTRAINT `reservas_ibfk_1` FOREIGN KEY (`id_usu_res`) REFERENCES `usuario` (`id_usu`) ON DELETE CASCADE;
+  ADD CONSTRAINT `reservas_ibfk_1` FOREIGN KEY (`id_usu_res`) REFERENCES `usuario` (`id_usu`) ON DELETE SET NULL,
+  ADD CONSTRAINT `chk_reserva_fechas` CHECK (`fec_sal_res` > `fec_ent_res`);
+
+-- Estas relaciones conservan la agenda si se elimina su usuario o reserva.
+ALTER TABLE `agenda_actividad`
+  ADD CONSTRAINT `agenda_ibfk_usuario` FOREIGN KEY (`id_usu_agenda`) REFERENCES `usuario` (`id_usu`) ON DELETE SET NULL,
+  ADD CONSTRAINT `agenda_ibfk_reserva` FOREIGN KEY (`cod_res_agenda`) REFERENCES `reservas` (`cod_res`) ON DELETE SET NULL,
+  ADD CONSTRAINT `chk_agenda_monto` CHECK (`monto_experiencia` IS NULL OR `monto_experiencia` >= 0),
+  ADD CONSTRAINT `chk_agenda_fecha_hora` CHECK ((`fecha_agenda` IS NULL AND `hora_agenda` IS NULL) OR (`fecha_agenda` IS NOT NULL AND `hora_agenda` IS NOT NULL));
 
 --
 -- Filtros para la tabla `rol_permiso`
@@ -689,13 +808,13 @@ ALTER TABLE `rol_permiso`
 -- Filtros para la tabla `tarea`
 --
 ALTER TABLE `tarea`
-  ADD CONSTRAINT `tarea_ibfk_1` FOREIGN KEY (`cod_usu_tar`) REFERENCES `usuario` (`id_usu`) ON DELETE CASCADE;
+  ADD CONSTRAINT `tarea_ibfk_1` FOREIGN KEY (`cod_usu_tar`) REFERENCES `usuario` (`id_usu`) ON DELETE SET NULL;
 
 --
 -- Filtros para la tabla `usuario`
 --
 ALTER TABLE `usuario`
-  ADD CONSTRAINT `usuario_ibfk_1` FOREIGN KEY (`cod_rol_usu`) REFERENCES `rol` (`cod_rol`) ON DELETE CASCADE;
+  ADD CONSTRAINT `usuario_ibfk_1` FOREIGN KEY (`cod_rol_usu`) REFERENCES `rol` (`cod_rol`) ON DELETE RESTRICT;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

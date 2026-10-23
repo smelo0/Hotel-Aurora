@@ -197,6 +197,18 @@ $checkoutDate = parseDateOnly($fechaOut);
 if ((!$idHabitacion && $tipoHabitacion === '' && $habitacionesIdsPost === []) || !$checkinDate || !$checkoutDate) {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona el tipo de habitación y la cantidad que necesitas.']);
 }
+// ⬅️ VALIDACIÓN DE CAPACIDAD (Nueva funcionalidad)
+$capacidadMaxima = match ($tipoHabitacion) {
+    'Sencilla' => 2,
+    'Doble' => 4,
+    'Suite', 'Suite Premium' => 6,
+    default => 4
+};
+if (($cantidadAdultos + $cantidadNinos) > $capacidadMaxima) {
+    jsonResponse(422, ['status' => 'error', 'mensaje' => "La capacidad máxima para una habitación tipo {$tipoHabitacion} es de {$capacidadMaxima} huéspedes."]);
+}
+// ⬆️ FIN VALIDACIÓN DE CAPACIDAD
+
 if ($cantidadHabitaciones < 1 || $cantidadHabitaciones > 20) {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de habitaciones no es válida.']);
 }
@@ -461,9 +473,22 @@ try {
         $cantidadHabitaciones = 1;
     }
 
-    if (count($habitacionesSeleccionadas) < $cantidadHabitaciones) {
-        throw new RuntimeException('habitaciones_insuficientes');
+    // Validar capacidad para habitaciones específicas seleccionadas
+    if (count($habitacionesSeleccionadas) > 0) {
+        $totalHuespedes = $cantidadAdultos + $cantidadNinos;
+        foreach ($habitacionesSeleccionadas as $room) {
+            $capacidadHab = match ($room['tipo_hab']) {
+                'Sencilla' => 2,
+                'Doble' => 4,
+                'Suite', 'Suite Premium' => 6,
+                default => 4
+            };
+            if ($totalHuespedes > $capacidadHab) {
+                throw new RuntimeException('capacidad_excedida');
+            }
+        }
     }
+
 
     $precioNocheTotal = array_sum(array_map(
         static fn(array $room): float => (float) $room['precio'],
@@ -636,6 +661,9 @@ try {
     } elseif ($reason === 'habitacion_reservada') {
         $message = 'Una de las habitaciones seleccionadas ya está reservada para esas fechas.';
         $statusCode = 409;
+    } elseif ($reason === 'capacidad_excedida') {
+        $message = 'La cantidad de huéspedes excede la capacidad máxima permitida para la habitación seleccionada.';
+        $statusCode = 422;
     } elseif ($reason === 'habitaciones_insuficientes') {
         $message = 'No hay suficientes habitaciones de ese tipo disponibles para las fechas seleccionadas.';
         $statusCode = 409;

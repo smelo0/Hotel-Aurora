@@ -363,22 +363,68 @@ async function searchAvailability(showFeedback = true) {
     }
 }
 
-function toggleRoomInCart(button) {
+async function toggleRoomInCart(button) {
     const id = Number(button.dataset.roomId);
-    const idx = roomCart.findIndex(r => r.id === id);
     const labelSpan = button.querySelector('[data-room-add-label]');
+
+    if (currentSearchIsReady()) {
+        try {
+            const formData = new FormData();
+            formData.append('accion', 'buscar_disponibilidad');
+            formData.append('checkin', searchState.checkin);
+            formData.append('checkout', searchState.checkout);
+            formData.append('adultos', String(guests.adults));
+            formData.append('ninos', String(guests.children));
+
+            const response = await fetch('controladores/portal_huesped.php', {
+                method: 'POST',
+                body: formData,
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+            const result = await readJsonSafely(response);
+
+            if (result.status !== 'exito') {
+                if ($('searchFeedback')) {
+                    $('searchFeedback').className = 'text-sm font-bold text-rose-300';
+                    $('searchFeedback').innerText = 'Error al verificar disponibilidad.';
+                    $('searchFeedback').classList.remove('hidden');
+                }
+                setTimeout(() => {
+                    if ($('searchFeedback')) $('searchFeedback').classList.add('hidden');
+                }, 5000);
+                return;
+            }
+
+            const availableIds = new Set((result.habitaciones_ids || []).map(Number));
+            if (!availableIds.has(id) && !availableIds.has(String(id))) {
+                if ($('searchFeedback')) {
+                    $('searchFeedback').className = 'text-sm font-bold text-rose-300';
+                    $('searchFeedback').innerText = 'Esta habitacion no está disponible para las fechas seleccionadas.';
+                    $('searchFeedback').classList.remove('hidden');
+                }
+                setTimeout(() => {
+                    if ($('searchFeedback')) $('searchFeedback').classList.add('hidden');
+                }, 5000);
+                return;
+            }
+        } catch (error) {
+            // Error de red, continuar - la validación final será en el servidor
+        }
+    }
+
+    const idx = roomCart.findIndex(r => r.id === id);
 
     if (idx >= 0) {
         roomCart.splice(idx, 1);
         button.classList.remove('bg-emerald-600', 'text-white');
         if (labelSpan) labelSpan.textContent = 'Agregar';
     } else {
-        roomCart.push({ id, name: button.dataset.roomName || `HabitaciÃ³n ${id}`, price: Number(button.dataset.roomPrice || 0) });
+        roomCart.push({ id, name: button.dataset.roomName || `Habitación ${id}`, price: Number(button.dataset.roomPrice || 0) });
         button.classList.add('bg-emerald-600', 'text-white');
         if (labelSpan) labelSpan.textContent = 'Quitar';
     }
     renderRoomCart();
-}
 
 function renderRoomCart() {
     const cart = $('roomCart');

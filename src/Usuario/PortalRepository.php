@@ -124,9 +124,14 @@ final class PortalRepository
     public function fetchRoomCatalog(mysqli $connection): array
     {
         $statement = $connection->prepare(
-            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab
+            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab,
+                    COALESCE(h.capacidad_max, CASE 
+                        WHEN h.tipo_hab = 'Sencilla' THEN 2 
+                        WHEN h.tipo_hab = 'Doble' THEN 4 
+                        WHEN h.tipo_hab LIKE '%Suite%' THEN 6 
+                        ELSE 4 END) AS capacidad_max
              FROM habitacion h
-             WHERE LOWER(TRIM(h.est_hab)) = 'disponible' OR h.est_hab IS NULL OR h.est_hab = ''
+             WHERE LOWER(TRIM(h.est_hab)) NOT IN ('mantenimiento', 'sucia') OR h.est_hab IS NULL OR h.est_hab = ''
              ORDER BY h.num_hab ASC"
         );
         if (!$statement) {
@@ -134,7 +139,7 @@ final class PortalRepository
         }
 
         $statement->execute();
-        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description, $image, $amenitiesJson);
+        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description, $image, $amenitiesJson, $capacidadMax);
 
         $rooms = [];
         while ($statement->fetch()) {
@@ -157,6 +162,7 @@ final class PortalRepository
                 'pre_hab'  => $finalPrice,
                 'precio_hab' => $finalPrice,
                 'precio'   => $finalPrice,
+                'capacidad_max' => (int) $capacidadMax,
                 'est_hab'  => (string) ($status ?: 'Disponible'),
                 'obs_hab'  => $description !== null && trim((string) $description) !== ''
                     ? (string) $description
