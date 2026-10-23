@@ -18,7 +18,12 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
             <div><h3 class="text-2xl font-black text-primary tracking-tight">Historial de experiencias programadas</h3><p class="mt-1 text-xs text-slate-400">Solicitudes de los clientes, sus elecciones por persona y el horario reservado.</p></div>
             <span id="totalHistorialExperiencias" class="rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-600">0 solicitudes</span>
         </div>
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <div class="mb-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-black" role="group" aria-label="Vista del historial">
+            <button type="button" data-vista-historial="grupos" class="rounded-lg px-4 py-2">Por experiencia</button>
+            <button type="button" data-vista-historial="lista" class="rounded-lg px-4 py-2">Lista completa</button>
+        </div>
+        <div id="gruposHistorialExperiencias" class="space-y-5"></div>
+        <div id="listaHistorialExperiencias" class="hidden overflow-x-auto rounded-xl border border-slate-200">
             <table class="w-full min-w-[900px] text-left">
                 <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
                     <tr><th class="px-5 py-4">Cliente</th><th class="px-5 py-4">Experiencia</th><th class="px-5 py-4">Opciones por persona</th><th class="px-5 py-4">Valor estimado</th><th class="px-5 py-4">Fecha y hora</th><th class="px-5 py-4">Estado</th><th class="px-5 py-4">Acción</th></tr>
@@ -222,6 +227,7 @@ function renderizarExperiencias() {
 function renderizarHistorialExperiencias() {
     const historial = datosExperiencias.historial || [];
     document.getElementById('totalHistorialExperiencias').textContent = `${historial.length} ${historial.length === 1 ? 'solicitud' : 'solicitudes'}`;
+    renderizarGruposHistorialExperiencias(historial);
     document.getElementById('tablaHistorialExperiencias').innerHTML = historial.map(solicitud => {
         const selecciones = Array.isArray(solicitud.selecciones_personas) ? solicitud.selecciones_personas : [];
         const precios = Array.isArray(solicitud.precios_personas) ? solicitud.precios_personas : [];
@@ -247,6 +253,116 @@ function renderizarHistorialExperiencias() {
         return `<tr class="hover:bg-slate-50/70"><td class="px-5 py-4"><p class="font-bold text-slate-800">${escaparExperiencias(solicitud.nombre_cliente || solicitud.nombre_contacto)}</p><p class="mt-1 text-xs text-slate-500">${escaparExperiencias(solicitud.correo_cliente || solicitud.correo_contacto)}</p></td><td class="px-5 py-4 font-black text-slate-800">${escaparExperiencias(solicitud.actividad)}</td><td class="px-5 py-4"><div class="flex max-w-sm flex-wrap gap-1">${opciones || '<span class="text-xs text-slate-400">Sin detalle de opciones</span>'}</div></td><td class="px-5 py-4 font-bold text-slate-700">${escaparExperiencias(monto)}</td><td class="px-5 py-4 text-slate-600"><p>${fecha}</p><p class="mt-1 text-xs">${escaparExperiencias(String(solicitud.hora_agenda || '').slice(0, 5))}</p></td><td class="px-5 py-4"><span class="rounded-full px-3 py-1 text-[10px] font-black uppercase ${claseEstado}">${escaparExperiencias(estado)}</span></td><td class="px-5 py-4">${accion}</td></tr>`;
     }).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-sm text-slate-400">Todavía no hay experiencias programadas por los clientes.</td></tr>';
 }
+// ---- Historial agrupado: cuántas personas pidieron cada experiencia, por opción y horario ----
+let vistaHistorialExperiencias = 'grupos';
+
+function personasDeSolicitudExperiencia(solicitud) {
+    const selecciones = Array.isArray(solicitud.selecciones_personas) ? solicitud.selecciones_personas.filter(opcion => String(opcion ?? '').trim() !== '') : [];
+    if (selecciones.length) return selecciones.map(opcion => String(opcion));
+    return [String(solicitud.opcion_actividad || 'Sin detalle de opción')];
+}
+
+function textoPersonasExperiencia(cantidad) { return `${cantidad} ${cantidad === 1 ? 'persona' : 'personas'}`; }
+
+function renderizarGruposHistorialExperiencias(historial) {
+    const contenedor = document.getElementById('gruposHistorialExperiencias');
+    if (!historial.length) {
+        contenedor.innerHTML = '<p class="rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center text-sm text-slate-400">Todavía no hay experiencias programadas por los clientes.</p>';
+        return;
+    }
+    const ahora = new Date();
+    const grupos = new Map();
+    historial.forEach(solicitud => {
+        const nombre = String(solicitud.actividad || 'Sin nombre');
+        if (!grupos.has(nombre)) grupos.set(nombre, { nombre, personas: 0, solicitudes: 0, pendientes: 0, confirmadas: 0, canceladas: 0, sesiones: new Map() });
+        const grupo = grupos.get(nombre);
+        const estado = solicitud.estado_agenda || 'Pendiente';
+        if (estado === 'Cancelada') { grupo.canceladas++; return; }
+        grupo.solicitudes++;
+        if (estado === 'Confirmada') grupo.confirmadas++; else grupo.pendientes++;
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(solicitud.fecha_agenda || '') ? solicitud.fecha_agenda : '';
+        const hora = String(solicitud.hora_agenda || '').slice(0, 5);
+        personasDeSolicitudExperiencia(solicitud).forEach(opcion => {
+            const clave = `${opcion}|${fecha}|${hora}`;
+            if (!grupo.sesiones.has(clave)) grupo.sesiones.set(clave, { opcion, fecha, hora, personas: 0, solicitudes: new Map() });
+            const sesion = grupo.sesiones.get(clave);
+            sesion.personas++;
+            grupo.personas++;
+            const aporte = sesion.solicitudes.get(solicitud.id_agenda) || { solicitud, personas: 0 };
+            aporte.personas++;
+            sesion.solicitudes.set(solicitud.id_agenda, aporte);
+        });
+    });
+
+    const instanteSesion = sesion => sesion.fecha && sesion.hora ? new Date(`${sesion.fecha}T${sesion.hora}:00`) : null;
+    const ordenSesiones = (a, b) => {
+        const da = instanteSesion(a), db = instanteSesion(b);
+        if (!da || !db) return da ? -1 : db ? 1 : a.opcion.localeCompare(b.opcion, 'es');
+        const futuraA = da >= ahora, futuraB = db >= ahora;
+        if (futuraA !== futuraB) return futuraA ? -1 : 1;
+        return futuraA ? da - db : db - da;
+    };
+    const chip = (texto, clases) => `<span class="rounded-full px-3 py-1 text-[10px] font-black uppercase ${clases}">${texto}</span>`;
+
+    contenedor.innerHTML = [...grupos.values()]
+        .sort((a, b) => b.personas - a.personas || a.nombre.localeCompare(b.nombre, 'es'))
+        .map(grupo => {
+            const sesiones = [...grupo.sesiones.values()].sort(ordenSesiones).map(sesion => {
+                const instante = instanteSesion(sesion);
+                const cuando = sesion.fecha
+                    ? `${fechaExperienciaLegible(sesion.fecha)}${sesion.hora ? ' · ' + escaparExperiencias(sesion.hora) : ''}`
+                    : 'Sin fecha definida';
+                const pasada = instante && instante < ahora;
+                const filas = [...sesion.solicitudes.values()].map(({ solicitud, personas }) => {
+                    const estado = solicitud.estado_agenda || 'Pendiente';
+                    const claseEstado = estado === 'Confirmada' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+                    const fechaHora = new Date(`${solicitud.fecha_agenda}T${String(solicitud.hora_agenda || '').slice(0, 8)}`);
+                    const puedeCancelar = Number.isFinite(fechaHora.getTime()) && fechaHora > ahora;
+                    const accion = puedeCancelar
+                        ? `<button type="button" data-cancelar-solicitud-admin="${Number(solicitud.id_agenda)}" class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50">Cancelar solicitud</button>`
+                        : '';
+                    return `<li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3">
+                        <div><p class="text-sm font-bold text-slate-800">${escaparExperiencias(solicitud.nombre_cliente || solicitud.nombre_contacto)}</p>
+                        <p class="text-xs text-slate-500">${escaparExperiencias(solicitud.correo_cliente || solicitud.correo_contacto)} · ${textoPersonasExperiencia(personas)}</p></div>
+                        <div class="flex items-center gap-3">${chip(escaparExperiencias(estado), claseEstado)}${accion}</div></li>`;
+                }).join('');
+                return `<div class="px-5 py-4 ${pasada ? 'opacity-75' : ''}">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div><p class="font-black text-slate-800">${escaparExperiencias(sesion.opcion)}</p>
+                        <p class="text-xs text-slate-500">${cuando}${pasada ? ' · ya pasó' : ''}</p></div>
+                        <span class="rounded-full bg-accent/40 px-3 py-1 text-xs font-black text-primary">${textoPersonasExperiencia(sesion.personas)}</span>
+                    </div>
+                    <ul class="mt-3 space-y-2">${filas}</ul></div>`;
+            }).join('') || '<p class="px-5 py-4 text-xs text-slate-400">Todas las solicitudes de esta experiencia fueron canceladas.</p>';
+            const frase = grupo.personas === 1 ? 'persona pidió esta experiencia' : 'personas pidieron esta experiencia';
+            const chips = [
+                chip(`${grupo.solicitudes} ${grupo.solicitudes === 1 ? 'solicitud' : 'solicitudes'}`, 'bg-slate-100 text-slate-600'),
+                grupo.pendientes ? chip(`${grupo.pendientes} pendiente${grupo.pendientes === 1 ? '' : 's'}`, 'bg-amber-100 text-amber-700') : '',
+                grupo.confirmadas ? chip(`${grupo.confirmadas} confirmada${grupo.confirmadas === 1 ? '' : 's'}`, 'bg-emerald-100 text-emerald-700') : '',
+                grupo.canceladas ? chip(`${grupo.canceladas} cancelada${grupo.canceladas === 1 ? '' : 's'}`, 'bg-rose-100 text-rose-700') : '',
+            ].join('');
+            return `<details open class="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-5 py-4">
+                    <div><p class="text-lg font-black text-primary">${escaparExperiencias(grupo.nombre)}</p>
+                    <p class="text-sm font-bold text-slate-600"><span class="text-2xl font-black text-primary">${grupo.personas}</span> ${frase}</p></div>
+                    <div class="flex flex-wrap items-center gap-2">${chips}</div>
+                </summary>
+                <div class="divide-y divide-slate-100 border-t border-slate-100">${sesiones}</div>
+            </details>`;
+        }).join('');
+}
+
+function aplicarVistaHistorialExperiencias() {
+    const agrupada = vistaHistorialExperiencias === 'grupos';
+    document.getElementById('gruposHistorialExperiencias').classList.toggle('hidden', !agrupada);
+    document.getElementById('listaHistorialExperiencias').classList.toggle('hidden', agrupada);
+    document.querySelectorAll('[data-vista-historial]').forEach(boton => {
+        const activo = boton.dataset.vistaHistorial === vistaHistorialExperiencias;
+        boton.className = `rounded-lg px-4 py-2 ${activo ? 'bg-primary text-white shadow' : 'text-slate-500 hover:text-primary'}`;
+        boton.setAttribute('aria-pressed', activo ? 'true' : 'false');
+    });
+}
+
 async function cancelarSolicitudExperienciaAdmin(idSolicitud, boton) {
     if (!confirm('¿Cancelar esta experiencia programada? Esta acción quedará reflejada en el historial del cliente.')) return;
     boton.disabled = true;
@@ -390,10 +506,15 @@ document.getElementById('listaHorariosExperiencia').addEventListener('click', ev
         renderizarHorariosExperiencia();
     }
 });
-document.getElementById('tablaHistorialExperiencias').addEventListener('click', evento => {
+['tablaHistorialExperiencias', 'gruposHistorialExperiencias'].forEach(idContenedor => document.getElementById(idContenedor).addEventListener('click', evento => {
     const boton = evento.target.closest('[data-cancelar-solicitud-admin]');
     if (boton) cancelarSolicitudExperienciaAdmin(boton.dataset.cancelarSolicitudAdmin, boton);
-});
+}));
+document.querySelectorAll('[data-vista-historial]').forEach(boton => boton.addEventListener('click', () => {
+    vistaHistorialExperiencias = boton.dataset.vistaHistorial;
+    aplicarVistaHistorialExperiencias();
+}));
+aplicarVistaHistorialExperiencias();
 [1, 2, 3].forEach(numero => {
     document.getElementById(`opcionExperiencia${numero}`).addEventListener('input', () => {
         renderizarSelectorOpcionHorario();

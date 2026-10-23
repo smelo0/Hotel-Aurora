@@ -10,6 +10,8 @@ if (
 require_once __DIR__ . '/../../configuracion/conexion.php';
 require_once __DIR__ . '/../../configuracion/permiso.php';
 $puedeEditarHabitaciones = usuario_tiene_permiso($conexion, 'operaciones.editar');
+// Room service para el personal: ver los pedidos y cambiar su estado.
+$puedeRoomServiceEmpleado = usuario_tiene_permiso($conexion, 'roomservice.estado') || usuario_tiene_permiso($conexion, 'roomservice.gestionar');
 $conexion->close();
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
@@ -40,6 +42,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
             <?php include __DIR__ . '/secciones/inicio.php'; ?>
             <?php include __DIR__ . '/secciones/habitaciones.php'; ?>
             <?php include __DIR__ . '/secciones/huespedes.php'; ?>
+            <?php include __DIR__ . '/secciones/room_service.php'; ?>
 
         </main>
     </div>
@@ -55,6 +58,9 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     </script>
 
     <script src="js/panel.js?v=4"></script>
+    <?php if ($puedeRoomServiceEmpleado): ?>
+    <script src="js/room_service.js?v=1"></script>
+    <?php endif; ?>
     <?php
     $ayudaSistemaRol = 'empleado';
     require_once __DIR__ . '/../../includes/system_help.php';

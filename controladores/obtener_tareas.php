@@ -13,6 +13,7 @@ if (
 ) {
     http_response_code(401);
     echo json_encode(['status' => 'error', 'mensaje' => 'No estás autorizado'], JSON_UNESCAPED_UNICODE);
+    /**@var \mysqli $conexion */
     $conexion->close();
     exit();
 }
