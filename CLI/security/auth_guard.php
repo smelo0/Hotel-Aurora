@@ -3,6 +3,27 @@ require_once __DIR__ . "/conexion.php";
 
 $sessionFile = __DIR__ . '/../session.json';
 
+// Función para eliminar el archivo de sesión
+function limpiarSesion() {
+    $sessionFile = __DIR__ . '/../session.json'; // Ajusta la ruta si es necesario
+    if (file_exists($sessionFile)) {
+        @unlink($sessionFile);
+    }
+}
+
+// 1. Captura salidas normales del script o errores fatales (ej. cuando usas exit;)
+register_shutdown_function('limpiarSesion');
+
+// 2. Captura la interrupción por teclado (Ctrl + C) en Windows
+if (function_exists('sapi_windows_set_ctrl_handler')) {
+    sapi_windows_set_ctrl_handler(function(int $event) {
+        if ($event === PHP_WINDOWS_EVENT_CTRL_C) {
+            limpiarSesion();
+            exit("\n[SESIÓN CERRADA] Operación interrumpida por el usuario.\n");
+        }
+    });
+};
+
 // 1. Verificar si existe el archivo de sesión
 if (!file_exists($sessionFile)) {
     echo "\n[ERROR DE SEGURIDAD] No hay una sesión activa. Inicia sesión primero.\n";

@@ -13,7 +13,7 @@ do {
     echo "1. Ver tareas" . PHP_EOL;
     echo "2. Agregar tareas" . PHP_EOL;
     echo "3. Volver a Iniciar Sesion" . PHP_EOL;
-    echo "0. Cerrar menu" . PHP_EOL;
+    echo "0. Cerrar sesion" . PHP_EOL;
     $task = (string) readline("Seleccione una tarea para continuar: ");
     
     if (!in_array($task, $validOptions)) {
@@ -32,9 +32,9 @@ do {
             require __DIR__ . "/../logTasks.php";
             break 2;
         case "0":
-            echo "Cerrando modulo tareas.";
+            echo "Cerrando sesion tareas.";
             require_once __DIR__. '/../security/logout.php';
-            break;
+            exit(0);
     };
 
 
