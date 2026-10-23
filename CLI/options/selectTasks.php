@@ -1,5 +1,6 @@
 <?php 
 // seleccionar tarea
+require_once __DIR__ . '/../security/auth_guard.php';
 
 $validOptions = ["1", "2", "3", "0"];
 
@@ -32,6 +33,7 @@ do {
             break 2;
         case "0":
             echo "Cerrando modulo tareas.";
+            require_once __DIR__. '/../security/logout.php';
             break;
     };
 

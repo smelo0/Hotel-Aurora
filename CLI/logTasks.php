@@ -1,28 +1,5 @@
 <?php
-
-require_once __DIR__ . '/../vendor/autoload.php';
-
-use Dotenv\Dotenv;
-
-// 2. Inicializar y cargar las variables del archivo .env
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
-$dotenv->load();
-
-if (php_sapi_name() !== 'cli') {
-    die("Este script solo se puede ejecutar desde la línea de comandos.\n");
-}
-
-$host = $_ENV['DB_HOST'];
-$dbname = $_ENV['DB_NAME'];
-$usuario_db = $_ENV['DB_USER'];
-$password_db = $_ENV['DB_PASS'];
-
-try {
-    $conexion = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $usuario_db, $password_db);
-    $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Error de conexión a la base de datos: " . $e->getMessage() . "\n");
-}
+require __DIR__ . '/security/conexion.php';
 
 echo "" . PHP_EOL;
 echo "*********************************************************" . PHP_EOL;
@@ -39,6 +16,7 @@ do {
     $userEmailTyped = (string) trim(readline("Ingrese su correo: "));
     $passwordTyped = (string) trim(readline("Ingrese su contraseña: "));
 
+    // consulta base de datos
     try {
         $sql = "SELECT id_usu, nom_usu, corr_usu, psw_usu, cod_rol_usu FROM usuario WHERE corr_usu = ?";
         $stmt = $conexion->prepare($sql);
@@ -48,12 +26,21 @@ do {
         if (($usuario && password_verify($passwordTyped, $usuario['psw_usu'])) && ($usuario['cod_rol_usu'] == "1")){
             echo "\n[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "\n";
             
+
+            $sessionData = [
+                'id_usu' => $usuario['id_usu'],
+                'corr_usu' => $usuario['corr_usu'],
+                'cod_rol_usu' => $usuario['cod_rol_usu']
+            ];
+
+            file_put_contents(__DIR__ . '/session.json', json_encode($sessionData));
+
             require __DIR__ . "/options/selectTasks.php";
             $sessionLoged = true;
             break;
         
         } else {
-            echo "Clave o usuario incorrecto " . PHP_EOL;
+            echo "[¡ACCESO DENEGADO!] Clave o usuario incorrecto. " . PHP_EOL;
             echo "" . PHP_EOL;
         };
     } catch (PDOException $e) {
