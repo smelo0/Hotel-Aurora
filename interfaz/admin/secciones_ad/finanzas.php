@@ -121,18 +121,8 @@ $clasesEstadoPago = [
                                     <td class="px-5 py-4 text-slate-600">
                                         <?php if ($estadoPagoExperiencia === 'Pagada'): ?>
                                             <?php echo $escaparFinanzas($solicitud['metodo_pago_experiencia'] ?? 'Pago registrado'); ?>
-                                        <?php elseif ($puedeActualizarPagosExperiencia && $estadoPagoExperiencia === 'Pendiente' && $montoExperiencia !== null && (float) $montoExperiencia > 0 && $estadoAgendaExperiencia !== 'Cancelada'): ?>
-                                            <label class="sr-only" for="metodo-pago-experiencia-<?php echo (int) $solicitud['id_agenda']; ?>">Método de pago para <?php echo $escaparFinanzas($solicitud['actividad']); ?></label>
-                                            <select id="metodo-pago-experiencia-<?php echo (int) $solicitud['id_agenda']; ?>" class="mb-2 rounded-lg border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700" data-metodo-pago-experiencia>
-                                                <?php foreach (['Efectivo', 'Tarjeta', 'Transferencia'] as $metodoPagoExperiencia): ?>
-                                                    <option value="<?php echo $metodoPagoExperiencia; ?>"><?php echo $metodoPagoExperiencia; ?></option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:brightness-110 disabled:cursor-wait disabled:opacity-60" data-cobrar-experiencia data-id-agenda="<?php echo (int) $solicitud['id_agenda']; ?>">
-                                                <span class="material-symbols-outlined text-sm">point_of_sale</span>
-                                                Cobrar e imprimir factura
-                                            </button>
-                                            <p class="mt-1 hidden text-xs text-rose-600" data-error-cobro-experiencia></p>
+                                        <?php elseif ($estadoPagoExperiencia === 'Pendiente' && $montoExperiencia !== null && (float) $montoExperiencia > 0 && $estadoAgendaExperiencia !== 'Cancelada'): ?>
+                                            <span class="text-xs font-bold text-slate-500"><?php echo !empty($solicitud['cod_res_agenda']) ? 'Se cobra desde la reserva #' . (int) $solicitud['cod_res_agenda'] : 'Se cobra desde Reservas'; ?></span>
                                         <?php elseif ($montoExperiencia === null): ?>
                                             <span class="text-xs text-slate-400">Sin precio para cobrar</span>
                                         <?php elseif ((float) $montoExperiencia <= 0): ?>
@@ -230,46 +220,6 @@ $clasesEstadoPago = [
                     error.textContent = errorPeticion.message;
                     error.classList.remove('hidden');
                     select.disabled = false;
-                }
-            });
-        });
-
-        document.querySelectorAll('[data-cobrar-experiencia]').forEach(boton => {
-            boton.addEventListener('click', async () => {
-                const fila = boton.closest('tr');
-                const selectorMetodo = fila.querySelector('[data-metodo-pago-experiencia]');
-                const error = fila.querySelector('[data-error-cobro-experiencia]');
-                const ventanaFactura = window.open('', '_blank');
-                if (!ventanaFactura) {
-                    error.textContent = 'Permite las ventanas emergentes para imprimir la factura.';
-                    error.classList.remove('hidden');
-                    return;
-                }
-
-                boton.disabled = true;
-                error.classList.add('hidden');
-                try {
-                    const respuesta = await fetch('../../controladores/gestionar_experiencias.php', {
-                        method: 'POST',
-                        headers: { Accept: 'application/json' },
-                        body: new URLSearchParams({
-                            accion: 'cobrar_experiencia',
-                            id_agenda: boton.dataset.idAgenda,
-                            metodo_pago: selectorMetodo.value,
-                            csrf_token: CSRF_TOKEN
-                        })
-                    });
-                    const datos = await respuesta.json();
-                    if (!respuesta.ok || datos.status !== 'exito' || !datos.factura) {
-                        throw new Error(datos.mensaje || 'No se pudo cobrar la experiencia');
-                    }
-                    imprimirFacturaReserva(datos.factura, ventanaFactura);
-                    window.location.reload();
-                } catch (errorPeticion) {
-                    ventanaFactura.close();
-                    error.textContent = errorPeticion.message;
-                    error.classList.remove('hidden');
-                    boton.disabled = false;
                 }
             });
         });

@@ -64,7 +64,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
     require_once 'componentes_ad/modal_tarea.php';
     ?>
 
-    <main id="adminMain" class="ml-64 flex-1 h-screen overflow-y-auto no-scrollbar">
+    <main id="adminMain" tabindex="-1" class="ml-64 flex-1 h-screen overflow-y-auto">
         
         <?php require_once 'componentes_ad/topbar.php'; ?>
 
@@ -139,6 +139,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
     </script>
 
  <script src="js_ad/admin.js?v=19" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=19';"></script>
+    <script src="js_ad/scroll_admin.js?v=1"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>

@@ -365,6 +365,8 @@ try {
             rs_responder($mensajes[$resultado][0], $mensajes[$resultado][1]);
 
         case 'cobrar':
+            // Los cobros se registran únicamente desde el modal de la reserva (controladores/cuenta_reserva.php).
+            rs_responder(409, 'Los cobros se hacen desde el modal de la reserva (Reservas > Editar).');
             if (!$puedeCobrar) {
                 rs_responder(403, 'No tienes permiso para cobrar room service.');
             }

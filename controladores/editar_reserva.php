@@ -43,6 +43,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('datos_invalidos');
         }
 
+        if ($accion === 'cobrar') {
+            // Los cobros se registran únicamente desde el modal de la reserva (controladores/cuenta_reserva.php).
+            throw new RuntimeException('cobro_en_modal');
+        }
+
         if ($accion === 'cobrar' && !in_array($metodoPago, ['Efectivo', 'Tarjeta', 'Transferencia'], true)) {
             throw new RuntimeException('metodo_pago_invalido');
         }
@@ -305,6 +310,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'reserva_no_encontrada' => 'No se encontró la reserva seleccionada.',
             'reserva_cancelada' => 'No se puede cobrar una reserva cancelada.',
             'metodo_pago_invalido' => 'Selecciona un método de pago válido.',
+            'cobro_en_modal' => 'Los cobros se hacen desde el modal de la reserva (Reservas > Editar).',
             'estado_invalido' => 'Selecciona un estado válido.',
             'habitacion_invalida' => 'La habitación indicada no es válida.',
             'habitacion_no_disponible' => 'La habitación no está disponible para las fechas de esta reserva.',

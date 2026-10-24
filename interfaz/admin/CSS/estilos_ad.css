@@ -260,3 +260,57 @@ body.admin-sidebar-collapsed #adminSidebar .admin-sidebar-footer > button { just
     outline: 2px solid #2c5e5e;
     outline-offset: 2px;
 }
+
+/* ---- Barras de desplazamiento visibles (el panel se puede usar sin mouse) ---- */
+/* Contenido principal: barra ancha y con contraste a la derecha */
+#adminMain {
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #64748b #e2e8f0;
+}
+#adminMain::-webkit-scrollbar,
+#adminMain.no-scrollbar::-webkit-scrollbar {
+    display: block;
+    width: 14px;
+}
+#adminMain::-webkit-scrollbar-track {
+    background: #e2e8f0;
+}
+#adminMain::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border: 3px solid #e2e8f0;
+    border-radius: 999px;
+    min-height: 48px;
+}
+#adminMain::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+#adminMain:focus {
+    outline: none;
+}
+
+/* Cola de tareas: barra delgada y discreta */
+#contenedorTareasAdmin {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 transparent;
+    padding-right: 2px;
+}
+#contenedorTareasAdmin::-webkit-scrollbar,
+#contenedorTareasAdmin.no-scrollbar::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+}
+#contenedorTareasAdmin::-webkit-scrollbar-track {
+    background: transparent;
+}
+#contenedorTareasAdmin::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 999px;
+}
+#contenedorTareasAdmin::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+#contenedorTareasAdmin:focus-visible {
+    outline: 2px solid #2c5e5e;
+    outline-offset: 2px;
+}

@@ -114,8 +114,27 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     error_log('No se pudo cargar el room service de las reservas: ' . $errorRoomService->getMessage());
                 }
 
-                $puedeCobrarExperienciasReserva = usuario_tiene_permiso($conexion, 'finanzas.ver')
-                    && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
+                // Botón que despliega las experiencias o el room service de una reserva (los cobros se hacen en el modal de la reserva).
+                $botonDesplegableReserva = static function (int $idReserva, string $tipo, string $icono, string $titulo, int $total, int $porCobrar): string {
+                    if ($total === 0) {
+                        return '<span class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs font-bold text-slate-300">'
+                            . '<span class="material-symbols-outlined text-[16px]">' . $icono . '</span>' . $titulo . ' · 0</span>';
+                    }
+                    return '<button type="button" data-desplegable-toggle="' . $idReserva . '|' . $tipo . '" aria-expanded="false" '
+                        . 'class="ui-action inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-primary hover:text-primary">'
+                        . '<span class="material-symbols-outlined text-[16px] text-primary">' . $icono . '</span>' . $titulo
+                        . '<span class="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">' . $total . '</span>'
+                        . ($porCobrar > 0 ? '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">' . $porCobrar . ' por cobrar</span>' : '')
+                        . '<span data-desplegable-flecha class="material-symbols-outlined text-[16px] text-slate-400 transition-transform">expand_more</span></button>';
+                };
+                $panelDesplegableReserva = static function (int $idReserva, string $tipo, string $tarjetas, int $porCobrar): string {
+                    if ($tarjetas === '') {
+                        return '';
+                    }
+                    return '<div data-desplegable-panel="' . $idReserva . '|' . $tipo . '" class="hidden mt-3 max-h-80 overflow-y-auto pr-1">' . $tarjetas
+                        . ($porCobrar > 0 ? '<p class="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Los cobros se hacen desde Editar reserva</p>' : '')
+                        . '</div>';
+                };
                 
                 $paginacionReservas = $datosReservasAdmin['paginacion'] ?? [
                     'pagina' => 1,
@@ -183,6 +202,12 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         $hab_segura = htmlspecialchars(is_array($habitacionesAsignadas) ? implode(', ', array_column($habitacionesAsignadas, 'numero')) : '', ENT_QUOTES, 'UTF-8');
                         $saldo_pendiente = number_format((float) ($reserva['saldo_pendiente'] ?? 0), 2, '.', '');
                         $experienciasTabla = '';
+                        $tarjetasExperiencias = '';
+                        $totalExperienciasReserva = 0;
+                        $experienciasPorCobrar = 0;
+                        $tarjetasRoomService = '';
+                        $totalRoomServiceReserva = 0;
+                        $roomServicePorCobrar = 0;
 
                         foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
                             $idAgenda = (int) ($experienciaReserva['id_agenda'] ?? 0);
@@ -203,29 +228,32 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             $montoExperiencia = ($experienciaReserva['monto_experiencia'] ?? null) === null
                                 ? 'Sin precio'
                                 : '$' . number_format((float) $experienciaReserva['monto_experiencia'], 0, ',', '.');
-                            $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
+                            $totalExperienciasReserva++;
+                            if ($estadoPagoExperiencia === 'Pendiente'
+                                && ($experienciaReserva['monto_experiencia'] ?? null) !== null
+                                && (float) $experienciaReserva['monto_experiencia'] > 0
+                                && $estadoExperiencia !== 'Cancelada') {
+                                $experienciasPorCobrar++;
+                            }
+                            $tarjetasExperiencias .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
                                 . '<p class="font-black text-slate-700">' . $nombreExperiencia . '</p>'
                                 . '<p class="mt-1 text-xs text-slate-500">' . $fechaExperiencia . ' · ' . $estadoExperiencia . '</p>'
                                 . $notaVinculoExperiencia
                                 . '<p class="mt-1 text-xs font-bold text-slate-600">Experiencia: ' . htmlspecialchars($montoExperiencia, ENT_QUOTES, 'UTF-8')
-                                . ' · Pago: ' . htmlspecialchars($estadoPagoExperiencia, ENT_QUOTES, 'UTF-8') . '</p>';
-                            if ($puedeCobrarExperienciasReserva && $estadoPagoExperiencia === 'Pendiente'
-                                && ($experienciaReserva['monto_experiencia'] ?? null) !== null
-                                && (float) $experienciaReserva['monto_experiencia'] > 0
-                                && $estadoExperiencia !== 'Cancelada') {$experienciasTabla .= '<div class="mt-2 flex flex-wrap items-center gap-2">'
-                                    . '<select data-metodo-pago-experiencia class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold">'
-                                    . '<option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option></select>'
-                                    . '<button type="button" data-cobrar-experiencia-reserva data-id-agenda="' . $idAgenda . '" class="ui-action rounded-md bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-heading">Cobrar y facturar</button>'
-                                    . '</div><p data-error-cobro-experiencia class="mt-1 hidden text-xs text-rose-600"></p>';
-                            }
-                            $experienciasTabla .= '</div>';
+                                . ' · Pago: <span class="' . ($estadoPagoExperiencia === 'Pagada' ? 'text-emerald-600' : 'text-amber-600') . '">'
+                                . htmlspecialchars($estadoPagoExperiencia, ENT_QUOTES, 'UTF-8') . '</span></p>'
+                                . '</div>';
                         }
                         foreach ($roomServicePorReserva[$id_reserva] ?? [] as $pedidoRoomService) {
                             if (($pedidoRoomService['estado'] ?? '') === 'Cancelado' || (float) ($pedidoRoomService['total'] ?? 0) <= 0) {
                                 continue;
                             }
                             $pedidoPagado = ($pedidoRoomService['estado_pago'] ?? '') === 'Pagado';
-                            $experienciasTabla .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
+                            $totalRoomServiceReserva++;
+                            if (!$pedidoPagado) {
+                                $roomServicePorCobrar++;
+                            }
+                            $tarjetasRoomService .= '<div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-3 last:mb-0">'
                                 . '<p class="font-black text-slate-700">Room service #' . (int) $pedidoRoomService['id_pedido'] . '</p>'
                                 . '<p class="mt-1 text-xs text-slate-500">' . htmlspecialchars((string) ($pedidoRoomService['resumen'] ?? ''), ENT_QUOTES, 'UTF-8')
                                 . ' · ' . htmlspecialchars((string) ($pedidoRoomService['estado'] ?? ''), ENT_QUOTES, 'UTF-8') . '</p>'
@@ -233,8 +261,15 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 . ' · Pago: <span class="' . ($pedidoPagado ? 'text-emerald-600' : 'text-amber-600') . '">' . ($pedidoPagado ? 'Pagado' : 'Pendiente') . '</span></p>'
                                 . '</div>';
                         }
-                        if ($experienciasTabla === '') {
+                        if ($totalExperienciasReserva === 0 && $totalRoomServiceReserva === 0) {
                             $experienciasTabla = '<span class="text-slate-300 italic">Sin experiencias ni room service</span>';
+                        } else {
+                            $experienciasTabla = '<div class="flex flex-wrap gap-2">'
+                                . $botonDesplegableReserva($id_reserva, 'experiencias', 'celebration', 'Experiencias', $totalExperienciasReserva, $experienciasPorCobrar)
+                                . $botonDesplegableReserva($id_reserva, 'room_service', 'room_service', 'Room service', $totalRoomServiceReserva, $roomServicePorCobrar)
+                                . '</div>'
+                                . $panelDesplegableReserva($id_reserva, 'experiencias', $tarjetasExperiencias, $experienciasPorCobrar)
+                                . $panelDesplegableReserva($id_reserva, 'room_service', $tarjetasRoomService, $roomServicePorCobrar);
                         }
 
                         $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
@@ -522,6 +557,34 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             cerrarSubModalNuevoHuesped();
         }
 
+        // Desplegables de experiencias / room service en la tabla. La tabla se refresca sola, así que se recuerda qué está abierto.
+        const desplegablesReservasAbiertos = new Set();
+
+        function aplicarDesplegablesReservas() {
+            document.querySelectorAll('[data-desplegable-toggle]').forEach(boton => {
+                const abierto = desplegablesReservasAbiertos.has(boton.dataset.desplegableToggle);
+                boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+                boton.querySelector('[data-desplegable-flecha]')?.classList.toggle('rotate-180', abierto);
+            });
+            document.querySelectorAll('[data-desplegable-panel]').forEach(panel => {
+                panel.classList.toggle('hidden', !desplegablesReservasAbiertos.has(panel.dataset.desplegablePanel));
+            });
+        }
+
+        document.addEventListener('click', evento => {
+            const boton = evento.target.closest('[data-desplegable-toggle]');
+            if (!boton) return;
+            const clave = boton.dataset.desplegableToggle;
+            if (desplegablesReservasAbiertos.has(clave)) desplegablesReservasAbiertos.delete(clave);
+            else desplegablesReservasAbiertos.add(clave);
+            aplicarDesplegablesReservas();
+        });
+
+        const tablaReservasDesplegables = document.getElementById('tablaReservas');
+        if (tablaReservasDesplegables) {
+            new MutationObserver(aplicarDesplegablesReservas).observe(tablaReservasDesplegables, { childList: true });
+        }
+
         let cuentaReservaActual = null;
 
         function escaparCuenta(valor) {
@@ -551,6 +614,19 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             requestAnimationFrame(() => modal.classList.add('modal-editar-reserva-visible'));
         }
 
+        // Lee la respuesta como JSON; si el servidor devolvió HTML (404, error de PHP) explica qué pasó.
+        async function leerRespuestaCuenta(respuesta) {
+            const texto = await respuesta.text();
+            try {
+                return JSON.parse(texto);
+            } catch (e) {
+                const detalle = respuesta.status === 404
+                    ? 'No se encontró controladores/cuenta_reserva.php. Copia ese archivo a la carpeta "controladores" del proyecto (junto a editar_reserva.php).'
+                    : 'El servidor no devolvió datos válidos (HTTP ' + respuesta.status + '). Revisa el log de errores de PHP (xampp/php/logs o logs/ del proyecto).';
+                throw new Error(detalle);
+            }
+        }
+
         async function cargarCuentaReserva() {
             const codRes = document.getElementById('edit_cod_res').value;
             if (!codRes) return;
@@ -558,7 +634,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 const respuesta = await fetch(`../../controladores/cuenta_reserva.php?cod_res=${encodeURIComponent(codRes)}`, {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
-                const datos = await respuesta.json();
+                const datos = await leerRespuestaCuenta(respuesta);
                 if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudo cargar la cuenta');
                 pintarCuentaReserva(datos.cuenta);
             } catch (e) {
@@ -712,7 +788,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         csrf_token: document.querySelector('#formEditarReserva [name="csrf_token"]').value,
                     })
                 });
-                const datos = await respuesta.json();
+                const datos = await leerRespuestaCuenta(respuesta);
                 if (datos.cuenta) pintarCuentaReserva(datos.cuenta);
                 if (!datos.facturas || !datos.facturas.length) {
                     ventana.close();
@@ -733,6 +809,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 if (typeof notificarCambioReservas === 'function') notificarCambioReservas();
                 window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
             } catch (e) {
+                if (!ventana.closed) ventana.close();
                 error.textContent = e.message;
                 error.classList.remove('hidden');
             } finally {

@@ -56,5 +56,5 @@
     };
 </script>
    
-    <link rel="stylesheet" href="CSS/estilos_ad.css?v=1">
+    <link rel="stylesheet" href="CSS/estilos_ad.css?v=2">
 </head>

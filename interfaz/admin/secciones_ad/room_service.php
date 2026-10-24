@@ -101,27 +101,11 @@ if (!usuario_tiene_permiso($conexion, 'roomservice.ver')) { return; }
     </div>
 </div>
 
-<div id="rsModalCobro" onclick="rsCerrarCobro(event)" class="modal-rol-backdrop z-[100] flex items-center justify-center modal-oculto transition-all duration-300">
-    <div onclick="event.stopPropagation()" class="w-full max-w-md rounded-2xl bg-white p-7 shadow-2xl">
-        <h4 class="text-xl font-black text-heading">Cobrar y generar factura</h4>
-        <p class="mt-1 text-xs font-semibold text-slate-400">Pedido #<span id="rsCobroId"></span> · <span id="rsCobroCliente"></span></p>
-        <p id="rsCobroMonto" class="mt-4 text-2xl font-black text-primary">$0</p>
-        <label for="rsCobroMetodo" class="mb-2 mt-5 block text-[11px] font-semibold text-slate-500">Método de pago</label>
-        <select id="rsCobroMetodo" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select>
-        <p id="rsCobroError" class="mt-3 hidden text-xs font-bold text-rose-600" role="alert"></p>
-        <div class="mt-6 flex gap-3">
-            <button type="button" onclick="rsCerrarCobro()" class="flex-1 rounded-xl py-3 text-sm font-bold text-slate-400 hover:bg-slate-100">Cancelar</button>
-            <button id="rsCobroConfirmar" type="button" onclick="rsConfirmarCobro()" class="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md hover:bg-heading disabled:opacity-60">Cobrar y facturar</button>
-        </div>
-    </div>
-</div>
-
 <script>
 (function () {
     const URL_RS = '../../controladores/room_service.php';
     const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
     let datos = { items: [], pedidos: [], puede_gestionar: false, puede_cobrar: false };
-    let pedidoCobro = null;
     let imagenQuitar = false;
 
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -193,7 +177,7 @@ if (!usuario_tiene_permiso($conexion, 'roomservice.ver')) { return; }
                     ${['Pendiente', 'En preparación', 'Entregado'].map(e => `<option ${e === p.estado ? 'selected' : ''}>${e}</option>`).join('')}</select>`;
             }
             const acciones = [];
-            if (datos.puede_cobrar && p.puede_cobrar) acciones.push(`<button type="button" data-rs-cobrar="${p.id_pedido}" class="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white hover:brightness-110">Cobrar</button>`);
+            if (datos.puede_cobrar && p.puede_cobrar) acciones.push(`<span class="text-xs font-bold text-slate-400">Se cobra desde la reserva${p.cod_res ? ' #' + p.cod_res : ''}</span>`);
             if (datos.puede_cobrar && p.folio) acciones.push(`<button type="button" data-rs-factura="${esc(p.folio)}" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Factura</button>`);
             if (datos.puede_gestionar && p.puede_cancelar) acciones.push(`<button type="button" data-rs-cancelar="${p.id_pedido}" class="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50">Cancelar</button>`);
             return `<tr class="align-top hover:bg-slate-50/70">
@@ -290,40 +274,12 @@ if (!usuario_tiene_permiso($conexion, 'roomservice.ver')) { return; }
         } finally { $('rsGuardarItem').disabled = false; }
     });
 
-    // ---- Cobro ----
-    window.rsCerrarCobro = function (ev) {
-        if (ev && ev.target !== ev.currentTarget) return;
-        $('rsModalCobro').classList.add('modal-oculto'); $('rsModalCobro').classList.remove('modal-visible'); pedidoCobro = null;
-    };
-    window.rsConfirmarCobro = async function () {
-        if (!pedidoCobro) return;
-        const ventana = window.open('', '_blank');
-        if (!ventana) { $('rsCobroError').textContent = 'Permite las ventanas emergentes para imprimir la factura.'; $('rsCobroError').classList.remove('hidden'); return; }
-        $('rsCobroConfirmar').disabled = true; $('rsCobroError').classList.add('hidden');
-        try {
-            const r = await post({ accion: 'cobrar', id_pedido: pedidoCobro, metodo_pago: $('rsCobroMetodo').value });
-            imprimirFacturaReserva(r.factura, ventana);
-            rsCerrarCobro(); mensaje('Cobro registrado. Factura ' + r.factura.folio + '.');
-            await cargar();
-            if (typeof refrescarTablaReservas === 'function') refrescarTablaReservas();
-        } catch (err) {
-            ventana.close(); $('rsCobroError').textContent = err.message; $('rsCobroError').classList.remove('hidden');
-        } finally { $('rsCobroConfirmar').disabled = false; }
-    };
-
     // ---- Delegación de eventos (las tablas se vuelven a pintar) ----
     document.addEventListener('click', async e => {
-        const t = e.target.closest('[data-rs-cobrar],[data-rs-factura],[data-rs-cancelar],[data-rs-editar],[data-rs-eliminar]');
+        const t = e.target.closest('[data-rs-factura],[data-rs-cancelar],[data-rs-editar],[data-rs-eliminar]');
         if (!t || !$('sec-roomservice').contains(t)) return;
         try {
-            if (t.dataset.rsCobrar) {
-                const p = datos.pedidos.find(x => x.id_pedido === Number(t.dataset.rsCobrar));
-                if (!p) return;
-                pedidoCobro = p.id_pedido;
-                $('rsCobroId').textContent = p.id_pedido; $('rsCobroCliente').textContent = p.cliente;
-                $('rsCobroMonto').textContent = cop.format(p.total); $('rsCobroError').classList.add('hidden');
-                $('rsModalCobro').classList.remove('modal-oculto'); $('rsModalCobro').classList.add('modal-visible');
-            } else if (t.dataset.rsFactura) {
+            if (t.dataset.rsFactura) {
                 const ventana = window.open('', '_blank');
                 if (!ventana) { mensaje('Permite las ventanas emergentes para ver la factura.', true); return; }
                 try {

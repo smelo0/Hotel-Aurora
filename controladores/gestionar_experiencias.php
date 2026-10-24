@@ -100,6 +100,9 @@ if ($metodo === 'POST' && $accion === 'actualizar_pago_experiencia') {
 }
 
 if ($metodo === 'POST' && $accion === 'cobrar_experiencia') {
+    // Los cobros se registran únicamente desde el modal de la reserva (controladores/cuenta_reserva.php).
+    responder_experiencias(409, 'Los cobros se hacen desde el modal de la reserva (Reservas > Editar).');
+
     if (!usuario_tiene_permiso($conexion, 'finanzas.ver') || !usuario_tiene_permiso($conexion, 'experiencias.gestionar')) {
         responder_experiencias(403, 'No tienes permiso para cobrar experiencias');
     }
