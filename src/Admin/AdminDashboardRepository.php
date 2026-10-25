@@ -11,6 +11,18 @@ final class AdminDashboardRepository
     {
     }
 
+    /**
+     * Definición única de habitación "realmente ocupada" (la usan el dashboard del admin y el panel del empleado):
+     * hay una reserva confirmada o en casa cuya fecha de entrada ya llegó y cuya salida todavía no.
+     * No depende del campo manual habitacion.est_hab, que se quedaba en "Ocupada" después del check-out,
+     * ni de reservas viejas que quedaron en "En Casa" sin finalizarse.
+     * Lleva dos marcadores "?" con el instante actual (entrada <= ahora y ahora < salida).
+     */
+    public static function condicionEstanciaEnCurso(string $alias): string
+    {
+        return "(LOWER(TRIM({$alias}.est_res)) IN ('confirmada', 'en casa') AND ? >= {$alias}.fec_ent_res AND ? < {$alias}.fec_sal_res)";
+    }
+
     public function obtenerResumen(): array
     {
         $zonaHorariaHotel = new \DateTimeZone('America/Bogota');
@@ -27,9 +39,7 @@ final class AdminDashboardRepository
                  FROM detalle d
                  INNER JOIN reservas r ON r.cod_res = d.cod_res_det
                  WHERE d.cod_hab_det IS NOT NULL
-                   AND r.est_res IN ('Confirmada', 'En Casa')
-                   AND ? >= r.fec_ent_res
-                   AND ? < r.fec_sal_res) AS habitaciones_ocupadas,
+                   AND " . self::condicionEstanciaEnCurso('r') . ") AS habitaciones_ocupadas,
                 (SELECT COUNT(*) FROM reservas
                  WHERE fec_ent_res >= ?
                    AND fec_ent_res < ?
@@ -62,6 +72,8 @@ final class AdminDashboardRepository
         $habitacionesOcupadas = (int) $resumen['habitaciones_ocupadas'];
 
         return [
+            'habitaciones_ocupadas' => $habitacionesOcupadas,
+            'total_habitaciones' => $totalHabitaciones,
             'ocupacion' => $totalHabitaciones > 0
                 ? (int) round(($habitacionesOcupadas / $totalHabitaciones) * 100)
                 : 0,

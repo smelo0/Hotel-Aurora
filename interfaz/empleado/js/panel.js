@@ -18,8 +18,12 @@ async function actualizarInterfaz(habitacionesLocales = null) {
 
         habitacionesEmpleadoState = DATA_HOTEL;
 
-        const ocupadas = DATA_HOTEL.filter(h => h.estado === 'Ocupada').length;
-        const disponibles = DATA_HOTEL.filter(h => h.estado === 'Disponible' || h.estado === 'Limpio').length;
+        // Ocupada = hay una estancia en curso hoy (reserva en casa o confirmada dentro de sus fechas), no la bandera manual de la habitación.
+        const estaOcupadaAhora = h => (typeof h.ocupada_ahora === 'undefined')
+            ? h.estado === 'Ocupada'
+            : (h.ocupada_ahora === true || h.ocupada_ahora === 1 || h.ocupada_ahora === '1');
+        const ocupadas = DATA_HOTEL.filter(estaOcupadaAhora).length;
+        const disponibles = DATA_HOTEL.filter(h => !estaOcupadaAhora(h) && (h.estado === 'Disponible' || h.estado === 'Limpio')).length;
         const totalHabitaciones = DATA_HOTEL.length;
         const porcentajeOcupacion = totalHabitaciones > 0
             ? Math.round((ocupadas / totalHabitaciones) * 100)

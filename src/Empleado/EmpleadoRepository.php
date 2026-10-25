@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace App\Empleado;
 
+use App\Admin\AdminDashboardRepository;
+use DateTimeImmutable;
+use DateTimeZone;
 use mysqli;
 use RuntimeException;
 
@@ -10,16 +13,28 @@ final class EmpleadoRepository
 {
     public function fetchHabitaciones(mysqli $conexion): array
     {
+        // "Ocupada" se calcula con las reservas (misma regla del dashboard del admin), no con el campo manual est_hab.
+        $ahora = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s');
         $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
                        r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res,
-                       u.nom_usu AS huesped_nombre
+                       u.nom_usu AS huesped_nombre,
+                       EXISTS (
+                           SELECT 1 FROM detalle d2
+                           INNER JOIN reservas r2 ON r2.cod_res = d2.cod_res_det
+                           WHERE d2.cod_hab_det = h.cod_hab
+                             AND " . AdminDashboardRepository::condicionEstanciaEnCurso('r2') . "
+                       ) AS ocupada_ahora
                 FROM habitacion h
                 LEFT JOIN detalle d ON d.cod_hab_det = h.cod_hab
                 LEFT JOIN reservas r ON r.cod_res = d.cod_res_det
                     AND r.est_res IN ('Pendiente', 'Confirmada', 'En Casa')
                 LEFT JOIN usuario u ON u.id_usu = r.id_usu_res
                 ORDER BY h.num_hab ASC, r.cod_res DESC";
-        $resultado = $conexion->query($sql);
+        $stmt = $conexion->prepare($sql);
+        if (!$stmt || !$stmt->bind_param('ss', $ahora, $ahora) || !$stmt->execute()) {
+            throw new RuntimeException('No se pudieron consultar las habitaciones.');
+        }
+        $resultado = $stmt->get_result();
         if (!$resultado) {
             throw new RuntimeException('No se pudieron consultar las habitaciones.');
         }
@@ -32,12 +47,23 @@ final class EmpleadoRepository
                 continue;
             }
 
+            $ocupadaAhora = (int) $fila['ocupada_ahora'] === 1;
+            $estadoRegistrado = (string) $fila['est_hab'];
+            $estadoVisible = $estadoRegistrado;
+            if ($ocupadaAhora && in_array($estadoRegistrado, ['Disponible', 'Limpio', 'Ocupada'], true)) {
+                $estadoVisible = 'Ocupada';
+            } elseif (!$ocupadaAhora && $estadoRegistrado === 'Ocupada') {
+                $estadoVisible = 'Disponible'; // bandera vieja: ya no hay una estancia en curso
+            }
+
             $habitaciones[] = [
                 'id' => $id,
                 'numero' => $fila['num_hab'],
                 'tipo' => $fila['tipo_hab'],
                 'precio' => $fila['pre_hab'],
-                'estado' => $fila['est_hab'],
+                'estado' => $estadoVisible,
+                'estado_registrado' => $estadoRegistrado,
+                'ocupada_ahora' => $ocupadaAhora,
                 'observacion' => $fila['obs_hab'],
                 'huesped_nombre' => $fila['huesped_nombre'] ?? null,
                 'fec_ent_res' => $fila['fec_ent_res'] ?? null,
@@ -49,6 +75,7 @@ final class EmpleadoRepository
         }
 
         $resultado->free();
+        $stmt->close();
         return $habitaciones;
     }
 

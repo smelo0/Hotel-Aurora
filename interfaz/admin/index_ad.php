@@ -143,7 +143,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=3"></script>
+    <script src="../../assets/js/inactividad.js?v=4"></script>
 <?php endif; ?>
 </body>
 </html>

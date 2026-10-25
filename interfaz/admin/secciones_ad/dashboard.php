@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../configuracion/permiso.php';
-/** @var mysqli $conexion */
+/**@var mysqli $conexion */
 if (!usuario_tiene_permiso($conexion, 'dashboard.ver')) {
     return;
 }
@@ -18,6 +18,7 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
         <div class="admin-card bg-white p-6 rounded-xl border-t-4 border-t-primary">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ocupación</p>
             <h3 class="text-4xl font-black text-heading"><?php echo $resumenAdmin['ocupacion']; ?>%</h3>
+            <p class="mt-1 text-xs font-bold text-slate-400"><?php echo (int) $resumenAdmin['habitaciones_ocupadas']; ?> de <?php echo (int) $resumenAdmin['total_habitaciones']; ?> habitaciones ocupadas</p>
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
@@ -26,7 +27,7 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Hoy</p>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Reservas Hoy</p>
             <h3 class="text-4xl font-black text-heading">$<?php echo number_format($resumenAdmin['ingresos_hoy'], 0, ',', '.'); ?></h3>
         </div>
         
@@ -52,4 +53,25 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
             <?php endif; ?>
         </div>
     </div>
+    <script>
+        function actualizarContadorTareas() {
+            fetch('../../controladores/api_tareas_pendientes.php', { headers: { Accept: 'application/json' } })
+                .then(response => response.text())
+                .then(texto => {
+                    // El endpoint responde JSON ({"total": 4, "status": "exito"}); también se acepta un número simple.
+                    let total = Number(texto);
+                    if (!Number.isFinite(total)) {
+                        try { total = Number(JSON.parse(texto).total); } catch (e) { total = NaN; }
+                    }
+                    const contador = document.getElementById('contador-tareas');
+                    if (contador && Number.isFinite(total)) {
+                        contador.innerText = total;
+                    }
+                })
+                .catch(error => console.error('Error al actualizar tareas:', error));
+        }
+
+        actualizarContadorTareas();
+        setInterval(actualizarContadorTareas, 5000); 
+    </script>
 </section>

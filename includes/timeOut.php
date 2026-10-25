@@ -1,4 +1,11 @@
-<div id="inactivityModal" class="inactivity-modal-overlay" data-csrf="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>" style="display: none;">
+<?php
+// Cuenta a la que pertenece esta página: el panel de admin/empleado usa la sesión de personal; el portal del huésped, la de cliente.
+$rutaPaginaAviso = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+$uidPaginaAviso = preg_match('~/interfaz/(admin|empleado)/~i', $rutaPaginaAviso) === 1
+    ? (int) ($_SESSION['emp_auth']['id_usuario'] ?? 0)
+    : (int) ($_SESSION['user_auth']['id_usuario'] ?? $_SESSION['emp_auth']['id_usuario'] ?? 0);
+?>
+<div id="inactivityModal" class="inactivity-modal-overlay" data-csrf="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>" data-uid="<?php echo $uidPaginaAviso; ?>" style="display: none;">
     <div class="inactivity-modal-content aurora-glass reveal">
         <h3 class="font-display">¿Sigues ahí?</h3>
         <p>Tu sesión se cerrará por inactividad en breves segundos.</p>

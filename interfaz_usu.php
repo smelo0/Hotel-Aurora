@@ -1020,7 +1020,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     ?>
     <?php if (!empty($_SESSION['user_auth'])): ?>
         <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
-        <script src="assets/js/inactividad.js?v=3"></script>
+        <script src="assets/js/inactividad.js?v=4"></script>
         <script src="assets/js/interfaz_usu.js?v=100"></script>
     <?php endif; ?>
 </body>

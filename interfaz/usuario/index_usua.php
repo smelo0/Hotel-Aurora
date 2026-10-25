@@ -155,6 +155,6 @@ $reservasUsuario = $portalRepository->fetchReservationHistory($conexion, $idUsua
     require_once '../../includes/system_help.php';
     ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=3"></script>
+    <script src="../../assets/js/inactividad.js?v=4"></script>
 </body>
 </html>

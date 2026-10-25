@@ -15,27 +15,42 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 exigir_csrf();
 
 // En un mismo navegador pueden coexistir una sesión de cliente (user_auth) y una de empleado/administrador
-// (emp_auth). La contraseña debe compararse con la cuenta del panel que mostró el aviso de inactividad
-// (se deduce de la página de origen); antes se tomaba siempre la del cliente y rechazaba la clave del administrador.
+// (emp_auth), y la cuenta de la sesión puede cambiar si se inicia sesión con otra en otra pestaña.
+// La página envía el id de la cuenta a la que pertenece ("uid"): la contraseña se compara con esa cuenta y,
+// si la sesión ya pertenece a otra, se avisa en lugar de rechazar la clave como "incorrecta".
 $idEmpleado = (int) ($_SESSION['emp_auth']['id_usuario'] ?? 0);
 $idCliente = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+$uidPagina = (int) ($_POST['uid'] ?? 0);
 $rutaOrigen = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH);
-
-if ($idEmpleado > 0 && preg_match('~/interfaz/(admin|empleado)/~i', $rutaOrigen) === 1) {
+if ($uidPagina > 0) {
+    if ($uidPagina === $idEmpleado) {
+        $idsCandidatos = [$idEmpleado];
+    } elseif ($uidPagina === $idCliente) {
+        $idsCandidatos = [$idCliente];
+    } else {
+        http_response_code(409);
+        echo json_encode(['status' => 'sesion_cambiada', 'valido' => false]);
+        exit;
+    }
+} elseif ($idEmpleado > 0 && preg_match('~/interfaz/(admin|empleado)/~i', $rutaOrigen) === 1) {
     $idsCandidatos = [$idEmpleado];
 } elseif ($idCliente > 0 && preg_match('~/(interfaz_usu\.php|interfaz/usuario/)~i', $rutaOrigen) === 1) {
     $idsCandidatos = [$idCliente];
 } else {
-    // Sin página de origen reconocible: se acepta la clave de cualquiera de las cuentas abiertas en esta sesión.
+    // Sin dato de la página: se acepta la clave de cualquiera de las cuentas abiertas en esta sesión.
     $idsCandidatos = array_values(array_unique(array_filter([$idEmpleado, $idCliente])));
 }
-
 $idUsuario = $idsCandidatos[0] ?? 0;
-$bloqueadaEn = (int) ($_SESSION['sesion_bloqueada_en'] ?? 0);
+if ($idUsuario === 0) {
+    http_response_code(401);
+    echo json_encode(['status' => 'sesion_cambiada', 'valido' => false]);
+    exit;
+}
 
-if ($idUsuario === 0 || empty($_SESSION['sesion_bloqueada']) || $bloqueadaEn === 0) {
-    http_response_code(403);
-    echo json_encode(['status' => 'error', 'valido' => false]);
+$bloqueadaEn = (int) ($_SESSION['sesion_bloqueada_en'] ?? 0);
+if (empty($_SESSION['sesion_bloqueada']) || $bloqueadaEn === 0) {
+    // La sesión ya no está bloqueada (por ejemplo se desbloqueó desde otra pestaña): el aviso debe cerrarse.
+    echo json_encode(['status' => 'active', 'valido' => false]);
     exit;
 }
 
@@ -43,7 +58,6 @@ $ahora = time();
 $pausaConcedida = !empty($_SESSION['sesion_bloqueo_pausa_concedida']);
 $venceEn = $bloqueadaEn + SESSION_LOCK_COUNTDOWN_SECONDS
     + ($pausaConcedida ? SESSION_UNLOCK_PAUSE_SECONDS : 0);
-
 if ($ahora >= $venceEn) {
     expirar_sesion_por_inactividad(true);
 }
@@ -87,7 +101,6 @@ if (!$stmt) {
     echo json_encode(['status' => 'error', 'valido' => false]);
     exit;
 }
-
 $valido = false;
 foreach ($idsCandidatos as $idCandidato) {
     $hashGuardado = null;
@@ -96,7 +109,6 @@ foreach ($idsCandidatos as $idCandidato) {
     $stmt->bind_result($hashGuardado);
     $stmt->fetch();
     $stmt->free_result();
-    
     if ($hashGuardado && password_verify($clave, $hashGuardado)) {
         $valido = true;
         break;

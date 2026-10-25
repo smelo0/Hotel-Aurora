@@ -15,6 +15,7 @@
     }
 
     const csrfToken = modal.dataset.csrf;
+    const pageUid = modal.dataset.uid || '';
     const countdownEl = document.getElementById('countdownSecs');
     const clockProgress = document.getElementById('clockProgress');
     const errorEl = document.getElementById('errorClave');
@@ -35,7 +36,7 @@
     }
 
     async function postSessionAction(url, values) {
-        const body = new URLSearchParams(values);
+        const body = new URLSearchParams(Object.assign({}, values, { uid: pageUid }));
         const response = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
@@ -54,6 +55,36 @@
         }
 
         return { response: response, data: data };
+    }
+
+    // La cuenta de la sesión cambió (se inició sesión con otra en este navegador) o la sesión ya no es válida.
+    function handleSessionChanged() {
+        clearInterval(countdownTimer);
+        clearInterval(lockStateTimer);
+        clearTimeout(idleTimer);
+        modal.querySelector('p').textContent = 'Tu sesión cambió: se inició sesión con otra cuenta en este navegador o la sesión ya no es válida. Te llevamos al inicio para que vuelvas a entrar.';
+        document.querySelector('#inactivityModal .aurora-clock-wrap').style.display = 'none';
+        document.getElementById('btnSeguirSesion').style.display = 'none';
+        document.getElementById('verificacionClave').style.display = 'none';
+        window.setTimeout(redirectToPublicInterface, 3500);
+    }
+
+    // La sesión se desbloqueó por otro lado (otra pestaña): se cierra el aviso y se reanuda el control de inactividad.
+    function handleAlreadyUnlocked() {
+        clearInterval(countdownTimer);
+        clearInterval(lockStateTimer);
+        modal.style.display = 'none';
+        errorEl.style.display = 'none';
+        pausedUntil = 0;
+        pauseRequested = false;
+        lastActivityReport = 0;
+        startIdleTimer();
+    }
+
+    function isSessionChanged(result) {
+        return result.data.status === 'sesion_cambiada'
+            || result.response.status === 419
+            || result.response.status === 401;
     }
 
     function secondsUntilDeadline() {
@@ -204,6 +235,13 @@
                 pausedSecondsRemaining = secondsUntilDeadline();
                 pausedUntil = Date.now() + Number(result.data.segundos_pausa) * 1000;
                 countdownEndsAt += Number(result.data.segundos_pausa) * 1000;
+            } else if (isSessionChanged(result)) {
+                handleSessionChanged();
+            } else if (result.data.status === 'active') {
+                handleAlreadyUnlocked();
+            } else if (result.data.status === 'pause_unavailable') {
+                // La pausa ya se había concedido (o el tiempo casi termina): no es un error, basta con escribir la contraseña.
+                pauseRequested = false;
             } else {
                 pauseRequested = false;
                 errorEl.textContent = 'No se pudo pausar el contador. Ingresa tu contraseña antes de que termine.';
@@ -245,7 +283,11 @@
                 return;
             }
 
-            if (result.data.valido) {
+            if (isSessionChanged(result)) {
+                handleSessionChanged();
+            } else if (result.data.status === 'active') {
+                handleAlreadyUnlocked();
+            } else if (result.data.valido) {
                 claveInput.value = '';
                 errorEl.style.display = 'none';
                 modal.style.display = 'none';

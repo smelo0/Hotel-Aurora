@@ -57,7 +57,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
         const CSRF_TOKEN = <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 
-    <script src="js/panel.js?v=4"></script>
+    <script src="js/panel.js?v=5"></script>
     <?php if ($puedeRoomServiceEmpleado): ?>
     <script src="js/room_service.js?v=1"></script>
     <?php endif; ?>
@@ -66,6 +66,6 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     require_once __DIR__ . '/../../includes/system_help.php';
     ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=3"></script>
+    <script src="../../assets/js/inactividad.js?v=4"></script>
 </body>
 </html>
