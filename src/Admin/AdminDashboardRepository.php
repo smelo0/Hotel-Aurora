@@ -13,14 +13,16 @@ final class AdminDashboardRepository
 
     /**
      * Definición única de habitación "realmente ocupada" (la usan el dashboard del admin y el panel del empleado):
-     * hay una reserva confirmada o en casa cuya fecha de entrada ya llegó y cuya salida todavía no.
+     * hay una reserva pendiente, confirmada o en casa que cubre HOY, es decir, cuya fecha de entrada es hoy o ya pasó
+     * y cuya salida (con su hora) todavía no llegó. Así, apenas se registra una reserva para hoy (un huésped que llega
+     * al hotel y pide habitación, incluso con el pago pendiente en recepción) la habitación deja de aparecer disponible.
      * No depende del campo manual habitacion.est_hab, que se quedaba en "Ocupada" después del check-out,
-     * ni de reservas viejas que quedaron en "En Casa" sin finalizarse.
-     * Lleva dos marcadores "?" con el instante actual (entrada <= ahora y ahora < salida).
+     * ni de reservas viejas que quedaron en "En Casa" sin finalizarse (esas ya vencieron por fecha de salida).
+     * Lleva dos marcadores "?" con el instante actual.
      */
     public static function condicionEstanciaEnCurso(string $alias): string
     {
-        return "(LOWER(TRIM({$alias}.est_res)) IN ('confirmada', 'en casa') AND ? >= {$alias}.fec_ent_res AND ? < {$alias}.fec_sal_res)";
+        return "(LOWER(TRIM({$alias}.est_res)) IN ('pendiente', 'confirmada', 'en casa') AND DATE({$alias}.fec_ent_res) <= DATE(?) AND ? < {$alias}.fec_sal_res)";
     }
 
     public function obtenerResumen(): array

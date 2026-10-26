@@ -13,7 +13,8 @@ final class EmpleadoRepository
 {
     public function fetchHabitaciones(mysqli $conexion): array
     {
-        // "Ocupada" se calcula con las reservas (misma regla del dashboard del admin), no con el campo manual est_hab.
+        // "Ocupada" se calcula con las reservas que cubren hoy (misma regla del dashboard del admin), no con el campo manual est_hab.
+        // Cada habitación muestra su reserva en curso y, si no hay, la próxima. Las reservas que ya terminaron no se muestran.
         $ahora = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s');
         $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
                        r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res,
@@ -28,10 +29,14 @@ final class EmpleadoRepository
                 LEFT JOIN detalle d ON d.cod_hab_det = h.cod_hab
                 LEFT JOIN reservas r ON r.cod_res = d.cod_res_det
                     AND r.est_res IN ('Pendiente', 'Confirmada', 'En Casa')
+                    AND r.fec_sal_res > ?
                 LEFT JOIN usuario u ON u.id_usu = r.id_usu_res
-                ORDER BY h.num_hab ASC, r.cod_res DESC";
+                ORDER BY h.num_hab ASC,
+                         (" . AdminDashboardRepository::condicionEstanciaEnCurso('r') . ") DESC,
+                         r.fec_ent_res ASC,
+                         r.cod_res DESC";
         $stmt = $conexion->prepare($sql);
-        if (!$stmt || !$stmt->bind_param('ss', $ahora, $ahora) || !$stmt->execute()) {
+        if (!$stmt || !$stmt->bind_param('sssss', $ahora, $ahora, $ahora, $ahora, $ahora) || !$stmt->execute()) {
             throw new RuntimeException('No se pudieron consultar las habitaciones.');
         }
         $resultado = $stmt->get_result();
