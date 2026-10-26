@@ -5,6 +5,7 @@ require_once __DIR__ . '/../security/auth_guard.php';
 $validOptions = ["1", "2", "3", "0"];
 
 do {
+    
     echo "\n";
     echo "*********************************************************" . PHP_EOL;
     echo "===================Selector de tareas====================" . PHP_EOL;
@@ -14,8 +15,9 @@ do {
     echo "2. Agregar tareas" . PHP_EOL;
     echo "3. Volver a Iniciar Sesion" . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
-    $task = (string) readline("Seleccione una tarea para continuar: ");
     
+    $task = (string) readline("Seleccione una tarea para continuar: ");
+    limpiarPantalla();
     if (!in_array($task, $validOptions)) {
         echo "opcion no valida" . PHP_EOL;
         echo "ingrese una opcion valida" . PHP_EOL;
@@ -32,7 +34,7 @@ do {
             require __DIR__ . "/../logTasks.php";
             break 2;
         case "0":
-            echo "Cerrando sesion tareas.";
+            echo "Cerrando sesion tareas." . PHP_EOL;
             require_once __DIR__. '/../security/logout.php';
             exit(0);
     };

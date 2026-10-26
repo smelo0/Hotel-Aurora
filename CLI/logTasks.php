@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/security/conexion.php';
 
+limpiarPantalla();
 echo "" . PHP_EOL;
 echo "*********************************************************" . PHP_EOL;
 echo "=====Bienvenido al panel de tareas del administrador=====" . PHP_EOL;
@@ -14,18 +15,33 @@ do {
 
     echo "Inicie sesión para continuar" . PHP_EOL;
     $userEmailTyped = (string) trim(readline("Ingrese su correo: "));
-    $passwordTyped = (string) trim(readline("Ingrese su contraseña: "));
-
+    $passwordTyped = leerPasswordPrompt();
+    limpiarPantalla();
     // consulta base de datos
     try {
         $sql = "SELECT id_usu, nom_usu, corr_usu, psw_usu, cod_rol_usu FROM usuario WHERE corr_usu = ?";
         $stmt = $conexion->prepare($sql);
         $stmt->execute([$userEmailTyped]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (($usuario && password_verify($passwordTyped, $usuario['psw_usu'])) && ($usuario['cod_rol_usu'] == "1")){
-            echo "\n[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "\n";
+        
+        // 1. Verificar si el usuario existe en la base de datos
+        if (!$usuario) {
+            echo "[¡ACCESO DENEGADO!] Usuario no encontrado." . PHP_EOL;
             
+        } 
+        // 2. Si el usuario existe, verificar si la clave es incorrecta
+        elseif (!password_verify($passwordTyped, $usuario['psw_usu'])) {
+            echo "[¡ACCESO DENEGADO!] Clave incorrecta." . PHP_EOL;
+            
+        } 
+        // 3. Si la clave es correcta, verificar si tiene el rol adecuado (ej. rol "1")
+        elseif ($usuario['cod_rol_usu'] != "1") {
+            echo "[¡ACCESO DENEGADO!] Usuario no tiene el rol para este sistema." . PHP_EOL;
+        } 
+        // 4. Si todo es correcto -> ACCESO PERMITIDO
+        else {
+            
+            echo "\n[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "\n";
 
             $sessionData = [
                 'id_usu' => $usuario['id_usu'],
@@ -37,12 +53,8 @@ do {
 
             require __DIR__ . "/options/selectTasks.php";
             $sessionLoged = true;
-            break;
-        
-        } else {
-            echo "[¡ACCESO DENEGADO!] Clave o usuario incorrecto. " . PHP_EOL;
-            echo "" . PHP_EOL;
-        };
+            // break; // Nota: el break solo funciona si estás dentro de un bucle (while/for/foreach)
+        }
     } catch (PDOException $e) {
         echo "Error en la consulta: " . $e->getMessage() . "\n";
     }

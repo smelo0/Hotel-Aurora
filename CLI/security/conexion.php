@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/../../vendor/autoload.php';
+require __DIR__ . '/../styles/leerPassword.php';
+require __DIR__ . '/../styles/banner.php';
+require __DIR__ . '/../styles/limpiarPantalla.php';
 
 use Dotenv\Dotenv;
-
 // 2. Inicializar y cargar las variables del archivo .env
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
 $dotenv->load();
