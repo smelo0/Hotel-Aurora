@@ -136,13 +136,13 @@ try {
         $lineas = [];
         foreach ($items as $linea) {
             $id = is_array($linea) ? filter_var($linea['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
-            $cantidad = is_array($linea) ? filter_var($linea['cantidad'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]) : false;
+            $cantidad = is_array($linea) ? filter_var($linea['cantidad'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 3]]) : false;
             if (!$id || !$cantidad) {
-                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 20 por artículo).');
+                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 3 por artículo).');
             }
             $lineas[$id] = ($lineas[$id] ?? 0) + $cantidad;
-            if ($lineas[$id] > 20) {
-                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 20 por artículo).');
+            if ($lineas[$id] > 3) {
+                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 3 por artículo).');
             }
         }
 

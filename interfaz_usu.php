@@ -611,7 +611,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Room service</p>
                 <h2 class="mt-2 text-3xl font-black text-white">Pide a tu habitación</h2>
-                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
+                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5 0 10</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
             </div>
         </div>
 
