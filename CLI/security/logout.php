@@ -5,5 +5,5 @@ $sessionFile = __DIR__ . '/session.json';
 if (file_exists($sessionFile)) {
     unlink($sessionFile);
 }
-echo "Sesión cerrada correctamente.\n";
+echo "{$verde}Sesión cerrada correctamente.\n{$reset}";
 exit(0);

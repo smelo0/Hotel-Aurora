@@ -2,13 +2,24 @@
 // seleccionar tarea
 require_once __DIR__ . '/../security/auth_guard.php';
 
+
+echo "" . PHP_EOL;
+echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
+echo "{$verdeOliva}===== {$iconoAdmin} Bienvenido al panel de tareas del administrador ====={$reset}" . PHP_EOL;
+echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
+echo "" . PHP_EOL;
+
+// Inicializamos la variable de control fuera del bucle
+$sessionLoged = false;
+
+
 $validOptions = ["1", "2", "3", "0"];
 
 do {
     echo "\n";
-    echo "*********************************************************" . PHP_EOL;
-    echo "===================Selector de tareas====================" . PHP_EOL;
-    echo "*********************************************************" . PHP_EOL;
+    echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
+    echo "{$verdeOliva}===================Selector de tareas===================={$reset}" . PHP_EOL;
+    echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
     echo "" . PHP_EOL;
     echo "1. Ver tareas" . PHP_EOL;
     echo "2. Agregar tareas" . PHP_EOL;
