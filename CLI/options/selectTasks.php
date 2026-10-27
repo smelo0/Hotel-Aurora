@@ -33,14 +33,14 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
     echo "3. Volver a Iniciar Sesion" . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
-    $task = (string) readline("Seleccione una tarea para continuar: ");
+    $selector = (string) readline("Seleccione una tarea para continuar: ");
     limpiarPantalla();
-    if (!in_array($task, $validOptions)) {
+    if (!in_array($selector, $validOptions)) {
         echo "opcion no valida" . PHP_EOL;
         echo "ingrese una opcion valida" . PHP_EOL;
     } 
 
-    switch ($task) {
+    switch ($selector) {
         case "1":
             require __DIR__ . "/viewTasks.php";
             break 2;
@@ -59,4 +59,4 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
 
     
 
-} while ($task !== "0");
+} while ($selector !== "0");
