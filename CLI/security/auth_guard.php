@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . "/conexion.php";
+require __DIR__ . "/conexion.php";
 
 $sessionFile = __DIR__ . '/../session.json';
 
