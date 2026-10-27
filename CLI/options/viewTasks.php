@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../security/auth_guard.php';
+require_once __DIR__ . '/../security/conexion.php';
 limpiarPantalla();
 
 $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -7,27 +8,76 @@ $mensaje = "cargando tareas...";
 
 for ($i = 0; $i < 20; $i++) {
     $frame = $frames[$i % count($frames)];
-    // El \r permite sobrescribir la línea actual para dar efecto de movimiento
     echo "\r{$cyan}{$frame}{$reset} {$mensaje}";
     usleep(80000); // Pausa de 0.08 segundos
 }
 
-// Mensaje final de éxito en la misma línea o salto limpio
-echo "\r\033[K"; // Limpia la línea del spinner
-echo "{$verde}✔ ¡Tareas cargadas correctamente!{$reset}\n\n"; 
+// Mensaje final de éxito
+echo "\r\033[K";
+echo "{$verde}✔ ¡Tareas cargadas correctamente desde la base de datos!{$reset}\n\n"; 
+
+// 1. Consultar los datos reales usando tu conexión existente ($conexion)
+$stmt = $conexion->query("SELECT cod_tar , 	tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar FROM tarea");
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo "\n";
-echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
-echo "{$verdeOliva}=======================Ver Tareas========================{$reset}" . PHP_EOL;
-echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
+echo "{$amarillo}*******************************************************************************************************{$reset}" . PHP_EOL;
+echo "{$verdeOliva}===================================================Tareas============================================{$reset}" . PHP_EOL;
+echo "{$amarillo}*******************************************************************************************************{$reset}" . PHP_EOL;
 echo "" . PHP_EOL;
 
-$headers = ["cod_tar",  "tit_tar", "des_tar", "cat_tar", "est_tar", "fec_tar"
-];
-$rows = [
-    ["1", "limpiar","Limpiar el polvo del techo", "Verificar stock de productos en almacén", "completada", "Pendiente"],
-    ["2", "barrer","Barrer las escaleras", "Realizar backup y actualizar registros", "completada", "En Progreso"],
-    ["3", "enviar reportes", "Enviar reportes semanales al equipo de ventas", "completada", "Completado"],
-    ["4", "trapear","Trapea los baños", "Coordinar reunión con clientes potenciales", "completada", "Pendiente"],
-    ["5", "surtir", "Llevar papel higienico a los baños", "Actualizar software y realizar pruebas de seguridad", "completada", "En Progreso"]
-];
+// Definición limpia de columnas (7 elementos)
+$headers = ["codigo", "titulo", "categoria", "prioridad", "descripcion", "estado", "fecha"];
+
+// Si no hay tareas registradas, evitamos errores
+if (empty($rows)) {
+    echo "{$amarillo}No hay tareas registradas en la base de datos.{$reset}\n\n";
+    exit;
+}
+
+// 1. Calcular el ancho máximo necesario para cada columna
+$widths = [];
+foreach ($headers as $index => $header) {
+    $widths[$index] = mb_strwidth($header);
+}
+
+foreach ($rows as $row) {
+    $index = 0;
+    foreach ($row as $cell) {
+        $widths[$index] = max($widths[$index], mb_strwidth((string)$cell));
+        $index++;
+    }
+}
+
+// 2. Función auxiliar para imprimir las líneas divisorias horizontales
+$printSeparator = function() use ($widths, $verdeOliva, $reset) {
+    echo $verdeOliva . "+";
+    foreach ($widths as $w) {
+        echo str_repeat("-", $w + 2) . "+";
+    }
+    echo $reset . "\n";
+};
+
+// 3. Imprimir la cabecera de la tabla
+$printSeparator();
+echo $amarillo . "|";
+foreach ($headers as $index => $header) {
+    echo " " . str_pad($header, $widths[$index], " ", STR_PAD_RIGHT) . " {$amarillo}|";
+}
+echo $reset . "\n";
+$printSeparator();
+
+// 4. Imprimir los datos de las filas obtenidos de MySQL
+foreach ($rows as $row) {
+    echo "{$verdeOliva}|{$reset}";
+    $i = 0;
+    foreach ($row as $cell) {
+        echo " " . str_pad((string)$cell, $widths[$i], " ", STR_PAD_RIGHT) . " {$verdeOliva}|{$reset}";
+        $i++;
+    }
+    echo "\n";
+}
+
+// 5. Cerrar la tabla con la línea inferior
+$printSeparator();
+echo "\n";
