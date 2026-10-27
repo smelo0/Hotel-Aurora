@@ -12,11 +12,15 @@ function leerPasswordPrompt(string $prompt = "Ingrese su contraseña: "): string
         return $password;
     }
 
-    // Para entornos Unix / Linux / macOS / Git Bash
-    system('stty -echo');
-    $password = trim((string) fgets(STDIN));
-    system('stty echo');
+    // Para entornos Unix / Linux / macOS (Evita que Windows ejecute esto)
+    if (function_exists('system')) {
+        system('stty -echo');
+        $password = trim((string) fgets(STDIN));
+        system('stty echo');
+    } else {
+        $password = trim((string) fgets(STDIN));
+    }
+    
     echo PHP_EOL;
-
     return $password;
 }

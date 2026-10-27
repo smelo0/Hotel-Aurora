@@ -45,6 +45,20 @@ echo "{$verdeOliva}===== {$iconoAdmin} Bienvenido al panel de tareas del adminis
 echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
 echo "" . PHP_EOL;
 
+$frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+$mensaje = "Iniciando módulos del sistema...";
+
+for ($i = 0; $i < 20; $i++) {
+    $frame = $frames[$i % count($frames)];
+    // El \r permite sobrescribir la línea actual para dar efecto de movimiento
+    echo "\r{$cyan}{$frame}{$reset} {$mensaje}";
+    usleep(80000); // Pausa de 0.08 segundos
+}
+
+// Mensaje final de éxito en la misma línea o salto limpio
+echo "\r\033[K"; // Limpia la línea del spinner
+echo "{$verde}✔ ¡Sistema listo y operativo!{$reset}\n\n";
+
 // Inicializamos la variable de control fuera do bucle
 $sessionLoged = false;
 
