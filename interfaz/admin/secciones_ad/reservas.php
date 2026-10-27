@@ -409,6 +409,12 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                     <button type="button" onclick="cerrarModalEditar()" class="ui-action flex-1 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-xl hover:bg-slate-50">Cancelar</button>
                     <button type="submit" name="accion" value="guardar" class="ui-action flex-1 bg-slate-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-slate-700">Actualizar datos</button>
+                    <button type="submit" id="btnModalCheckin" name="accion" value="checkin" class="ui-action hidden flex-1 bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-indigo-700 flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">key</span> Check-in
+                    </button>
+                    <button type="submit" id="btnModalCheckout" name="accion" value="checkout" class="ui-action hidden flex-1 bg-amber-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-amber-700 flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">door_open</span> Check-out
+                    </button>
                     <button type="submit" id="editAccionCobrar" name="accion" value="cobrar" class="ui-action flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-emerald-700 flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-sm">payments</span> Cobrar Todo
                     </button>
@@ -636,6 +642,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             const permiteCobrar = estado !== 'Cancelada' && saldoPendiente > 0;
             document.getElementById('editPagoControles').classList.toggle('hidden', !permiteCobrar);
             document.getElementById('editAccionCobrar').classList.toggle('hidden', !permiteCobrar);
+
+            const btnCheckin = document.getElementById('btnModalCheckin');
+            const btnCheckout = document.getElementById('btnModalCheckout');
+            if (btnCheckin) btnCheckin.classList.toggle('hidden', estado !== 'Confirmada');
+            if (btnCheckout) btnCheckout.classList.toggle('hidden', estado !== 'En Casa');
 
             const modal = document.getElementById('modalEditarReserva');
             modal.classList.remove('hidden');

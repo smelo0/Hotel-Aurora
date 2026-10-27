@@ -274,4 +274,173 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
 }
 
 
+
+// =====================================================================
+// ACCIÓN: SOLICITAR ASISTENCIA / SERVICIO A LA HABITACIÓN
+// =====================================================================
+if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'solicitar_asistencia') {
+    $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
+    if ($idUsuario < 1 || $rolUsuario !== 6) {
+        jsonResponse(401, ['status' => 'error', 'mensaje' => 'Debes iniciar sesión con tu cuenta de huésped para solicitar asistencia.']);
+    }
+    exigir_csrf();
+
+    $tipoServicio = trim((string) ($_POST['tipo_servicio'] ?? ''));
+    $detalles = trim((string) ($_POST['detalles'] ?? ''));
+
+    $tiposPermitidos = [
+        'Toallas extra',
+        'Limpieza de habitación',
+        'Almohadas y cobijas',
+        'Mantenimiento / Avería',
+        'Asistencia técnica (TV/WiFi)',
+        'Otro servicio'
+    ];
+    if ($tipoServicio === '' || !in_array($tipoServicio, $tiposPermitidos, true) || mb_strlen($detalles) > 300) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un tipo de asistencia válido.']);
+    }
+
+    // Buscar habitación de estancia activa hoy para este huésped
+    $numHabitacion = 'Recepción';
+    $hoySql = date('Y-m-d H:i:s');
+    $stmtEstancia = $conexion->prepare(
+        "SELECT h.cod_hab, h.num_hab FROM detalle d
+         INNER JOIN reservas r ON r.cod_res = d.cod_res_det
+         INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
+         WHERE r.id_usu_res = ?
+           AND r.est_res IN ('Confirmada', 'En Casa')
+         ORDER BY r.cod_res DESC LIMIT 1"
+    );
+    if ($stmtEstancia) {
+        $stmtEstancia->bind_param('i', $idUsuario);
+        $stmtEstancia->execute();
+        $resEstancia = $stmtEstancia->get_result()->fetch_assoc();
+        $stmtEstancia->close();
+        if ($resEstancia) {
+            $numHabitacion = (string) $resEstancia['num_hab'];
+        }
+    }
+
+    $categoriaTarea = in_array($tipoServicio, ['Toallas extra', 'Limpieza de habitación', 'Almohadas y cobijas'], true)
+        ? 'LIMPIEZA'
+        : ($tipoServicio === 'Mantenimiento / Avería' ? 'URGENTE' : 'GENERAL');
+    $prioridadTarea = ($categoriaTarea === 'URGENTE') ? 'Alta' : 'Media';
+
+    $nombreHuesped = (string) ($_SESSION['user_auth']['nombre_usuario'] ?? 'Huésped');
+    $tituloTarea = "Solicitud Hab. {$numHabitacion}: {$tipoServicio}";
+    $descripcionTarea = "El huésped {$nombreHuesped} (Habitación {$numHabitacion}) solicita: {$tipoServicio}." . ($detalles !== '' ? " Observación: {$detalles}" : "");
+    $fechaTarea = date('Y-m-d H:i:s');
+
+    $stmtInsert = $conexion->prepare(
+        "INSERT INTO tarea (tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar, cod_usu_tar)
+         VALUES (?, ?, ?, ?, 'Pendiente', ?, ?)"
+    );
+    if (!$stmtInsert) {
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'No se pudo registrar la solicitud en este momento.']);
+    }
+    $stmtInsert->bind_param('sssssi', $tituloTarea, $categoriaTarea, $prioridadTarea, $descripcionTarea, $fechaTarea, $idUsuario);
+    $stmtInsert->execute();
+    $idTareaCreada = (int) $conexion->insert_id;
+    $stmtInsert->close();
+
+    jsonResponse(200, [
+        'status' => 'exito',
+        'mensaje' => "Tu solicitud para la habitación {$numHabitacion} fue enviada al personal del hotel. En breve te atenderemos.",
+        'id_tarea' => $idTareaCreada
+    ]);
+}
+
+// =====================================================================
+// ACCIÓN: CANCELAR RESERVA POR EL HUÉSPED
+// =====================================================================
+if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
+    $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
+    if ($idUsuario < 1 || $rolUsuario !== 6) {
+        jsonResponse(401, ['status' => 'error', 'mensaje' => 'Debes iniciar sesión con tu cuenta de huésped.']);
+    }
+    exigir_csrf();
+
+    $codRes = filter_var($_POST['cod_res'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$codRes) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Reserva no válida.']);
+    }
+
+    $stmtRes = $conexion->prepare("SELECT cod_res, est_res, fec_ent_res FROM reservas WHERE cod_res = ? AND id_usu_res = ? LIMIT 1");
+    if (!$stmtRes) {
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'Error al consultar la reserva.']);
+    }
+    $stmtRes->bind_param('ii', $codRes, $idUsuario);
+    $stmtRes->execute();
+    $reserva = $stmtRes->get_result()->fetch_assoc();
+    $stmtRes->close();
+
+    if (!$reserva) {
+        jsonResponse(404, ['status' => 'error', 'mensaje' => 'No se encontró la reserva solicitada.']);
+    }
+
+    if (!in_array($reserva['est_res'], ['Pendiente', 'Confirmada'], true)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'No puedes cancelar una estancia que ya está en curso o finalizada.']);
+    }
+
+    $checkinDate = new DateTimeImmutable((string) $reserva['fec_ent_res']);
+    $hoy = new DateTimeImmutable('today');
+    if ($checkinDate < $hoy) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La fecha de llegada ya pasó; contacta a recepción para gestionar la cancelación.']);
+    }
+
+    $stmtCancel = $conexion->prepare("UPDATE reservas SET est_res = 'Cancelada' WHERE cod_res = ?");
+    if (!$stmtCancel) {
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'No se pudo cancelar la reserva.']);
+    }
+    $stmtCancel->bind_param('i', $codRes);
+    $stmtCancel->execute();
+    $stmtCancel->close();
+
+    jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Tu reserva ha sido cancelada exitosamente.']);
+}
+
+// =====================================================================
+// ACCIÓN: OBTENER FACTURA / COMPROBANTE PARA EL HUÉSPED
+// =====================================================================
+if ($httpMethod === 'GET' && (($_GET['accion'] ?? '') === 'obtener_factura')) {
+    $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
+    if ($idUsuario < 1 || $rolUsuario !== 6) {
+        jsonResponse(401, ['status' => 'error', 'mensaje' => 'Debes iniciar sesión con tu cuenta de huésped.']);
+    }
+
+    $codRes = filter_var($_GET['cod_res'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$codRes) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Identificador de reserva no válido.']);
+    }
+
+    $stmtFac = $conexion->prepare(
+        "SELECT f.folio, f.tot_fac, f.metodo_pago_fac, f.tipo_fac, f.creado_en, f.detalle_fac,
+                r.fec_ent_res, r.fec_sal_res, u.nom_usu, u.corr_usu
+         FROM factura f
+         INNER JOIN reservas r ON r.cod_res = f.cod_res_fac
+         INNER JOIN usuario u ON u.id_usu = r.id_usu_res
+         WHERE f.cod_res_fac = ? AND r.id_usu_res = ?
+         ORDER BY f.id_fac DESC LIMIT 1"
+    );
+    if (!$stmtFac) {
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'Error al consultar la factura.']);
+    }
+    $stmtFac->bind_param('ii', $codRes, $idUsuario);
+    $stmtFac->execute();
+    $factura = $stmtFac->get_result()->fetch_assoc();
+    $stmtFac->close();
+
+    if (!$factura) {
+        jsonResponse(404, ['status' => 'error', 'mensaje' => 'Aún no hay una factura registrada para esta reserva.']);
+    }
+
+    $factura['detalle_decodificado'] = !empty($factura['detalle_fac'])
+        ? json_decode((string) $factura['detalle_fac'], true)
+        : null;
+
+    jsonResponse(200, ['status' => 'exito', 'factura' => $factura]);
+}
 jsonResponse(405, ['status' => 'error', 'mensaje' => 'Acción no permitida.']);

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // ARCHIVO: interfaz/admin/index_ad.php
 
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
@@ -8,7 +8,7 @@ if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
     !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2], true)
 ) {
-    header('Location: /Hotel-Aurora/interfaz_usu.php');
+    header('Location: ../loggins/index_usu.php');
     exit();
 }
 

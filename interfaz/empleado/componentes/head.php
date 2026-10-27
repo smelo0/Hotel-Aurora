@@ -13,30 +13,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
-    <!-- Tailwind CSS (Script CDN optimizado) -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    
-    <!-- Configuración del Tema alineada a la estética Verde Esmeralda / Dorado / Blanco / Negro -->
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#2C5E5E",
-                        "primary-hover": "#1A3B3B",
-                        "gold": "#D7B06A",        /* Dorado de identidad */
-                        "gold-light": "#F0D39A",
-                        "dark": "#111111",        /* Negro Profundo */
-                        "surface": "#FFFFFF",     /* Superficie blanca oficial */
-                        "card-bg": "#FFFFFF"      /* Blanco Puro */
-                    },
-                    borderRadius: { "lg": "1rem", "xl": "2rem", "full": "9999px" },
-                    fontFamily: { "headline": ["Plus Jakarta Sans", "sans-serif"], "body": ["Manrope", "sans-serif"] }
-                },
-            },
-        }
-    </script>
+    <!-- Estilos Base del Sistema -->
+    <link rel="stylesheet" href="../../assets/css/estilos_base.css">
 
     <!-- Hojas de estilo locales -->
     <link rel="stylesheet" href="css/estilos.css?v=8">

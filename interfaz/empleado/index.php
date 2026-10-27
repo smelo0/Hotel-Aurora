@@ -1,10 +1,10 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
     || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
 ) {
-    header("Location: ../../login.php");
+    header("Location: ../loggins/index_usu.php");
     exit();
 }
 require_once __DIR__ . '/../../configuracion/conexion.php';

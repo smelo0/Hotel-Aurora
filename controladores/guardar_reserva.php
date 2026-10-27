@@ -172,6 +172,8 @@ if ($verificarCaptcha && $secretkey !== '' && $recapchatoken !== '') {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => $appEnvironment === 'production',
+        CURLOPT_SSL_VERIFYHOST => $appEnvironment === 'production' ? 2 : 0,
     ]);
     $verifyresponse = curl_exec($curl);
     $verifyStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);

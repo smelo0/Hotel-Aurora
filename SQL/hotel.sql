@@ -393,6 +393,7 @@ INSERT INTO `rol_permiso` (`cod_rol`, `cod_permiso`) VALUES
 (2, 'reservas.ver'),
 (2, 'roles.ver'),
 (3, 'dashboard.ver'),
+(3, 'operaciones.editar'),
 (3, 'operaciones.ver'),
 (3, 'reservas.crear'),
 (3, 'reservas.editar'),

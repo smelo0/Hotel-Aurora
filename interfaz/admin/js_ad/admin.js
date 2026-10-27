@@ -1249,7 +1249,9 @@ document.addEventListener('submit', async function(e) {
     const originalText = btn.innerHTML;
     btn.innerHTML = 'Guardando...';
     btn.disabled = true;
-    const accionReserva = e.submitter?.value === 'cobrar' ? 'cobrar' : 'guardar';
+    const accionReserva = ['cobrar', 'checkin', 'checkout'].includes(e.submitter?.value)
+        ? e.submitter.value
+        : 'guardar';
     let ventanaFactura = null;
 
     try {

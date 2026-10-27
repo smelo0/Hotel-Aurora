@@ -10,7 +10,6 @@ require_once __DIR__ . '/configuracion/wompi.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
 
-
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $portalRepository = new \App\Usuario\PortalRepository();
 
@@ -74,15 +73,15 @@ function reservationStatusBadge(string $estado): string
 {
     $estado = trim($estado);
     $map = [
-        'Confirmada' => 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-        'Pendiente' => 'bg-amber-100 text-amber-700 border border-amber-200',
-        'Cancelada' => 'bg-rose-100 text-rose-700 border border-rose-200',
-        'Cancelado' => 'bg-rose-100 text-rose-700 border border-rose-200',
-        'Finalizada' => 'bg-slate-200 text-slate-700 border border-slate-300',
-        'En Casa' => 'bg-cyan-100 text-cyan-700 border border-cyan-200',
+        'Confirmada' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+        'Pendiente' => 'bg-amber-100 text-amber-800 border border-amber-200',
+        'Cancelada' => 'bg-rose-100 text-rose-800 border border-rose-200',
+        'Cancelado' => 'bg-rose-100 text-rose-800 border border-rose-200',
+        'Finalizada' => 'bg-slate-200 text-slate-800 border border-slate-300',
+        'En Casa' => 'bg-cyan-100 text-cyan-800 border border-cyan-200',
     ];
 
-    return $map[$estado] ?? 'bg-slate-100 text-slate-700 border border-slate-200';
+    return $map[$estado] ?? 'bg-slate-100 text-slate-800 border border-slate-200';
 }
 
 function experienciaImagen(string $categoria, int $indice, ?string $imagen = null): string
@@ -116,6 +115,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     require __DIR__ . '/controladores/portal_huesped.php';
     exit;
 }
+
 $portalData = (new \App\Usuario\PortalService($portalRepository))->load($conexion, $_SESSION);
 $habitaciones = $portalData['habitaciones'];
 $experiencias = $portalData['experiencias'];
@@ -127,39 +127,35 @@ $reservasEstanciaExperiencia = $portalData['reservasEstanciaExperiencia'];
 $historialReservas = $portalData['historialReservas'];
 $historialExperiencias = $portalData['historialExperiencias'];
 
+$recaptchaReservaActivo = filter_var(
+    getenv('RECAPTCHA_RESERVAS') ?: ($_ENV['RECAPTCHA_RESERVAS'] ?? $_SERVER['RECAPTCHA_RESERVAS'] ?? 'false'),
+    FILTER_VALIDATE_BOOLEAN
+);
+$recaptchaSiteKey = $recaptchaReservaActivo ? trim((string) (
+    getenv('RECAPTCHA_SITE_KEY')
+    ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
+)) : '';
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotel Aurora | Reservas y Experiencias</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link rel="stylesheet" href="assets/css/estilos_base.css?v=1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300;400;500;700" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://checkout.wompi.co/widget.js"></script>
-    <?php
-    // reCAPTCHA del checkout: desactivado por defecto (RECAPTCHA_RESERVAS=true para activarlo).
-    $recaptchaReservaActivo = filter_var(
-        getenv('RECAPTCHA_RESERVAS') ?: ($_ENV['RECAPTCHA_RESERVAS'] ?? $_SERVER['RECAPTCHA_RESERVAS'] ?? 'false'),
-        FILTER_VALIDATE_BOOLEAN
-    );
-    $recaptchaSiteKey = $recaptchaReservaActivo ? trim((string) (
-        getenv('RECAPTCHA_SITE_KEY')
-        ?: ($_ENV['RECAPTCHA_SITE_KEY'] ?? $_SERVER['RECAPTCHA_SITE_KEY'] ?? '')
-    )) : '';
-    ?>
+    <link rel="stylesheet" href="assets/vendor/flatpickr/flatpickr.min.css">
+    <script src="assets/vendor/flatpickr/flatpickr.min.js"></script>
+    <script src="assets/vendor/flatpickr/es.js"></script>
+    <script src="assets/vendor/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="https://checkout.wompi.co/widget.js" async defer></script>
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=14">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=25">
     <script>
         window.PORTAL_CONFIG = <?php echo json_encode([
             'wompiPublicKey' => WOMPI_PUBLIC_KEY,
@@ -169,58 +165,75 @@ $historialExperiencias = $portalData['historialExperiencias'];
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 </head>
-
-<div id="roomCart" class="fixed bottom-6 left-1/2 z-[80] hidden -translate-x-1/2">
-    <div class="glass-card flex max-w-3xl items-center gap-4 rounded-full border border-white/20 px-6 py-4 shadow-2xl backdrop-blur-lg">
-        <span class="material-symbols-outlined text-3xl text-white">shopping_cart</span>
-        <div class="flex-1">
-            <p class="text-xs font-black uppercase tracking-[0.16em] text-white/70">Habitaciones seleccionadas</p>
-            <p id="roomCartSummary" class="text-sm font-bold text-white">0 habitaciones</p>
-        </div>
-        <button id="roomCartClear" type="button" class="rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white/80 hover:bg-white/10">
-            Limpiar
-        </button>
-        <button id="roomCartCheckout" type="button" class="hero-button primary-button px-5 py-3 text-xs font-black uppercase tracking-[0.16em]">
-            Reservar
-        </button>
-    </div>
-</div> 
 <body>
-    <nav class="site-nav fixed inset-x-0 top-0 z-50">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
-            <a href="#inicio" class="flex items-center gap-3 text-white">
-                <span class="logo">
-                <img src="assets/images/logo.jpeg" class="h-10 w-auto">
-                
+    <!-- Barra flotante de cuartos seleccionados -->
+    <div id="roomCart" class="fixed bottom-5 left-1/2 z-[85] hidden w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2">
+        <div class="glass-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/35 px-5 py-4 shadow-2xl sm:rounded-full sm:px-6">
+            <div class="flex items-center gap-3.5 min-w-0">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    <span class="material-symbols-outlined notranslate" translate="no">bed</span>
                 </span>
-                <div>
-                    <p class="font-display text-2xl leading-none text-white">Hotel Aurora</p>
+                <div class="min-w-0">
+                    <p class="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-200">Cuartos seleccionados</p>
+                    <p id="roomCartSummary" class="truncate text-sm font-extrabold text-white sm:text-base">0 habitaciones</p>
                 </div>
+            </div>
+            <div class="flex items-center gap-2.5 ml-auto">
+                <button id="roomCartClear" type="button" class="rounded-full border border-white/20 px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-white/80 transition hover:bg-white/10">
+                    Limpiar
+                </button>
+                <button id="roomCartCheckout" type="button" class="hero-button gold-button inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-black uppercase tracking-[0.14em]">
+                    <span>Continuar a la reserva</span>
+                    <span class="material-symbols-outlined text-[18px] notranslate" translate="no">arrow_forward</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de navegación principal -->
+    <nav class="site-nav fixed inset-x-0 top-0 z-50">
+        <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+            <a href="#inicio" class="flex items-center gap-3 text-white shrink-0">
+                <span class="logo">
+                    <img src="assets/images/logo.jpeg" alt="Logo Hotel Aurora" class="h-full w-full object-cover">
+                </span>
+                <span class="font-display text-2xl leading-none text-white sm:text-[26px]">Hotel Aurora</span>
             </a>
-          
-            <div class="hidden items-center gap-8 text-sm font-bold text-white/85 lg:flex">
-                <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
-                <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
-                <a href="#planner" class="transition hover:text-white">Agenda</a>
+
+            <div class="hidden items-center gap-6 text-sm font-bold text-white/85 lg:flex">
+                <a href="#habitaciones" class="transition hover:text-[#f0d39a]">Habitaciones</a>
+                <a href="#experiencias" class="transition hover:text-[#f0d39a]">Experiencias</a>
+                <a href="#planner" class="transition hover:text-[#f0d39a]">Agenda</a>
                 <?php if ($usuarioAutenticado): ?>
-                    <a href="#room-service" class="transition hover:text-white">Room service</a>
+                    <a href="#room-service" class="transition hover:text-[#f0d39a]">Room service</a>
                 <?php endif; ?>
             </div>
 
-            <div class="flex items-center gap-3">
-                <?php include __DIR__ . "/includes/translate.php";?>
+            <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
+                <?php include __DIR__ . '/includes/translate.php'; ?>
+
                 <?php if ($usuarioAutenticado): ?>
-                    <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
-                        Hola, <?php echo e($usuarioNombre); ?>
+                    <?php if ($usuarioTieneReserva || !empty($historialReservas)): ?>
+                        <a href="#historial" class="inline-flex items-center gap-1.5 rounded-full border border-[#f0d39a]/40 bg-[#f0d39a]/15 px-3.5 py-1.5 text-xs font-black uppercase tracking-[0.1em] text-[#f0d39a] transition hover:bg-[#f0d39a]/25">
+                            <span class="material-symbols-outlined text-[16px] notranslate" translate="no">receipt_long</span>
+                            <span>Mis reservas</span>
+                            <?php if (!empty($historialReservas)): ?>
+                                <span class="rounded-full bg-[#f0d39a] px-1.5 py-0.2 text-[10px] font-black text-slate-950"><?php echo count($historialReservas); ?></span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
+
+                    <span class="hidden max-w-[170px] truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white md:inline-block" title="<?php echo e($usuarioNombre); ?>">
+                        <?php echo e($usuarioNombre); ?>
                     </span>
-                    <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
-                        Cerrar sesión
+                    <button id="logoutButton" type="button" class="hero-button secondary-button px-3 py-1.5 text-xs font-bold transition">
+                        Salir
                     </button>
                 <?php else: ?>
-                    <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-4 py-3 text-sm">
+                    <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-3.5 py-2 text-xs font-bold sm:text-sm">
                         Iniciar sesión
                     </a>
-                    <a href="interfaz/loggins/index_usu.php?vista=registro" class="hero-button bg-white px-4 py-3 text-sm font-extrabold text-slate-900">
+                    <a href="interfaz/loggins/index_usu.php?vista=registro" class="hero-button bg-white px-3.5 py-2 text-xs font-extrabold text-slate-900 sm:text-sm hover:bg-[#f0d39a] transition">
                         Registrarse
                     </a>
                 <?php endif; ?>
@@ -228,135 +241,215 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </nav>
 
-    <header id="inicio" class="hero-shell relative flex min-h-fit items-center px-4 pb-20 pt-36 md:px-6">
-        <div class="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
-            <div class="reveal">
-                <p class="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-[#ffe3aa]">
-                    Reservas premium frente al mar
-                </p>
-                <h1 class="font-display max-w-3xl text-5xl leading-tight text-white md:text-7xl">
-                    Reserva tu próxima estancia con una experiencia visual impecable.
-                </h1>
-                <p class="hero-copy mt-6 max-w-2xl text-lg leading-8 text-white md:text-xl">
-                    Elige tus fechas, ajusta tus huéspedes y encuentra habitaciones disponibles al instante con una búsqueda realmente funcional.
-                </p>
-                <div class="mt-8 flex flex-wrap gap-4">
-                    <a href="#bookingBar" class="hero-button primary-button inline-flex items-center gap-2 px-6 py-4 text-sm uppercase tracking-[0.18em]">
-                        Reservar ahora
-                    </a>
-                    <a href="#experiencias" class="hero-button secondary-button inline-flex items-center gap-2 px-6 py-4 text-sm">
-                        Explorar experiencias
-                    </a>
+    <!-- Header / Hero enfocado en lo útil y relevante -->
+    <header id="inicio" class="hero-shell relative flex min-h-fit flex-col justify-center px-4 pb-16 pt-24 md:px-6 md:pt-32">
+        <div class="mx-auto w-full max-w-7xl">
+            <div class="grid gap-8 lg:grid-cols-[1.18fr_0.82fr] lg:items-center">
+                <div class="reveal">
+                    <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-[#f0d39a]/30 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.22em] text-[#f0d39a]">
+                        <span class="material-symbols-outlined text-[16px] notranslate" translate="no">beach_access</span>
+                        <span>Reservas premium frente al mar</span>
+                    </p>
+                    <h1 class="font-display max-w-3xl text-4xl leading-[1.08] text-white sm:text-5xl lg:text-6xl">
+                        Reserva tu próxima estancia con una experiencia visual impecable.
+                    </h1>
+                    <p class="hero-copy mt-4 max-w-2xl text-base leading-7 text-white/85 sm:text-lg">
+                        Tarifas directas por noche, disponibilidad al instante y reserva cómoda en un entorno frente al mar con servicio de clase mundial.
+                    </p>
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                        <a href="#habitaciones" class="hero-button gold-button inline-flex items-center gap-2 px-6 py-3.5 text-xs uppercase tracking-[0.14em] sm:text-sm">
+                            <span class="material-symbols-outlined text-[18px] notranslate" translate="no">bed</span>
+                            <span>Ver habitaciones y tarifas</span>
+                        </a>
+                        <a href="#experiencias" class="hero-button secondary-button inline-flex items-center gap-2 px-5 py-3.5 text-xs sm:text-sm">
+                            <span>Explorar experiencias</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Beneficios clave útiles para el huésped (en vez de tutoriales estorbosos) -->
+                <div class="reveal hidden lg:block">
+                    <div class="glass-card rounded-[26px] p-6 border border-white/15">
+                        <p class="text-xs font-black uppercase tracking-[0.2em] text-[#f0d39a] flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[18px] notranslate" translate="no">verified</span>
+                            <span>Ventajas de reservar directo</span>
+                        </p>
+                        <div class="mt-4 grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                                <span class="material-symbols-outlined text-2xl text-[#f0d39a] notranslate" translate="no">price_check</span>
+                                <p class="mt-2 text-sm font-extrabold text-white">Tarifa directa</p>
+                                <p class="mt-0.5 text-xs text-white/70">Sin cargos ocultos ni comisiones de intermediarios.</p>
+                            </div>
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                                <span class="material-symbols-outlined text-2xl text-[#f0d39a] notranslate" translate="no">waves</span>
+                                <p class="mt-2 text-sm font-extrabold text-white">Vista al mar</p>
+                                <p class="mt-0.5 text-xs text-white/70">Ubicación privilegiada en primera línea de playa.</p>
+                            </div>
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                                <span class="material-symbols-outlined text-2xl text-[#f0d39a] notranslate" translate="no">schedule</span>
+                                <p class="mt-2 text-sm font-extrabold text-white">Horarios claros</p>
+                                <p class="mt-0.5 text-xs text-white/70">Check-in desde 15:00 · Check-out hasta 12:00.</p>
+                            </div>
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                                <span class="material-symbols-outlined text-2xl text-[#f0d39a] notranslate" translate="no">support_agent</span>
+                                <p class="mt-2 text-sm font-extrabold text-white">Atención 24/7</p>
+                                <p class="mt-0.5 text-xs text-white/70">Recepción y room service durante toda tu estancia.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="reveal lg:justify-self-end">
-                <div id="bookingBar" class="glass-card booking-bar relative mx-auto max-w-2xl">
-                    <div class="grid gap-3 md:grid-cols-[1.3fr_1fr_auto]">
-                        <div class="booking-control p-5">
-                            <button id="dateTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
-                                <span>
-                                    <span class="booking-label">Fechas</span>
+            <!-- Barra horizontal de búsqueda de disponibilidad (ancho completo, sin aplastar texto) -->
+            <div class="mt-10 reveal">
+                <div id="bookingBar" class="booking-bar">
+                    <div class="booking-bar__grid">
+                        <!-- Control 1: Fechas -->
+                        <div class="booking-control">
+                            <button id="dateTrigger" type="button" class="booking-control__btn">
+                                <span class="booking-control__text">
+                                    <span class="booking-label">Fechas de estancia</span>
                                     <span id="dateSummary" class="booking-value">Selecciona check-in y check-out</span>
                                 </span>
-                                <span class="material-symbols-outlined text-3xl text-[#17354f]">calendar_month</span>
+                                <span class="booking-control__icon">
+                                    <span class="material-symbols-outlined text-2xl notranslate" translate="no">calendar_month</span>
+                                </span>
                             </button>
                             <input id="dateRangeInput" type="text" class="pointer-events-none absolute left-3 top-3 h-px w-px opacity-0" aria-hidden="true">
                         </div>
 
-                        <div class="booking-control p-5">
-                            <button id="guestTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
-                                <span>
+                        <!-- Control 2: Huéspedes -->
+                        <div class="booking-control">
+                            <button id="guestTrigger" type="button" class="booking-control__btn">
+                                <span class="booking-control__text">
                                     <span class="booking-label">Huéspedes</span>
                                     <span id="guestSummary" class="booking-value">2 adultos, 0 niños</span>
                                 </span>
-                                <span class="material-symbols-outlined text-3xl text-[#17354f]">groups</span>
+                                <span class="booking-control__icon">
+                                    <span class="material-symbols-outlined text-2xl notranslate" translate="no">groups</span>
+                                </span>
                             </button>
 
                             <div id="guestPopover" class="guest-popover">
                                 <div class="guest-popover__panel">
                                     <div class="guest-row">
                                         <div>
-                                            <p class="font-black text-[#17354f]">Adultos</p>
-                                            <p class="text-sm text-slate-500">Mayores de 12 años</p>
+                                            <p class="font-black text-slate-900">Adultos</p>
+                                            <p class="text-xs text-slate-500">Mayores de 12 años</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="adultsMinus" type="button" class="guest-stepper">-</button>
-                                            <span id="adultsValue" class="min-w-[24px] text-center text-lg font-black text-[#17354f]">2</span>
+                                            <span id="adultsValue" class="min-w-[24px] text-center text-base font-black text-slate-900">2</span>
                                             <button id="adultsPlus" type="button" class="guest-stepper">+</button>
                                         </div>
                                     </div>
 
                                     <div class="guest-row border-t border-slate-200">
                                         <div>
-                                            <p class="font-black text-[#17354f]">Niños</p>
-                                            <p class="text-sm text-slate-500">De 0 a 12 años</p>
+                                            <p class="font-black text-slate-900">Niños</p>
+                                            <p class="text-xs text-slate-500">De 0 a 12 años</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="childrenMinus" type="button" class="guest-stepper">-</button>
-                                            <span id="childrenValue" class="min-w-[24px] text-center text-lg font-black text-[#17354f]">0</span>
+                                            <span id="childrenValue" class="min-w-[24px] text-center text-base font-black text-slate-900">0</span>
                                             <button id="childrenPlus" type="button" class="guest-stepper">+</button>
                                         </div>
                                     </div>
 
-                                    <button id="closeGuestPopover" type="button" class="hero-button primary-button mt-4 w-full px-5 py-3 text-sm uppercase tracking-[0.18em]">
+                                    <button id="closeGuestPopover" type="button" class="hero-button primary-button mt-3 w-full px-5 py-2.5 text-xs uppercase tracking-[0.16em]">
                                         Aplicar
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <button id="btnBuscarDisponibilidad" type="button" class="hero-button primary-button min-h-[78px] px-7 text-sm uppercase tracking-[0.18em]">
-                            Buscar Disponibilidad
-                        </button>
+                        <!-- Control 3: Botón de búsqueda -->
+                        <div class="booking-bar__submit flex flex-col sm:flex-row gap-2.5">
+                            <button id="btnBuscarDisponibilidad" type="button" class="hero-button primary-button flex-1 min-h-[76px] px-7 py-4 text-xs sm:text-sm uppercase tracking-[0.16em] inline-flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-[20px] notranslate" translate="no">search</span>
+                                <span>Verificar disponibilidad</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="mt-4 flex flex-col gap-2">
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
                         <p id="searchFeedback" class="hidden text-sm font-bold"></p>
+                        <p class="text-xs text-white/65 ml-auto">
+                            ¿Ya sabes qué cuartos deseas? <a href="reservar.php" class="font-bold text-[#f0d39a] underline hover:text-white">Abre el asistente de reserva completo →</a>
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <main class="px-4 pb-20 md:px-6">
-        <section id="vista-resultados" class="mx-auto mt-8 max-w-7xl reveal">
-            <div id="habitaciones" class="glass-section rounded-[34px] px-6 py-8 md:px-8">
+    <main class="px-4 pb-24 md:px-6">
+        <!-- SECCIÓN HABITACIONES (RESPONSIVE GRID SIN CORTES) -->
+        <section id="vista-resultados" class="mx-auto mt-10 max-w-7xl reveal">
+            <div id="habitaciones" class="glass-section rounded-[32px] px-5 py-8 sm:px-8 md:py-10">
                 <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Habitaciones destacadas</p>
-                        <h2 class="section-title font-display mt-3 text-4xl text-white">Descubre las estancias listas para tu próxima reserva.</h2>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Catálogo de habitaciones</p>
+                        <h2 class="section-title font-display mt-2 text-3xl text-white sm:text-4xl">
+                            Elige tus cuartos con precio por unidad transparente.
+                        </h2>
+                        <p class="mt-2 max-w-2xl text-sm text-white/75">
+                            Selecciona una o varias habitaciones para armar tu reserva y continúa a la página de resumen y calendario.
+                        </p>
                     </div>
-                    <span class="soft-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
-                        <span class="material-symbols-outlined text-base">verified</span>
-                        Disponibilidad en tiempo real
-                    </span>
-                </div>
-
-                <div class="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25">Todas</button>
-                        <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite</button>
-                        <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Doble</button>
-                        <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
-                    </div>
-                    <div class="flex items-center gap-2 self-end md:self-auto">
-                        <button id="roomsPrev" type="button" aria-label="Habitaciones anteriores" class="rooms-nav flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-md backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
-                            <span class="material-symbols-outlined">chevron_left</span>
-                        </button>
-                        <button id="roomsNext" type="button" aria-label="Siguientes habitaciones" class="rooms-nav flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-md backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
-                            <span class="material-symbols-outlined">chevron_right</span>
-                        </button>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <span class="soft-chip inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em]">
+                            <span class="material-symbols-outlined text-base text-emerald-300 notranslate" translate="no">verified</span>
+                            <span>Disponibilidad en tiempo real</span>
+                        </span>
+                        <a href="reservar.php" class="hero-button gold-button inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em]">
+                            <span class="material-symbols-outlined text-base notranslate" translate="no">shopping_bag</span>
+                            <span>Ir a reservar</span>
+                        </a>
                     </div>
                 </div>
 
-                <div class="mt-8 relative">
+                <!-- Filtros y selector de vista -->
+                <div class="mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/25">
+                            Todas
+                        </button>
+                        <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/75 transition hover:bg-white/15">
+                            Suite
+                        </button>
+                        <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/75 transition hover:bg-white/15">
+                            Doble
+                        </button>
+                        <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/75 transition hover:bg-white/15">
+                            Sencillas
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="toggleRoomsViewBtn" type="button" class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-bold text-white/90 transition hover:bg-white/20" title="Cambiar entre vista cuadrícula y carrusel">
+                            <span id="toggleRoomsViewIcon" class="material-symbols-outlined text-[18px] notranslate" translate="no">view_carousel</span>
+                            <span id="toggleRoomsViewLabel">Vista carrusel</span>
+                        </button>
+                        <div id="roomsCarouselNav" class="hidden items-center gap-1.5">
+                            <button id="roomsPrev" type="button" aria-label="Habitaciones anteriores" class="rooms-nav flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
+                                <span class="material-symbols-outlined notranslate" translate="no">chevron_left</span>
+                            </button>
+                            <button id="roomsNext" type="button" aria-label="Siguientes habitaciones" class="rooms-nav flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">
+                                <span class="material-symbols-outlined notranslate" translate="no">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contenedor de tarjetas de habitaciones (por defecto Grilla Responsive para que nunca se corten) -->
+                <div class="mt-7 relative">
                     <?php if (!empty($habitaciones)): ?>
-                        <div id="roomsCarousel" class="rooms-carousel mt-0 flex gap-6 overflow-x-auto snap-x px-4 md:px-0">
+                        <div id="roomsCarousel" class="rooms-grid-view">
                             <?php foreach ($habitaciones as $room): ?>
                                 <?php
-                                $codHab = $room['cod_hab'] ?? $room['id'] ?? 0;
-                                $numHab = $room['num_hab'] ?? $room['numero'] ?? '';
+                                $codHab = (int) ($room['cod_hab'] ?? $room['id'] ?? 0);
+                                $numHab = (string) ($room['num_hab'] ?? $room['numero'] ?? '');
                                 $tipoHab = (string) ($room['tipo_hab'] ?? $room['tipo'] ?? 'Habitación');
                                 $precioHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
                                 $roomName = 'Habitación ' . $numHab . ' · ' . $tipoHab;
@@ -375,52 +468,82 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     $roomType = 'otra';
                                 }
                                 ?>
-                                <article 
-                                    class="room-card min-w-[350px] sm:min-w-[380px] snap-start shrink-0" 
-                                    data-room-card="<?php echo (int) $codHab; ?>" 
+                                <article
+                                    class="room-card"
+                                    data-room-card="<?php echo $codHab; ?>"
                                     data-room-type="<?php echo $roomType; ?>"
                                     data-room-price="<?php echo $precioHab; ?>"
-                                    data-room-ids="[<?php echo (int) $codHab; ?>]"
+                                    data-room-ids="[<?php echo $codHab; ?>]"
                                 >
-                                    <img src="<?php echo e($roomPhoto); ?>" alt="<?php echo e($roomName); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                                    <div class="p-6">
-                                        <div class="flex items-start justify-between gap-4">
-                                            <div>
-                                                <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($tipoHab); ?></p>
-                                                <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
-                                            </div>
-                                            <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
-                                                Reserva online
+                                    <div class="room-card__media">
+                                        <img src="<?php echo e($roomPhoto); ?>" alt="<?php echo e($roomName); ?>" loading="lazy" decoding="async">
+                                        <div class="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+                                            <span class="rounded-full bg-slate-950/75 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#f0d39a] backdrop-blur-md border border-white/15">
+                                                <?php echo e($tipoHab); ?>
+                                            </span>
+                                            <span class="rounded-full bg-emerald-950/80 px-3 py-1 text-[11px] font-bold text-emerald-200 backdrop-blur-md border border-emerald-400/30">
+                                                Cuarto #<?php echo e($numHab); ?>
                                             </span>
                                         </div>
+                                    </div>
 
-                                        <p class="muted-light mt-4 min-h-[72px] text-sm leading-7">
-                                            <?php echo e((string) ($room['obs_hab'] ?? 'Habitación confortable con todas las comodidades.')); ?>
-                                        </p>
+                                    <div class="room-card__body">
+                                        <div>
+                                            <h3 class="room-card__title text-2xl font-black text-white">
+                                                <?php echo e($roomName); ?>
+                                            </h3>
 
-                                        <div class="mt-5 flex flex-wrap gap-2">
-                                            <?php foreach ($features as $feature): ?>
-                                                <span class="soft-chip rounded-full px-3 py-2 text-xs font-bold"><?php echo e($feature); ?></span>
-                                            <?php endforeach; ?>
+                                            <p class="room-card__desc mt-2.5">
+                                                <?php echo e((string) ($room['obs_hab'] ?? 'Habitación confortable con acabados de lujo y todas las comodidades para tu descanso.')); ?>
+                                            </p>
+
+                                            <div class="room-card__features mt-4">
+                                                <?php foreach ($features as $feature): ?>
+                                                    <span class="soft-chip rounded-full px-3 py-1 text-xs font-bold"><?php echo e($feature); ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+
+                                            <p data-room-availability class="hidden mt-4 rounded-xl border border-rose-300/30 bg-rose-950/50 px-3.5 py-2.5 text-xs font-bold text-rose-200" role="status"></p>
                                         </div>
 
-                                        <p data-room-availability class="hidden mt-4 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-xs font-bold leading-5 text-white" role="status"></p>
-
-                                        <div class="mt-6 flex items-center justify-between gap-4">
+                                        <div class="room-card__footer">
                                             <div>
-                                                <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
-                                                <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?></p>
+                                                <p class="text-[11px] font-black uppercase tracking-[0.14em] text-white/60">Precio por unidad / noche</p>
+                                                <p class="mt-0.5 text-2xl font-black text-[#f0d39a]">
+                                                    $<?php echo number_format($precioHab, 0, ',', '.'); ?> <span class="text-xs font-bold text-white/65">COP</span>
+                                                </p>
                                             </div>
-                                           <button
-    type="button"
-    class="hero-button primary-button px-5 py-4 text-sm uppercase tracking-[0.16em]"
-    data-room-add
-    data-room-id="<?php echo (int) $codHab; ?>"
-    data-room-name="<?php echo e($roomName); ?>"
-    data-room-price="<?php echo $precioHab; ?>"
->
-    <span data-room-add-label>Agregar</span>
-</button>
+
+                                            <div class="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    class="hero-button secondary-button px-3.5 py-2.5 text-xs uppercase tracking-[0.12em]"
+                                                    data-room-add
+                                                    data-room-select
+                                                    data-room-id="<?php echo $codHab; ?>"
+                                                    data-room-num="<?php echo e($numHab); ?>"
+                                                    data-room-type-label="<?php echo e($tipoHab); ?>"
+                                                    data-room-name="<?php echo e($roomName); ?>"
+                                                    data-room-price="<?php echo $precioHab; ?>"
+                                                    data-room-photo="<?php echo e($roomPhoto); ?>"
+                                                >
+                                                    <span class="material-symbols-outlined text-[16px] mr-1 notranslate" translate="no" data-room-add-icon>add_shopping_cart</span>
+                                                    <span data-room-add-label>Seleccionar</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="hero-button primary-button px-4 py-2.5 text-xs uppercase tracking-[0.12em]"
+                                                    data-room-book-now
+                                                    data-room-id="<?php echo $codHab; ?>"
+                                                    data-room-num="<?php echo e($numHab); ?>"
+                                                    data-room-type-label="<?php echo e($tipoHab); ?>"
+                                                    data-room-name="<?php echo e($roomName); ?>"
+                                                    data-room-price="<?php echo $precioHab; ?>"
+                                                    data-room-photo="<?php echo e($roomPhoto); ?>"
+                                                >
+                                                    Reservar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </article>
@@ -429,96 +552,122 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     <?php endif; ?>
 
                     <div id="emptyRoomsState" class="<?php echo !empty($habitaciones) ? 'hidden' : ''; ?> rounded-[28px] border border-dashed border-white/20 bg-white/8 p-10 text-center backdrop-blur-lg">
-                        <p class="text-lg font-black text-white">No hay habitaciones disponibles para esas fechas.</p>
-                        <p id="emptyRoomsDetail" class="muted-light mt-2">Cambia el rango de fechas o vuelve a consultar en unos segundos.</p>
+                        <span class="material-symbols-outlined text-4xl text-[#f0d39a] notranslate" translate="no">event_busy</span>
+                        <p class="mt-2 text-lg font-black text-white">No hay habitaciones disponibles para ese filtro o rango de fechas.</p>
+                        <p id="emptyRoomsDetail" class="muted-light mt-1 text-sm">Cambia el filtro o selecciona otras fechas en el calendario.</p>
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- SECCIÓN EXPERIENCIAS -->
         <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
-            <?php if ($experiencias === []): ?>
-                <p class="muted-light text-center text-sm">Muy pronto compartiremos nuevas experiencias.</p>
-            <?php else: ?>
-            <div class="grid gap-6 lg:grid-cols-3">
-                <?php foreach ($experiencias as $indice => $experiencia): ?>
-                    <article class="room-card">
-                        <img src="<?php echo e(experienciaImagen($experiencia['categoria'], $indice, $experiencia['imagen'])); ?>" alt="<?php echo e($experiencia['nombre']); ?>" class="h-64 w-full object-cover" loading="lazy" decoding="async">
-                        <div class="p-6">
-                            <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($experiencia['categoria']); ?></p>
-                            <h3 class="card-title mt-3 text-2xl font-black text-white"><?php echo e($experiencia['nombre']); ?></h3>
-                            <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
-                            <?php
-                                $fechasConfiguradas = [];
-                                $fechaHoyExperiencia = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
-                                foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
-                                    $numeroOpcion = $experiencia['numeros_opciones'][$indiceOpcion] ?? ($indiceOpcion + 1);
-                                    foreach (array_keys($experiencia['horarios'][(string) $numeroOpcion] ?? []) as $fechaProgramada) {
-                                        if (is_string($fechaProgramada) && $fechaProgramada >= $fechaHoyExperiencia) {
-                                            $fechasConfiguradas[$fechaProgramada] = true;
-                                        }
-                                    }
-                                }
-                                $fechasConfiguradas = array_keys($fechasConfiguradas);
-                                sort($fechasConfiguradas, SORT_STRING);
-                                $horariosConfigurados = $fechasConfiguradas !== [];
-                            ?>
-                            <div class="mt-5">
-                                <div class="mb-3 flex flex-wrap gap-2">
-                                    <?php foreach ($experiencia['opciones'] as $indiceOpcion => $opcion): ?>
-                                        <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-white/85">
-                                            <?php echo e($opcion); ?> · <?php echo $experiencia['precios'][$indiceOpcion] === null ? 'Sin precio' : '$' . number_format((float) $experiencia['precios'][$indiceOpcion], 0, ',', '.') . ' COP'; ?>
+            <div class="glass-section rounded-[32px] px-5 py-8 sm:px-8 md:py-10">
+                <div class="mb-7 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Momentos inolvidables</p>
+                        <h2 class="section-title font-display mt-2 text-3xl text-white sm:text-4xl">Experiencias exclusivas en el hotel</h2>
+                    </div>
+                    <p class="max-w-md text-sm text-white/75">
+                        Complementa tu estancia con actividades gastronómicas, bienestar y aventura diseñadas para nuestros huéspedes.
+                    </p>
+                </div>
+
+                <?php if ($experiencias === []): ?>
+                    <p class="muted-light text-center text-sm py-8">Muy pronto compartiremos nuevas experiencias.</p>
+                <?php else: ?>
+                    <div class="grid gap-6">
+                        <?php foreach ($experiencias as $indice => $experiencia): ?>
+                            <article class="room-card">
+                                <div class="room-card__media">
+                                    <img src="<?php echo e(experienciaImagen($experiencia['categoria'], $indice, $experiencia['imagen'])); ?>" alt="<?php echo e($experiencia['nombre']); ?>" loading="lazy" decoding="async">
+                                    <div class="absolute left-3 top-3">
+                                        <span class="rounded-full bg-slate-950/75 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#f0d39a] backdrop-blur-md border border-white/15">
+                                            <?php echo e($experiencia['categoria']); ?>
                                         </span>
-                                    <?php endforeach; ?>
+                                    </div>
                                 </div>
-                                <?php if ($horariosConfigurados): ?>
-                                    <p class="mb-3 text-xs text-white/70">Fechas disponibles: <?php echo e(implode(', ', array_map(static fn(string $fechaProgramada): string => date('d/m/Y', strtotime($fechaProgramada)), $fechasConfiguradas))); ?></p>
-                                <?php endif; ?>
-                                <button
-                                    type="button"
-                                    class="experience-select-button w-full rounded-xl border border-white/30 bg-white/15 px-4 py-3 text-left text-sm font-bold text-white transition hover:border-white/60 hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                    data-experience-id="<?php echo (int) $experiencia['id']; ?>"
-                                    data-experience-name="<?php echo e($experiencia['nombre']); ?>"
-                                    data-experience-options="<?php echo e(json_encode($experiencia['opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
-                                    data-experience-prices="<?php echo e(json_encode($experiencia['precios'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
-                                    data-experience-option-indices="<?php echo e(json_encode($experiencia['numeros_opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
-                                    data-experience-schedule="<?php echo e(json_encode($experiencia['horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
-                                    data-reservation-stays="<?php echo e(json_encode($reservasEstanciaExperiencia, JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
-                                    <?php echo $experiencia['opciones'] === [] || !$horariosConfigurados || !$usuarioAutenticado || !$usuarioTieneReserva ? 'disabled' : ''; ?>>
-                                    <?php echo !$usuarioAutenticado ? 'Inicia sesión para programar' : (!$usuarioTieneReserva ? 'Reserva primero para programar' : 'Elegir esta experiencia'); ?>
-                                </button>
-                            </div>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
+                                <div class="room-card__body">
+                                    <div>
+                                        <h3 class="card-title text-2xl font-black text-white"><?php echo e($experiencia['nombre']); ?></h3>
+                                        <p class="room-card__desc mt-2.5"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
+                                        <?php
+                                            $fechasConfiguradas = [];
+                                            $fechaHoyExperiencia = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+                                            foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
+                                                $numeroOpcion = $experiencia['numeros_opciones'][$indiceOpcion] ?? ($indiceOpcion + 1);
+                                                foreach (array_keys($experiencia['horarios'][(string) $numeroOpcion] ?? []) as $fechaProgramada) {
+                                                    if (is_string($fechaProgramada) && $fechaProgramada >= $fechaHoyExperiencia) {
+                                                        $fechasConfiguradas[$fechaProgramada] = true;
+                                                    }
+                                                }
+                                            }
+                                            $fechasConfiguradas = array_keys($fechasConfiguradas);
+                                            sort($fechasConfiguradas, SORT_STRING);
+                                            $horariosConfigurados = $fechasConfiguradas !== [];
+                                        ?>
+                                        <div class="mt-4 flex flex-wrap gap-2">
+                                            <?php foreach ($experiencia['opciones'] as $indiceOpcion => $opcion): ?>
+                                                <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-white/90">
+                                                    <?php echo e($opcion); ?> · <?php echo $experiencia['precios'][$indiceOpcion] === null ? 'Sin precio' : '$' . number_format((float) $experiencia['precios'][$indiceOpcion], 0, ',', '.') . ' COP'; ?>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 pt-4 border-t border-white/10">
+                                        <?php if ($horariosConfigurados): ?>
+                                            <p class="mb-3 text-xs text-white/70">
+                                                Fechas disponibles: <?php echo e(implode(', ', array_map(static fn(string $fechaProgramada): string => date('d/m/Y', strtotime($fechaProgramada)), $fechasConfiguradas))); ?>
+                                            </p>
+                                        <?php endif; ?>
+                                        <button
+                                            type="button"
+                                            class="experience-select-button rounded-xl border border-white/25 bg-white/15 px-4 py-3 text-sm font-bold text-white transition hover:border-[#f0d39a] hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                            data-experience-id="<?php echo (int) $experiencia['id']; ?>"
+                                            data-experience-name="<?php echo e($experiencia['nombre']); ?>"
+                                            data-experience-options="<?php echo e(json_encode($experiencia['opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                            data-experience-prices="<?php echo e(json_encode($experiencia['precios'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                            data-experience-option-indices="<?php echo e(json_encode($experiencia['numeros_opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                            data-experience-schedule="<?php echo e(json_encode($experiencia['horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
+                                            data-reservation-stays="<?php echo e(json_encode($reservasEstanciaExperiencia, JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
+                                            <?php echo $experiencia['opciones'] === [] || !$horariosConfigurados || !$usuarioAutenticado || !$usuarioTieneReserva ? 'disabled' : ''; ?>>
+                                            <?php echo !$usuarioAutenticado ? 'Inicia sesión para programar' : (!$usuarioTieneReserva ? 'Reserva una habitación primero' : 'Elegir esta experiencia'); ?>
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
         </section>
 
+        <!-- SECCIÓN AGENDA TU ESTANCIA -->
         <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
-            <div class="glass-section grid gap-8 rounded-[34px] px-6 py-8 md:px-8 lg:grid-cols-[1fr_0.95fr]">
+            <div class="glass-section grid gap-8 rounded-[32px] px-5 py-8 sm:px-8 md:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
                 <div>
                     <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Agenda tu estancia</p>
-                    <h2 class="section-title font-display mt-3 text-4xl text-white">Solicita una experiencia antes de llegar.</h2>
-                    <p class="muted-light mt-4 max-w-2xl text-base leading-8">
-                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación. La fecha debe estar dentro de tu estancia reservada.
+                    <h2 class="section-title font-display mt-2 text-3xl text-white sm:text-4xl">Solicita una experiencia antes de llegar.</h2>
+                    <p class="muted-light mt-3 max-w-2xl text-sm leading-7 sm:text-base">
+                        Programa una sesión de spa, una cena especial o una actividad privada para que nuestro equipo la prepare con anticipación dentro de las fechas de tu reserva.
                     </p>
                 </div>
 
                 <?php if (!$usuarioAutenticado): ?>
-                    <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
+                    <div class="rounded-[24px] border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Inicia sesión para programar</h3>
                         <p class="muted-light mt-2 text-sm leading-6">Para solicitar una experiencia, primero inicia sesión con tu cuenta de huésped y realiza una reserva.</p>
                         <a href="interfaz/loggins/index_usu.php" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Iniciar sesión</a>
                     </div>
                 <?php elseif (!$usuarioTieneReserva): ?>
-                    <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
+                    <div class="rounded-[24px] border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Haz tu reserva primero</h3>
                         <p class="muted-light mt-2 text-sm leading-6">Cuando tengas una reserva activa, podrás elegir la experiencia, las opciones por persona y el horario.</p>
-                        <a href="#habitaciones" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Ver habitaciones</a>
+                        <a href="reservar.php" class="hero-button gold-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Ir a reservar habitación</a>
                     </div>
                 <?php else: ?>
-                    <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
+                    <div class="rounded-[24px] border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Prepara algo especial</h3>
                         <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles o solicita una propuesta personalizada.</p>
                         <button id="openActivityModal" type="button" class="hero-button primary-button mt-5 w-full px-5 py-4 text-sm uppercase tracking-[0.18em]">
@@ -534,7 +683,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <h3 id="activityModalTitle" class="font-display mt-2 text-3xl text-white" tabindex="-1">Programa tu experiencia</h3>
                                 </div>
                                 <button id="closeActivityModal" type="button" class="activity-modal__close" aria-label="Cerrar ventana de programación">
-                                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                                    <span class="material-symbols-outlined notranslate" translate="no" aria-hidden="true">close</span>
                                 </button>
                             </div>
 
@@ -605,198 +754,199 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </section>
 
         <?php if ($usuarioAutenticado): ?>
-<section id="room-service" class="mx-auto mt-10 max-w-7xl scroll-mt-24 reveal">
-    <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-12">
-        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Room service</p>
-                <h2 class="mt-2 text-3xl font-black text-white">Pide a tu habitación</h2>
-                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
-            </div>
-        </div>
-
-        <div id="rsAviso" class="mb-5 hidden rounded-2xl border px-5 py-4 text-sm font-bold" role="status" aria-live="polite"></div>
-        <div id="rsSinEstancia" class="hidden rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
-            <span class="material-symbols-outlined text-4xl text-emerald-700">room_service</span>
-            <p class="mt-3 text-lg font-black text-slate-800">El room service está disponible durante tu estancia.</p>
-            <p class="mt-2 text-sm text-slate-600">Cuando tengas una reserva en curso (aunque vayas a pagar al llegar o al final), podrás pedir comidas y objetos para tu habitación desde aquí.</p>
-        </div>
-
-        <div id="rsContenido" class="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
-            <div>
-                <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de pedido">
-                    <button type="button" data-rs-tipo="comida" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Comidas</button>
-                    <button type="button" data-rs-tipo="objeto" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Objetos</button>
+        <!-- SECCIÓN ROOM SERVICE -->
+        <section id="room-service" class="mx-auto mt-10 max-w-7xl scroll-mt-24 reveal">
+            <div class="glass-section rounded-[32px] px-5 py-8 text-white sm:px-8 md:py-10">
+                <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Room service</p>
+                        <h2 class="font-display mt-2 text-3xl font-black text-white sm:text-4xl">Pide a tu habitación</h2>
+                        <p class="mt-2 max-w-2xl text-sm text-white/75">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
+                    </div>
                 </div>
-                <div id="rsCategorias" class="mb-4 flex flex-wrap gap-2"></div>
-                <div id="rsCatalogo" class="grid gap-4 sm:grid-cols-2"></div>
-            </div>
 
-            <aside id="rsCarrito" class="h-fit rounded-3xl bg-emerald-950/60 p-6 lg:sticky lg:top-24">
-                <h3 class="flex items-center gap-2 text-lg font-black text-white"><span class="material-symbols-outlined">shopping_cart</span> Tu pedido</h3>
-                <div id="rsCarritoLineas" class="mt-4 space-y-3"></div>
-                <div id="rsHabitacionBox" class="mt-4 hidden">
-                    <label for="rsHabitacion" class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Enviar a</label>
-                    <select id="rsHabitacion" class="w-full rounded-xl border-0 bg-white px-3 py-3 text-sm font-bold text-slate-800"></select>
+                <div id="rsAviso" class="mb-5 hidden rounded-2xl border px-5 py-4 text-sm font-bold" role="status" aria-live="polite"></div>
+                <div id="rsSinEstancia" class="hidden rounded-[24px] border border-dashed border-white/20 bg-white/10 px-6 py-10 text-center">
+                    <span class="material-symbols-outlined text-4xl text-[#f0d39a] notranslate" translate="no">room_service</span>
+                    <p class="mt-3 text-lg font-black text-white">El room service está disponible durante tu estancia.</p>
+                    <p class="mt-2 text-sm text-white/75">Cuando tengas una reserva en curso, podrás pedir comidas y objetos para tu habitación desde aquí.</p>
                 </div>
-                <label for="rsNotas" class="mb-1 mt-4 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Indicaciones (opcional)</label>
-                <textarea id="rsNotas" rows="2" maxlength="300" placeholder="Ej. sin cebolla, tocar suavemente la puerta…" class="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800"></textarea>
-                <div class="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-                    <span class="text-sm font-bold text-white/70">Total</span>
-                    <span id="rsTotal" class="text-2xl font-black text-white">$0</span>
+
+                <div id="rsContenido" class="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
+                    <div>
+                        <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de pedido">
+                            <button type="button" data-rs-tipo="comida" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Comidas</button>
+                            <button type="button" data-rs-tipo="objeto" role="tab" class="rounded-full px-5 py-2 text-sm font-black transition">Objetos</button>
+                        </div>
+                        <div id="rsCategorias" class="mb-4 flex flex-wrap gap-2"></div>
+                        <div id="rsCatalogo" class="grid gap-4 sm:grid-cols-2"></div>
+                    </div>
+
+                    <aside id="rsCarrito" class="h-fit rounded-3xl border border-white/15 bg-emerald-950/60 p-6 lg:sticky lg:top-24">
+                        <h3 class="flex items-center gap-2 text-lg font-black text-white"><span class="material-symbols-outlined notranslate" translate="no">shopping_cart</span> Tu pedido</h3>
+                        <div id="rsCarritoLineas" class="mt-4 space-y-3"></div>
+                        <div id="rsHabitacionBox" class="mt-4 hidden">
+                            <label for="rsHabitacion" class="mb-1 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Enviar a</label>
+                            <select id="rsHabitacion" class="w-full rounded-xl border-0 bg-white px-3 py-3 text-sm font-bold text-slate-800"></select>
+                        </div>
+                        <label for="rsNotas" class="mb-1 mt-4 block text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Indicaciones (opcional)</label>
+                        <textarea id="rsNotas" rows="2" maxlength="300" placeholder="Ej. sin cebolla, tocar suavemente la puerta…" class="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-slate-800"></textarea>
+                        <div class="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+                            <span class="text-sm font-bold text-white/70">Total</span>
+                            <span id="rsTotal" class="text-2xl font-black text-white">$0</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-white/50">El cobro se agrega a tu cuenta y se paga en recepción.</p>
+                        <button id="rsPedir" type="button" class="mt-4 w-full rounded-2xl bg-emerald-400 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pedir a mi habitación</button>
+                    </aside>
                 </div>
-                <p class="mt-1 text-[11px] text-white/50">El cobro se agrega a tu cuenta y se paga en recepción.</p>
-                <button id="rsPedir" type="button" class="mt-4 w-full rounded-2xl bg-emerald-400 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50" disabled>Pedir a mi habitación</button>
-            </aside>
-        </div>
 
-        <div class="mt-10">
-            <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
-            <div id="rsPedidos" class="mt-4 space-y-3"></div>
-        </div>
-    </div>
-</section>
-<button id="rsIrCarrito" type="button" class="fixed bottom-6 right-6 z-[70] hidden items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-2xl lg:!hidden">
-    <span class="material-symbols-outlined">shopping_cart</span> <span id="rsIrCarritoTexto">Ver pedido</span>
-</button>
-<script src="assets/js/room_service_usu.js?v=1" defer></script>
-<section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
-    <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
-        
-        <div class="flex items-center justify-between gap-4 mb-6">
-            <div>
-                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
-                <h2 class="mt-2 text-3xl font-black text-white">Reservas realizadas</h2>
+                <div class="mt-10">
+                    <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
+                    <div id="rsPedidos" class="mt-4 space-y-3"></div>
+                </div>
             </div>
-        
-            <span class="rounded-full bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800 border border-slate-200">
-                <?php echo count($historialReservas); ?> registros
-            </span>
-        </div>
+        </section>
+        <button id="rsIrCarrito" type="button" class="fixed bottom-6 right-6 z-[70] hidden items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-2xl lg:!hidden">
+            <span class="material-symbols-outlined notranslate" translate="no">shopping_cart</span> <span id="rsIrCarritoTexto">Ver pedido</span>
+        </button>
+        <script src="assets/js/room_service_usu.js?v=2" defer></script>
 
-        <?php if (empty($historialReservas)): ?>
-            <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
-                <span class="material-symbols-outlined text-4xl text-emerald-700">travel_explore</span>
-                <p class="mt-3 text-lg font-black text-slate-800">Aún no tienes reservas registradas.</p>
-                <p class="mt-2 text-sm text-slate-600">Cuando reserves una estancia, aparecerá aquí el historial completo.</p>
-            </div>
-        <?php else: ?>
-            <div class="overflow-x-auto">
-                <table class="min-w-full border-separate border-spacing-y-3 text-left">
-                    <thead>
-                        <tr class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                            <th class="px-4 py-2">Reserva</th>
-                            <th class="px-4 py-2">Habitación</th>
-                            <th class="px-4 py-2">Check-in</th>
-                            <th class="px-4 py-2">Check-out</th>
-                            <th class="px-4 py-2">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($historialReservas as $reserva): ?>
-                            <?php
-                            $descripcionHabitacion = !empty($reserva['tipo_hab'])
-                                ? (!empty($reserva['num_hab']) ? 'Habitación ' . (int) $reserva['num_hab'] . ' · ' . htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8') : htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8'))
-                                : 'Habitación sin asignar';
-                            ?>
-                            
-                            <tr class="rounded-2xl bg-emerald-950/50 text-sm text-white shadow-sm transition-colors hover:bg-emerald-700">
-                                <td class="rounded-l-2xl px-4 py-4 font-black text-emerald-200">#<?php echo (int) $reserva['cod_res']; ?></td>
-                                <td class="px-4 py-4 text-white"><?php echo $descripcionHabitacion; ?></td>
-                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $reserva['fec_ent_res']); ?></td>
-                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $reserva['fec_sal_res']); ?></td>
-                                <td class="rounded-r-2xl px-4 py-4">
-                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($reserva['est_res'] ?? 'Pendiente')); ?>">
-                                        <?php echo e((string) ($reserva['est_res'] ?? 'Pendiente')); ?>
-                                    </span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </div>
-</section>
-<section id="historial-experiencias" class="mx-auto mt-8 max-w-7xl reveal">
-    <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
-        <div class="mb-6 flex items-center justify-between gap-4">
-            <div>
-                <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
-                <h2 class="mt-2 text-3xl font-black text-white">Experiencias programadas</h2>
-            </div>
-            <span class="rounded-full border border-slate-200 bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800">
-                <?php echo count($historialExperiencias); ?> registros
-            </span>
-        </div>
+        <!-- SECCIÓN HISTORIAL DE RESERVAS -->
+        <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
+            <div class="glass-section rounded-[32px] px-5 py-8 text-white sm:px-8 md:py-10">
+                <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Mi historial</p>
+                        <h2 class="font-display mt-2 text-3xl font-black text-white sm:text-4xl">Reservas realizadas</h2>
+                    </div>
+                    <span class="soft-chip rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">
+                        <?php echo count($historialReservas); ?> registros
+                    </span>
+                </div>
 
-        <?php if ($historialExperiencias === []): ?>
-            <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
-                <span class="material-symbols-outlined text-4xl text-emerald-700">event_note</span>
-                <p class="mt-3 text-lg font-black text-slate-800">Aún no has programado experiencias.</p>
-                <p class="mt-2 text-sm text-slate-600">Tus solicitudes aparecerán aquí cuando programes una experiencia.</p>
+                <?php if (empty($historialReservas)): ?>
+                    <div class="rounded-[24px] border border-dashed border-white/20 bg-white/10 px-6 py-10 text-center">
+                        <span class="material-symbols-outlined text-4xl text-[#f0d39a] notranslate" translate="no">travel_explore</span>
+                        <p class="mt-3 text-lg font-black text-white">Aún no tienes reservas registradas.</p>
+                        <p class="mt-2 text-sm text-white/75">Cuando reserves una estancia, aparecerá aquí el historial completo.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border-separate border-spacing-y-2.5 text-left">
+                            <thead>
+                                <tr class="text-[11px] font-black uppercase tracking-[0.16em] text-[#f0d39a]">
+                                    <th class="px-4 py-2">Reserva</th>
+                                    <th class="px-4 py-2">Habitación</th>
+                                    <th class="px-4 py-2">Check-in</th>
+                                    <th class="px-4 py-2">Check-out</th>
+                                    <th class="px-4 py-2">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($historialReservas as $reserva): ?>
+                                    <?php
+                                    $descripcionHabitacion = !empty($reserva['tipo_hab'])
+                                        ? (!empty($reserva['num_hab']) ? 'Habitación ' . (int) $reserva['num_hab'] . ' · ' . htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8') : htmlspecialchars($reserva['tipo_hab'], ENT_QUOTES, 'UTF-8'))
+                                        : 'Habitación asignada';
+                                    ?>
+                                    <tr class="rounded-2xl bg-white/8 text-sm text-white transition-colors hover:bg-white/15">
+                                        <td class="rounded-l-2xl px-4 py-4 font-black text-[#f0d39a]">#<?php echo (int) $reserva['cod_res']; ?></td>
+                                        <td class="px-4 py-4 font-semibold text-white"><?php echo $descripcionHabitacion; ?></td>
+                                        <td class="px-4 py-4 text-white/85"><?php echo formatReservationHistoryDate((string) $reserva['fec_ent_res']); ?></td>
+                                        <td class="px-4 py-4 text-white/85"><?php echo formatReservationHistoryDate((string) $reserva['fec_sal_res']); ?></td>
+                                        <td class="rounded-r-2xl px-4 py-4">
+                                            <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($reserva['est_res'] ?? 'Pendiente')); ?>">
+                                                <?php echo e((string) ($reserva['est_res'] ?? 'Pendiente')); ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
-        <?php else: ?>
-            <div class="overflow-x-auto">
-                <table class="min-w-full border-separate border-spacing-y-3 text-left">
-                    <thead>
-                        <tr class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
-                            <th class="px-4 py-2">Experiencia</th>
-                            <th class="px-4 py-2">Opciones por persona</th>
-                            <th class="px-4 py-2">Fecha</th>
-                            <th class="px-4 py-2">Hora</th>
-                            <th class="px-4 py-2">Precio estimado</th>
-                            <th class="px-4 py-2">Estado</th>
-                            <th class="px-4 py-2">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($historialExperiencias as $solicitudExperiencia): ?>
-                            <?php
-                            $puedeCancelarExperiencia = (int) ($solicitudExperiencia['puede_cancelar'] ?? 0) === 1;
-                            ?>
-                            <tr class="bg-emerald-950/50 text-sm text-white shadow-sm transition-colors hover:bg-emerald-700">
-                                <td class="rounded-l-2xl px-4 py-4 font-black text-white"><?php echo e((string) $solicitudExperiencia['actividad']); ?></td>
-                                <td class="px-4 py-4 text-emerald-100">
-                                    <?php foreach ($solicitudExperiencia['selecciones_personas'] as $indicePersona => $opcionPersona): ?>
-                                        <span class="block"><?php echo e((string) $opcionPersona); ?>
-                                            <?php if (isset($solicitudExperiencia['precios_personas'][$indicePersona]) && $solicitudExperiencia['precios_personas'][$indicePersona] !== null): ?>
-                                                · $<?php echo number_format((float) $solicitudExperiencia['precios_personas'][$indicePersona], 0, ',', '.'); ?> COP
+        </section>
+
+        <!-- SECCIÓN HISTORIAL DE EXPERIENCIAS -->
+        <section id="historial-experiencias" class="mx-auto mt-8 max-w-7xl reveal">
+            <div class="glass-section rounded-[32px] px-5 py-8 text-white sm:px-8 md:py-10">
+                <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Mi historial</p>
+                        <h2 class="font-display mt-2 text-3xl font-black text-white sm:text-4xl">Experiencias programadas</h2>
+                    </div>
+                    <span class="soft-chip rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">
+                        <?php echo count($historialExperiencias); ?> registros
+                    </span>
+                </div>
+
+                <?php if ($historialExperiencias === []): ?>
+                    <div class="rounded-[24px] border border-dashed border-white/20 bg-white/10 px-6 py-10 text-center">
+                        <span class="material-symbols-outlined text-4xl text-[#f0d39a] notranslate" translate="no">event_note</span>
+                        <p class="mt-3 text-lg font-black text-white">Aún no has programado experiencias.</p>
+                        <p class="mt-2 text-sm text-white/75">Tus solicitudes aparecerán aquí cuando programes una experiencia.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border-separate border-spacing-y-2.5 text-left">
+                            <thead>
+                                <tr class="text-[11px] font-black uppercase tracking-[0.16em] text-[#f0d39a]">
+                                    <th class="px-4 py-2">Experiencia</th>
+                                    <th class="px-4 py-2">Opciones por persona</th>
+                                    <th class="px-4 py-2">Fecha</th>
+                                    <th class="px-4 py-2">Hora</th>
+                                    <th class="px-4 py-2">Precio estimado</th>
+                                    <th class="px-4 py-2">Estado</th>
+                                    <th class="px-4 py-2">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($historialExperiencias as $solicitudExperiencia): ?>
+                                    <?php
+                                    $puedeCancelarExperiencia = (int) ($solicitudExperiencia['puede_cancelar'] ?? 0) === 1;
+                                    ?>
+                                    <tr class="bg-white/8 text-sm text-white transition-colors hover:bg-white/15">
+                                        <td class="rounded-l-2xl px-4 py-4 font-black text-white"><?php echo e((string) $solicitudExperiencia['actividad']); ?></td>
+                                        <td class="px-4 py-4 text-white/85">
+                                            <?php foreach ($solicitudExperiencia['selecciones_personas'] as $indicePersona => $opcionPersona): ?>
+                                                <span class="block"><?php echo e((string) $opcionPersona); ?>
+                                                    <?php if (isset($solicitudExperiencia['precios_personas'][$indicePersona]) && $solicitudExperiencia['precios_personas'][$indicePersona] !== null): ?>
+                                                        · $<?php echo number_format((float) $solicitudExperiencia['precios_personas'][$indicePersona], 0, ',', '.'); ?> COP
+                                                    <?php else: ?>
+                                                        · Sin precio
+                                                    <?php endif; ?>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </td>
+                                        <td class="px-4 py-4 text-white/85"><?php echo formatReservationHistoryDate((string) $solicitudExperiencia['fecha_agenda']); ?></td>
+                                        <td class="px-4 py-4 text-white/85"><?php echo e(substr((string) $solicitudExperiencia['hora_agenda'], 0, 5)); ?></td>
+                                        <td class="px-4 py-4 text-white/85"><?php echo $solicitudExperiencia['monto_experiencia'] === null ? 'No definido' : '$' . number_format((float) $solicitudExperiencia['monto_experiencia'], 0, ',', '.') . ' COP'; ?></td>
+                                        <td class="px-4 py-4">
+                                            <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>">
+                                                <?php echo e((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>
+                                            </span>
+                                        </td>
+                                        <td class="rounded-r-2xl px-4 py-4">
+                                            <?php if ($puedeCancelarExperiencia): ?>
+                                                <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (5 min)</button>
                                             <?php else: ?>
-                                                · Sin precio
+                                                <span class="text-xs text-white/50"><?php echo ($solicitudExperiencia['estado_agenda'] ?? '') === 'Cancelada' ? 'Cancelada' : 'No disponible'; ?></span>
                                             <?php endif; ?>
-                                        </span>
-                                    <?php endforeach; ?>
-                                </td>
-                                <td class="px-4 py-4 text-emerald-100"><?php echo formatReservationHistoryDate((string) $solicitudExperiencia['fecha_agenda']); ?></td>
-                                <td class="px-4 py-4 text-emerald-100"><?php echo e(substr((string) $solicitudExperiencia['hora_agenda'], 0, 5)); ?></td>
-                                <td class="px-4 py-4 text-emerald-100"><?php echo $solicitudExperiencia['monto_experiencia'] === null ? 'No definido' : '$' . number_format((float) $solicitudExperiencia['monto_experiencia'], 0, ',', '.') . ' COP'; ?></td>
-                                <td class="rounded-r-2xl px-4 py-4">
-                                    <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>">
-                                        <?php echo e((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>
-                                    </span>
-                                </td>
-                                <td class="px-4 py-4">
-                                    <?php if ($puedeCancelarExperiencia): ?>
-                                        <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (5 min)</button>
-                                    <?php else: ?>
-                                        <span class="text-xs text-white/50"><?php echo ($solicitudExperiencia['estado_agenda'] ?? '') === 'Cancelada' ? 'Cancelada' : 'No disponible'; ?></span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
+        </section>
         <?php endif; ?>
-    </div>
-</section>
-<?php endif; ?>
     </main>
 
-    <footer class="px-4 pt-14 pb-8 md:px-6 text-sm" style="background: rgba(9, 14, 26, 0.55); border-top: 1px solid rgba(255,255,255,0.1);">
+    <footer class="px-4 pt-14 pb-8 md:px-6 text-sm" style="background: rgba(5, 16, 12, 0.85); border-top: 1px solid rgba(255,255,255,0.1);">
         <div class="max-w-6xl mx-auto grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
-
             <div>
                 <img src="assets/images/logo.jpeg" alt="Hotel Aurora" class="h-12 w-auto rounded-full mb-4">
                 <p class="text-white/60 text-xs">Hotel Aurora © <?php echo date('Y'); ?> · Todos los derechos reservados</p>
@@ -813,9 +963,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
             <div>
                 <h3 class="font-display text-white text-base mb-4">Reservas</h3>
                 <ul class="space-y-2 text-white/70">
+                    <li><a href="reservar.php" class="text-[#f0d39a] font-bold hover:underline">Página de reservas</a></li>
                     <li><a href="mailto:reservas@hotelaurora.com" class="hover:text-white">reservas@hotelaurora.com</a></li>
                     <li>Teléfono: +57 XXX XXX XXXX</li>
-                    <li>Solo WhatsApp: XXX XXX XXXX</li>
                 </ul>
             </div>
 
@@ -832,7 +982,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M16.5 2h-3v13.7a2.9 2.9 0 1 1-2.06-2.78v-3.1a6 6 0 1 0 5.06 5.93V8.4a7.6 7.6 0 0 0 4.5 1.46V6.8A4.6 4.6 0 0 1 16.5 2z"/></svg>
                     </a>
                 </div>
-                <p class="mt-6 text-white/60 text-xs">Dirección: [pendiente]</p>
             </div>
         </div>
 
@@ -842,176 +991,50 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </footer>
 
+    <!-- Botón flotante de ayuda -->
     <div class="system-help">
         <section id="systemHelpPanel" class="system-help__panel" role="dialog" aria-labelledby="systemHelpTitle" aria-hidden="true">
-            <div class="flex items-start justify-between gap-4 bg-[#17354f] px-5 py-4 text-white">
+            <div class="flex items-start justify-between gap-4 bg-[#0b3b27] px-5 py-4 text-white">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">Centro de ayuda</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-[#f0d39a]">Centro de ayuda</p>
                     <h2 id="systemHelpTitle" class="mt-1 text-lg font-black">¿Cómo podemos ayudarte?</h2>
                 </div>
                 <button id="closeSystemHelp" type="button" class="rounded-full p-1 text-white/70 transition hover:bg-white/10 hover:text-white" aria-label="Cerrar ayuda">
-                    <span class="material-symbols-outlined pointer-events-none">close</span>
+                    <span class="material-symbols-outlined pointer-events-none notranslate" translate="no">close</span>
                 </button>
             </div>
             <div>
-                <div class="border-t border-white/10 px-5 py-3">
-                    <button type="button" data-start-system-tour class="text-sm font-extrabold text-white hover:text-[#ffe3aa]">
+                <div class="border-t border-white/10 bg-[#072619] px-5 py-3">
+                    <button type="button" data-start-system-tour class="text-sm font-extrabold text-[#f0d39a] hover:underline">
                         Iniciar recorrido paso a paso
                     </button>
                 </div>
                 <details class="system-help__question" open>
-                    <summary>¿Cómo busco una habitación?</summary>
-                    <p class="system-help__answer">Abre “Fechas”, selecciona tu check-in y check-out, ajusta los huéspedes y pulsa “Buscar disponibilidad”.</p>
+                    <summary>¿Cómo selecciono y reservo habitaciones?</summary>
+                    <p class="system-help__answer">Pulsa “Seleccionar” en uno o varios cuartos para ver el precio por unidad, y luego haz clic en “Continuar a la reserva” para elegir tus fechas en el calendario y confirmar.</p>
                 </details>
                 <details class="system-help__question">
                     <summary>¿Qué necesito para reservar?</summary>
-                    <p class="system-help__answer">Debes iniciar sesión, elegir fechas válidas y seleccionar una habitación disponible. Después revisa el total y el método de pago.</p>
-                </details>
-                <details class="system-help__question">
-                    <summary>¿Puedo pagar solo una parte?</summary>
-                    <p class="system-help__answer">Sí. En la confirmación puedes elegir pago total o un abono inicial del 50%. El saldo del abono se paga en recepción.</p>
+                    <p class="system-help__answer">Debes iniciar sesión, elegir fechas válidas de check-in y check-out, y confirmar tu pago total (100%), abono inicial (50%) o pago en recepción.</p>
                 </details>
                 <details class="system-help__question">
                     <summary>¿Cómo solicito una experiencia?</summary>
                     <p class="system-help__answer">En “Agenda tu estancia”, elige la experiencia, fecha, hora y tus datos de contacto. El equipo confirmará la solicitud.</p>
                 </details>
-                <div class="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
-                    ¿Necesitas más ayuda? Escríbenos desde tu correo a <a href="mailto:reservas@hotelaurora.com" class="!mt-1 !text-left font-bold !text-[#17354f] hover:!text-[#c19046]">reservas@hotelaurora.com</a>.
-                </div>
             </div>
         </section>
         <button id="systemHelpButton" type="button" class="hero-button primary-button flex items-center gap-2 px-4 py-3 text-sm font-black shadow-xl" aria-controls="systemHelpPanel" aria-expanded="false">
-            <span class="material-symbols-outlined text-[20px]">help</span>
+            <span class="material-symbols-outlined text-[20px] notranslate" translate="no">help</span>
             <span>Ayuda</span>
         </button>
     </div>
+
     <?php
     $tourSistemaRol = !empty($_SESSION['user_auth']) ? 'usuario' : 'visitante';
     require_once __DIR__ . '/includes/system_tour.php';
     ?>
 
-    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
-        <div class="flex min-h-full items-center justify-center">
-            <div class="glass-card w-full max-w-5xl overflow-hidden rounded-[32px]">
-                <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
-                    <aside class="bg-[#17354f] px-7 py-8 text-white">
-                        <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
-                        <h3 id="modalRoomName" class="mt-2 text-3xl font-black">Habitación seleccionada</h3>
-                        <p class="mt-3 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
-
-                        <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-out</p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
-                        </div>
-
-                        <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
-                            <div class="flex justify-between text-sm text-white/70">
-                                <span>Subtotal estadía:</span>
-                                <span id="modalSubtotal">$0</span>
-                            </div>
-                            <div class="flex justify-between text-sm text-white/70">
-                                <span>Impuestos (IVA 19%):</span>
-                                <span id="modalIva">$0</span>
-                            </div>
-                            <div class="flex justify-between text-base font-black text-white border-t border-white/10 pt-2">
-                                <span>Total Reserva:</span>
-                                <span id="modalTotal">$0</span>
-                            </div>
-                            <div class="flex justify-between text-sm font-bold text-emerald-400 pt-1">
-                                <span>Monto a pagar ahora:</span>
-                                <span id="modalMontoPagarAhora">$0</span>
-                            </div>
-                        </div>
-                    </aside>
-
-                    <section class="bg-white/88 px-7 py-8 backdrop-blur-lg overflow-y-auto max-h-[85vh]">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
-                                <h4 class="mt-2 text-3xl font-black text-[#17354f]">Detalles de Pago</h4>
-                            </div>
-                            <button 
-                                id="closeBookingModal" 
-                                type="button" 
-                                onclick="closeBookingModal()" 
-                                class="rounded-full bg-slate-100 p-3 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
-                            >                   
-                                <span class="material-symbols-outlined pointer-events-none">close</span>
-                            </button>
-                        </div>
-
-                        <div class="mt-6">
-                            <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400">Modalidad de Cobro</label>
-                            <div class="grid grid-cols-2 gap-3">
-                                <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="100">
-                                    <p class="text-xs font-black uppercase text-[#000000]">Pago Total (100%)</p>
-                                    <p class="text-xs text-black-500">Liquida el valor completo ahora</p>
-                                </button>
-                                <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="50">
-                                    <p class="text-xs font-black uppercase text-[#000000]">Abono inicial (50%)</p>
-                                    <p class="text-xs text-black">Paga el resto en recepción</p>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <p class=" mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
-                            <div class="grid gap-3 md:grid-cols-3">
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción">Pago en Recepción</button>
-                            </div>
-                        </div>
-
-                        <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
-                            <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
-                                <span class="material-symbols-outlined text-[18px]">verified_user</span>
-                                Pago seguro procesado por Wompi
-                            </div>
-                            <div id="cardFields" class="grid gap-3">
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Número de Tarjeta</label>
-                                    <input id="payCardNumber" type="text" maxlength="19" placeholder="0000 0000 0000 0000" class="w-full rounded-xl border-slate-300 bg-white text-sm">
-                                </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Expiración</label>
-                                        <input id="payCardExpiry" type="text" placeholder="MM/AA" maxlength="5" class="w-full rounded-xl border-slate-300 bg-white text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">CVC / CVV</label>
-                                        <input id="payCardCvc" type="password" maxlength="4" placeholder="123" class="w-full rounded-xl border-slate-300 bg-white text-sm">
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="transferFields" class="hidden text-xs text-slate-600">
-                                <p class="font-bold text-slate-800 mb-1">Datos bancarios para consignación:</p>
-                                <p>Cuenta de Ahorros: <strong>123-456789-00</strong></p>
-                                <p>Titular: <strong>Hotel Aurora S.A.S</strong></p>
-                            </div>
-                        </div>
-
-                        <?php if ($recaptchaSiteKey !== ''): ?>
-                            <div class="mt-5 flex justify-center" aria-label="Verificación de seguridad">
-                                <div class="g-recaptcha" data-sitekey="<?php echo e($recaptchaSiteKey); ?>"></div>
-                            </div>
-                        <?php endif; ?>
-                        <p id="modalFeedback" class="mt-4 hidden text-sm font-bold"></p>
-                        <button 
-                            id="confirmBookingBtn" 
-                            type="button" 
-                            onclick="processReservationPayment()" 
-                            class="hero-button primary-button mt-6 w-full px-5 py-4 text-sm uppercase tracking-[0.18em] cursor-pointer"
-                        >
-                            Confirmar y Pagar
-                        </button>
-                    </section>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="assets/js/interfaz_usu.js?v=2"></script>
+    <script src="assets/js/interfaz_usu.js?v=25"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
@@ -1021,7 +1044,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <?php if (!empty($_SESSION['user_auth'])): ?>
         <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
         <script src="assets/js/inactividad.js?v=3"></script>
-        <script src="assets/js/interfaz_usu.js?v=100"></script>
     <?php endif; ?>
+    <?php require_once __DIR__ . '/includes/dev_livereload.php'; ?>
 </body>
 </html>

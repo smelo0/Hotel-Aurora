@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once '../configuracion/conexion.php';
 require_once '../configuracion/permiso.php';
@@ -39,7 +39,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $accion = trim((string) ($_POST['accion'] ?? 'guardar'));
         $metodoPago = trim((string) ($_POST['metodo_pago'] ?? ''));
 
-        if (!$cod_res || !in_array($accion, ['guardar', 'cobrar'], true)) {
+        if (!$cod_res || !in_array($accion, ['guardar', 'cobrar', 'checkin', 'checkout'], true)) {
             throw new RuntimeException('datos_invalidos');
         }
 
@@ -85,9 +85,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         // No se permite que la edición convierta una reserva múltiple en una sola habitación.
         $hab_final = null;
 
-        $estadoFinal = $accion === 'cobrar'
-            ? ($reservaActual['est_res'] === 'Pendiente' ? 'Confirmada' : (string) $reservaActual['est_res'])
-            : $estadoSolicitado;
+        if ($accion === 'checkin') {
+            if (in_array($reservaActual['est_res'], ['Cancelada', 'Finalizada'], true)) {
+                throw new RuntimeException('reserva_cancelada');
+            }
+            $estadoFinal = 'En Casa';
+        } elseif ($accion === 'checkout') {
+            if (in_array($reservaActual['est_res'], ['Cancelada', 'Finalizada'], true)) {
+                throw new RuntimeException('reserva_cancelada');
+            }
+            $estadoFinal = 'Finalizada';
+        } elseif ($accion === 'cobrar') {
+            $estadoFinal = ($reservaActual['est_res'] === 'Pendiente' ? 'Confirmada' : (string) $reservaActual['est_res']);
+        } else {
+            $estadoFinal = $estadoSolicitado;
+        }
         if (
             $accion === 'guardar'
             && $estadoFinal === 'Confirmada'
@@ -218,6 +230,35 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
         $stmtHabitaciones->close();
 
+        if ($accion === 'checkin') {
+            $stmtHabCheckin = $conexion->prepare("UPDATE habitacion SET est_hab = 'Ocupada' WHERE cod_hab = ?");
+            foreach ($habitacionesActualizadas as $hab) {
+                $habId = (int) $hab['cod_hab'];
+                $stmtHabCheckin->bind_param('i', $habId);
+                $stmtHabCheckin->execute();
+            }
+            $stmtHabCheckin->close();
+        } elseif ($accion === 'checkout') {
+            $stmtHabCheckout = $conexion->prepare("UPDATE habitacion SET est_hab = 'Sucia' WHERE cod_hab = ?");
+            $stmtInsertTareaLimpieza = $conexion->prepare(
+                "INSERT INTO tarea (tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar, cod_usu_tar)
+                 VALUES (?, 'LIMPIEZA', 'Alta', ?, 'Pendiente', NOW(), ?)"
+            );
+            foreach ($habitacionesActualizadas as $hab) {
+                $habId = (int) $hab['cod_hab'];
+                $numHab = (string) $hab['num_hab'];
+                $stmtHabCheckout->bind_param('i', $habId);
+                $stmtHabCheckout->execute();
+
+                $titTarea = "Limpieza Check-out Hab. {$numHab}";
+                $desTarea = "Huésped {$reserva_actualizada['nom_usu']} completó check-out de la reserva #{$cod_res}. Habitación {$numHab} lista para aseo profundo y desinfección.";
+                $stmtInsertTareaLimpieza->bind_param('ssi', $titTarea, $desTarea, $idUsuarioLog);
+                $stmtInsertTareaLimpieza->execute();
+            }
+            $stmtHabCheckout->close();
+            $stmtInsertTareaLimpieza->close();
+        }
+
         if ($accion === 'cobrar') {
             $factura = [
                 'folio' => 'FAC-' . $idPagoFactura,
@@ -262,7 +303,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         echo json_encode([
             'status' => 'exito',
-            'mensaje' => $accion === 'cobrar' ? 'Pago registrado y reserva confirmada.' : 'Reserva actualizada correctamente.',
+            'mensaje' => match($accion) {
+                'cobrar' => 'Pago registrado y reserva confirmada.',
+                'checkin' => 'Check-in realizado con éxito. Habitación marcada como En Casa.',
+                'checkout' => 'Check-out completado. Se generó automáticamente la tarea de limpieza para el personal.',
+                default => 'Reserva actualizada correctamente.',
+            },
             'reserva' => [
                 'cod_res' => (int) $reserva_actualizada['cod_res'],
                 'nom_usu' => $reserva_actualizada['nom_usu'],

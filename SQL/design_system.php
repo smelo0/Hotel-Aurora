@@ -5,51 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Design System - Hotel Aurora</title>
 
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="stylesheet" href="../assets/css/estilos_base.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Manrope:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#2C5E5E",
-                        secondary: "#4A8B8B",
-                        accent: "#E6F2F2",
-                        heading: "#1A3B3B",
-                        surface: "#DDE6E6",
-
-                        /* Token antiguo: se conserva para pantallas previas que usaban el verde inicial. */
-                        "legacy-primary": "#1a3b3b",
-
-                        /* Paleta oficial de estados para Habitaciones y Housekeeping. */
-                        "state-disponible": "#22c55e",
-                        "state-limpio": "#06b6d4",
-                        "state-ocupada": "#f97316",
-                        "state-sucia": "#57534e",
-                        "state-mantenimiento": "#ef4444",
-                        "state-urgente": "#ef4444"
-                    },
-                    borderRadius: {
-                        lg: "1rem",
-                        xl: "2rem",
-                        full: "9999px"
-                    },
-                    fontFamily: {
-                        headline: ["Plus Jakarta Sans", "sans-serif"],
-                        body: ["Manrope", "sans-serif"]
-                    },
-                    boxShadow: {
-                        aurora: "0 14px 35px -24px rgba(44, 94, 94, 0.35)",
-                        "aurora-hover": "0 20px 40px -10px rgba(44, 94, 94, 0.18)",
-                        modal: "0 30px 70px -28px rgba(15, 23, 42, 0.45)"
-                    }
-                }
-            }
-        };
-    </script>
 
     <style>
         /* --- TOKENS GLOBALES --- */
