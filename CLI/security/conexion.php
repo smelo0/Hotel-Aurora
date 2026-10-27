@@ -7,13 +7,6 @@ require __DIR__ . '/../styles/banner.php';
 require __DIR__ . '/../styles/limpiarPantalla.php';
 require __DIR__ . '/../styles/loading.php';
 // conexion.php
-try {
-    $conexion = new PDO('mysql:host=localhost;dbname=hotel', 'root', '');
-    $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    echo "Error de conexión: " . $e->getMessage();
-    exit(1);
-}
 
 use Dotenv\Dotenv;
 // 2. Inicializar y cargar las variables del archivo .env
