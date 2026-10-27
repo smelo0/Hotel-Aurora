@@ -32,7 +32,7 @@ echo
 ██║░░██║╚█████╔╝░░░██║░░░███████╗███████╗  ██║░░██║╚██████╔╝██║░░██║╚█████╔╝██║░░██║██║░░██║
 ╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚══════╝╚══════╝  ╚═╝░░╚═╝░╚═════╝░╚═╝░░╚═╝░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝9{$reset}" . PHP_EOL;
 echo "" . PHP_EOL;
-echo "{$cyan}
+echo "{$verdeOliva}
 ███████████████████████████████████████████████████████████████████████
 █▄─▄▄─██▀▄─██▄─▀█▄─▄█▄─▄▄─█▄─▄█████─▄─▄─██▀▄─██▄─▄▄▀█▄─▄▄─██▀▄─██─▄▄▄▄█
 ██─▄▄▄██─▀─███─█▄▀─███─▄█▀██─██▀█████─████─▀─███─▄─▄██─▄█▀██─▀─██▄▄▄▄─█
@@ -41,7 +41,7 @@ echo "{$cyan}
 ██▀▄─██▄─▄▄▀█▄─▀█▀─▄█▄─▄█▄─▀█▄─▄█▄─▄█─▄▄▄▄█─▄─▄─█▄─▄▄▀██▀▄─██▄─▄▄▀█─▄▄─█▄─▄▄▀█
 ██─▀─███─██─██─█▄█─███─███─█▄▀─███─██▄▄▄▄─███─████─▄─▄██─▀─███─██─█─██─██─▄─▄█
 ▀▄▄▀▄▄▀▄▄▄▄▀▀▄▄▄▀▄▄▄▀▄▄▄▀▄▄▄▀▀▄▄▀▄▄▄▀▄▄▄▄▄▀▀▄▄▄▀▀▄▄▀▄▄▀▄▄▀▄▄▀▄▄▄▄▀▀▄▄▄▄▀▄▄▀▄▄▀{$reset}" . PHP_EOL;
-
+echo "\n";
 $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 $mensaje = "Iniciando módulos del sistema...";
 
@@ -72,12 +72,10 @@ do {
         $stmt->execute([$userEmailTyped]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
             // Checkeando que no alla hecho mas de 3 intentos y si si lo chickeamos.
-            if ($trys == 3) {
-                echo "{$rojo}{$iconoError} [¡Programa Cerrado!] Usted ha intentando iniciar sesion demaciadas veces.";
+            if ($trys >= 3) {
+                echo "{$rojo}{$iconoError} [¡Programa Cerrado!] Usted ha intentando iniciar sesion demasiadas veces. Verifique los datos e intente mas tarde.{$reset}" . PHP_EOL;
                 exit(2);
             }
-    
-            
             // 1. Validar si el usuario no existe
             if (!$usuario) {
                 echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Usuario no encontrado.{$reset}" . PHP_EOL . PHP_EOL;
