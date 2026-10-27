@@ -33,24 +33,17 @@ echo
 ╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚══════╝╚══════╝  ╚═╝░░╚═╝░╚═════╝░╚═╝░░╚═╝░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝9{$reset}" . PHP_EOL;
 echo "" . PHP_EOL;
 echo "{$verdeOliva}
-███████████████████████████████████████████████████████████████████████
-█▄─▄▄─██▀▄─██▄─▀█▄─▄█▄─▄▄─█▄─▄█████─▄─▄─██▀▄─██▄─▄▄▀█▄─▄▄─██▀▄─██─▄▄▄▄█
-██─▄▄▄██─▀─███─█▄▀─███─▄█▀██─██▀█████─████─▀─███─▄─▄██─▄█▀██─▀─██▄▄▄▄─█
-▀▄▄▄▀▀▀▄▄▀▄▄▀▄▄▄▀▀▄▄▀▄▄▄▄▄▀▄▄▄▄▄▀▀▀▀▄▄▄▀▀▄▄▀▄▄▀▄▄▀▄▄▀▄▄▄▄▄▀▄▄▀▄▄▀▄▄▄▄▄▀
-██████████████████████████████████████████████████████████████████████████████
-██▀▄─██▄─▄▄▀█▄─▀█▀─▄█▄─▄█▄─▀█▄─▄█▄─▄█─▄▄▄▄█─▄─▄─█▄─▄▄▀██▀▄─██▄─▄▄▀█─▄▄─█▄─▄▄▀█
-██─▀─███─██─██─█▄█─███─███─█▄▀─███─██▄▄▄▄─███─████─▄─▄██─▀─███─██─█─██─██─▄─▄█
-▀▄▄▀▄▄▀▄▄▄▄▀▀▄▄▄▀▄▄▄▀▄▄▄▀▄▄▄▀▀▄▄▀▄▄▄▀▄▄▄▄▄▀▀▄▄▄▀▀▄▄▀▄▄▀▄▄▀▄▄▀▄▄▄▄▀▀▄▄▄▄▀▄▄▀▄▄▀{$reset}" . PHP_EOL;
+   ░██                                                         
+   ░██                                                         
+░████████  ░██████   ░██░████  ░███████   ░██████    ░███████  
+   ░██          ░██  ░███     ░██    ░██       ░██  ░██        
+   ░██     ░███████  ░██      ░█████████  ░███████   ░███████  
+   ░██    ░██   ░██  ░██      ░██        ░██   ░██         ░██ 
+    ░████  ░█████░██ ░██       ░███████   ░█████░██  ░███████{$reset}" . PHP_EOL;
 echo "\n";
-$frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-$mensaje = "Iniciando módulos del sistema...";
 
-for ($i = 0; $i < 20; $i++) {
-    $frame = $frames[$i % count($frames)];
-    // El \r permite sobrescribir la línea actual para dar efecto de movimiento
-    echo "\r{$cyan}{$frame}{$reset} {$mensaje}";
-    usleep(80000); // Pausa de 0.08 segundos
-}
+// animacion de
+loading();
 
 // Mensaje final de éxito en la misma línea o salto limpio
 echo "\r\033[K"; // Limpia la línea del spinner
@@ -94,7 +87,7 @@ do {
             // 4. Si todo es correcto -> ACCESO PERMITIDO
             else {
                 echo "\n{$verde}{$iconoCheck} [¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "{$reset}\n";
-                echo "Hubieron  {$trys} de iniciar sesion.";
+                echo "{$azul}[¡INFORMACION!]Hubieron {$trys} intento(s) fallido(s) de iniciar sesion.{$reset}";
                 $sessionData = [
                     'id_usu' => $usuario['id_usu'],
                     'corr_usu' => $usuario['corr_usu'],

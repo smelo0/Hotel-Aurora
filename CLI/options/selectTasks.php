@@ -4,10 +4,15 @@ require_once __DIR__ . '/../security/auth_guard.php';
 
 
 echo "" . PHP_EOL;
-echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
-echo "{$verdeOliva}===== {$iconoAdmin} Bienvenido al panel de tareas del administrador ====={$reset}" . PHP_EOL;
-echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
-echo "" . PHP_EOL;
+echo "{$amarillo}
+░███     ░███                                  
+░████   ░████                                  
+░██░██ ░██░██  ░███████  ░████████  ░██    ░██ 
+░██ ░████ ░██ ░██    ░██ ░██    ░██ ░██    ░██ 
+░██  ░██  ░██ ░█████████ ░██    ░██ ░██    ░██ 
+░██       ░██ ░██        ░██    ░██ ░██   ░███ 
+░██       ░██  ░███████  ░██    ░██  ░█████ {$reset}" . PHP_EOL;
+echo "{$verdeOliva}{$iconoAdmin}{$reset}" . PHP_EOL;
 
 // Inicializamos la variable de control fuera del bucle
 $sessionLoged = false;
@@ -16,25 +21,12 @@ $sessionLoged = false;
 $validOptions = ["1", "2", "3", "0"];
 
 do {
-    
-    echo "\n";
-    echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
-    echo "{$verdeOliva}===================Selector de tareas===================={$reset}" . PHP_EOL;
-    echo "{$amarillo}*********************************************************{$reset}" . PHP_EOL;
-
-    $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-$mensaje = "Iniciando módulos del sistema...";
-
-for ($i = 0; $i < 20; $i++) {
-    $frame = $frames[$i % count($frames)];
-    // El \r permite sobrescribir la línea actual para dar efecto de movimiento
-    echo "\r{$cyan}{$frame}{$reset} {$mensaje}";
-    usleep(80000); // Pausa de 0.08 segundos
-}
+// animacion de carga
+loading();
 
 // Mensaje final de éxito en la misma línea o salto limpio
 echo "\r\033[K"; // Limpia la línea del spinner
-echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n\n";
+echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
     echo "" . PHP_EOL;
     echo "1. Ver tareas" . PHP_EOL;
     echo "2. Agregar tareas" . PHP_EOL;
