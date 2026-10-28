@@ -61,9 +61,7 @@ do {
     // Pausa para que el usuario lea el resultado antes de volver al menú
     echo "";
     echo "Ingresa cualquier valor diferente a \"0\" para añadir otra tarea " . PHP_EOL;
-    echo "0. Salir";
-    $quitter = readline("Ingresa la opcion que desees");
+    echo "0. Salir" . PHP_EOL;
+    $quitter = readline("Ingresa la opcion que desees: ");
 
-    
-    fgets(STDIN);
 } while ($quitter != 0);
