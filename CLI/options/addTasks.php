@@ -41,6 +41,9 @@ $newTasks['des_tar']       = trim(readline("4. Descripción detallada: "));
 // Estado por defecto si el usuario lo deja en blanco
 $estadoInput = trim(readline("5. Estado inicial [Default: Pendiente]: "));
 $newTasks['est_tar'] = empty($estadoInput) ? 'Pendiente' : $estadoInput;
+
+
+
 // 3. Preparamos e insertamos en la base de datos con PDO
 echo "\n\033[33mGuardando tarea...\033[0m\n";
 try {
