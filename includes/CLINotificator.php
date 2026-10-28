@@ -1,19 +1,35 @@
-    <?php
-    $sessionFileWeb = __DIR__ . "/../CLI/session.json";
+    <div id="CLI">
+        <p>CLI</p>
+    </div>
 
-    if (file_exists($sessionFileWeb)) {
-        echo 
-        '<div id="CLI" class="CLIAnimation">
-            <p>CLI</p>
-        </div>';
-    } else {
-        echo 
-        '<div id="CLI" class="CLIClean">
-            <p>CLI</p>
-        </div>';
-    };
+    <script>
+    function verificarEstadoSesion() {
+        // Ajusta la ruta hacia check-session.php según corresponda
+        fetch('/Hotel-Aurora/CLI/security/authWeb.php')
+            .then(response => response.json())
+            .then(existe => {
+                const elemento = document.getElementById('CLI');
+                if (!elemento) return;
 
-    ?>
+                if (existe) {
+                    // Si el archivo existe: activa la animación y quita la limpia
+                    elemento.classList.remove('CLIClean');
+                    elemento.classList.add('CLIAnimation');
+                } else {
+                    // Si el archivo NO existe: quita la animación y activa la limpia
+                    elemento.classList.remove('CLIAnimation');
+                    elemento.classList.add('CLIClean');
+                }
+            })
+            .catch(error => console.error('Error al verificar la sesión:', error));
+    }
+
+    // 1. Ejecutar la validación apenas cargue la página
+    verificarEstadoSesion();
+
+    // 2. Repetir la validación cada 3 segundos (3000 milisegundos) sin recargar
+    setInterval(verificarEstadoSesion, 3000);
+    </script>
     
     <style>
         
