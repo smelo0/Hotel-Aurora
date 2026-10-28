@@ -61,4 +61,3 @@ try {
 // Pausa para que el usuario lea el resultado antes de volver al menú
 echo "\nPresiona ENTER para volver al menú principal...";
  
-fgets(STDIN);
