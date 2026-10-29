@@ -8,17 +8,20 @@ loading();
 
 // Mensaje final de éxito
 echo "\r\033[K";
-echo "{$verde}✔ ¡Tareas cargadas correctamente desde la base de datos!{$reset}\n\n"; 
+echo "{$verde}✔ ¡Tareas cargadas correctamente desde la base de datos!{$reset}\n"; 
 
 // 1. Consultar los datos reales usando tu conexión existente ($conexion)
 $stmt = $conexion->query("SELECT cod_tar , 	tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar FROM tarea");
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-echo "\n";
-echo "{$amarillo}*******************************************************************************************************{$reset}" . PHP_EOL;
-echo "{$verdeOliva}===================================================Tareas============================================{$reset}" . PHP_EOL;
-echo "{$amarillo}*******************************************************************************************************{$reset}" . PHP_EOL;
-echo "" . PHP_EOL;
+echo "{$amarillo}
+░██████████                                                     
+    ░██                                                         
+    ░██     ░██████   ░██░████  ░███████   ░██████    ░███████  
+    ░██          ░██  ░███     ░██    ░██       ░██  ░██        
+    ░██     ░███████  ░██      ░█████████  ░███████   ░███████  
+    ░██    ░██   ░██  ░██      ░██        ░██   ░██         ░██ 
+    ░██     ░█████░██ ░██       ░███████   ░█████░██  ░███████  {$reset}" . PHP_EOL;
 
 // Definición limpia de columnas (7 elementos)
 $headers = ["codigo", "titulo", "categoria", "prioridad", "descripcion", "estado", "fecha"];
@@ -75,3 +78,39 @@ foreach ($rows as $row) {
 // 5. Cerrar la tabla con la línea inferior
 $printSeparator();
 echo "\n";
+
+// menu
+$validOptions = ["1", "2", "3", "0"];
+
+do {
+
+    echo "\n";
+    echo "1. Volver a cargar tareas" . PHP_EOL;
+    echo "2. Ver tareas." . PHP_EOL;
+    echo "3. Volver a Iniciar Sesion" . PHP_EOL;
+    echo "0. Cerrar sesion" . PHP_EOL;
+    
+    $viewTasksSelector = (string) readline("Seleccione una tarea para continuar: ");
+    limpiarPantalla();
+    if (!in_array($viewTasksSelector, $validOptions)) {
+        echo "opcion no valida" . PHP_EOL;
+        echo "ingrese una opcion valida" . PHP_EOL;
+    } 
+
+    switch ($viewTasksSelector) {
+        case "1":
+            require __DIR__ . "/viewTasks.php";
+            break 2;
+        case "2":
+            require __DIR__ . "/viewTasks.php";
+            break 2;
+        case "3":
+            require __DIR__ . "/../logTasks.php";
+            break 2;
+        case "0":
+            echo "Cerrando sesion tareas." . PHP_EOL;
+            require_once __DIR__. '/../security/logout.php';
+            exit(0);
+    };
+
+} while ($viewTasksSelector != 0);

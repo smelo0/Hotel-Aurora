@@ -55,8 +55,5 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
             require_once __DIR__. '/../security/logout.php';
             exit(0);
     };
-
-
     
-
 } while ($selector !== "0");
