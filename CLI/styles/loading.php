@@ -7,7 +7,7 @@ if (!function_exists('loading')) {
         $cyan    = "\033[36m";
         $reset   = "\033[0m";
 
-        for ($i = 0; $i < 20; $i++) {
+        for ($i = 0; $i < 10; $i++) {
             $frame = $frames[$i % count($frames)];
             // El \r permite sobrescribir la línea actual para dar efecto de movimiento
             echo "\r{$cyan}{$frame}{$reset} {$mensaje}";

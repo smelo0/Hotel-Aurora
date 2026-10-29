@@ -53,6 +53,7 @@ do {
             fclose($file);
 
             echo "¡Éxito! Archivo CSV generado correctamente: $filename\n";
+            echo "\n";
             break;
         case "2": 
             if (empty($tareas)) {
@@ -76,6 +77,7 @@ do {
 
             file_put_contents($filename, $output);
             echo "¡Éxito! Archivo TXT generado correctamente: $filename\n";
+            echo "\n";
             break;
         case "3":
             require __DIR__ . "/addTasks.php";
@@ -87,6 +89,7 @@ do {
             exit(2);
         case "0":
             echo "Cerrando sesion tareas." . PHP_EOL;
+            echo "\n";
             require_once __DIR__. '/../security/logout.php';
             exit(0);
     }
