@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/conexion.php';
-
+require_once __DIR__ . '/../security/timeOut.php';
 limpiarPantalla();
 
 loading();
