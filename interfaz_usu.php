@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/sesion_seguridad.php';
 
 require_once __DIR__ . '/configuracion/conexion.php';
 require_once __DIR__ . '/configuracion/wompi.php';
+require_once __DIR__ . '/configuracion/capacidad_habitaciones.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
 
@@ -299,6 +300,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                         </div>
                                     </div>
 
+                                    <p id="guestLimitHint" class="mt-3 text-xs leading-5 text-slate-500" role="status"></p>
+
                                     <button id="closeGuestPopover" type="button" class="hero-button primary-button mt-4 w-full px-5 py-3 text-sm uppercase tracking-[0.18em]">
                                         Aplicar
                                     </button>
@@ -360,6 +363,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 $tipoHab = (string) ($room['tipo_hab'] ?? $room['tipo'] ?? 'Habitación');
                                 $precioHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
                                 $roomName = 'Habitación ' . $numHab . ' · ' . $tipoHab;
+                                $capacidadHab = capacidad_habitacion($tipoHab);
 
                                 $features = !empty($room['car_hab']) ? $room['car_hab'] : roomFeatures($tipoHab);
                                 $roomPhoto = !empty($room['img_hab']) ? (string) $room['img_hab'] : roomImage($tipoHab);
@@ -388,6 +392,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                             <div>
                                                 <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($tipoHab); ?></p>
                                                 <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
+                                                <p class="mt-1 text-xs font-bold text-white/70">Hasta <?php echo (int) $capacidadHab['personas']; ?> personas · máx. <?php echo (int) $capacidadHab['adultos']; ?> adultos y <?php echo (int) $capacidadHab['ninos']; ?> <?php echo $capacidadHab['ninos'] === 1 ? 'niño' : 'niños'; ?></p>
                                             </div>
                                             <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
                                                 Reserva online
@@ -418,6 +423,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
     data-room-id="<?php echo (int) $codHab; ?>"
     data-room-name="<?php echo e($roomName); ?>"
     data-room-price="<?php echo $precioHab; ?>"
+    data-room-max-people="<?php echo (int) $capacidadHab['personas']; ?>"
+    data-room-max-adults="<?php echo (int) $capacidadHab['adultos']; ?>"
+    data-room-max-children="<?php echo (int) $capacidadHab['ninos']; ?>"
 >
     <span data-room-add-label>Agregar</span>
 </button>
@@ -611,7 +619,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Room service</p>
                 <h2 class="mt-2 text-3xl font-black text-white">Pide a tu habitación</h2>
-                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5 0 10</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
+                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
             </div>
         </div>
 
@@ -905,6 +913,12 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
                         </div>
 
+                        <div id="modalRoomGuests" class="mt-6 hidden rounded-[28px] border border-white/10 bg-white/6 p-5">
+                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">¿Cuántas personas en cada habitación?</p>
+                            <div id="modalRoomGuestsList" class="mt-3 space-y-3"></div>
+                            <p id="modalRoomGuestsHint" class="mt-3 text-xs font-bold leading-5 text-white/70" role="status"></p>
+                        </div>
+
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
                             <div class="flex justify-between text-sm text-white/70">
                                 <span>Subtotal estadía:</span>
@@ -1011,7 +1025,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=2"></script>
+    <script src="assets/js/interfaz_usu.js?v=3"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

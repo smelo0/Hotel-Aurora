@@ -7,6 +7,7 @@ require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
+require_once __DIR__ . '/../configuracion/capacidad_habitaciones.php';
 /**@var mysqli $conexion */
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
@@ -86,6 +87,28 @@ $fechaOut = trim((string) ($_POST['fecha_out'] ?? ''));
 $notasReserva = trim((string) ($_POST['notas_reserva'] ?? ''));
 $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
 $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
+
+// Distribución de huéspedes por habitación (portal del huésped con varias habitaciones):
+// JSON [{"id": 12, "adultos": 2, "ninos": 1}, ...]. Se valida más abajo, cuando ya se conocen las habitaciones.
+$distribucionHuespedes = null;
+$distribucionRaw = $_POST['huespedes_por_habitacion'] ?? '';
+if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
+    $distribucionJson = json_decode($distribucionRaw, true);
+    if (!is_array($distribucionJson)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
+    }
+    $distribucionHuespedes = [];
+    foreach ($distribucionJson as $filaDistribucion) {
+        $idDistribucion = (int) ($filaDistribucion['id'] ?? 0);
+        if ($idDistribucion < 1 || isset($distribucionHuespedes[$idDistribucion])) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
+        }
+        $distribucionHuespedes[$idDistribucion] = [
+            'adultos' => max(0, (int) ($filaDistribucion['adultos'] ?? 0)),
+            'ninos' => max(0, (int) ($filaDistribucion['ninos'] ?? 0)),
+        ];
+    }
+}
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
 $tipoHabitacion = trim((string) ($_POST['tipo_habitacion'] ?? ''));
 $cantidadHabitaciones = max(1, (int) ($_POST['cantidad_habitaciones'] ?? 1));
@@ -465,6 +488,24 @@ try {
         throw new RuntimeException('habitaciones_insuficientes');
     }
 
+    // Límite de personas por habitación (adultos, niños y total) y reparto entre habitaciones.
+    $distribucionValidada = validar_ocupacion_habitaciones(
+        $habitacionesSeleccionadas,
+        $cantidadAdultos,
+        $cantidadNinos,
+        count($habitacionesSeleccionadas) > 1 ? $distribucionHuespedes : null
+    );
+    if ($distribucionValidada !== [] && count($habitacionesSeleccionadas) > 1) {
+        $detalleDistribucion = [];
+        foreach ($habitacionesSeleccionadas as $habitacionDistribuida) {
+            $huespedesHabitacion = $distribucionValidada[$habitacionDistribuida['cod_hab']];
+            $detalleDistribucion[] = 'Hab. ' . $habitacionDistribuida['num_hab'] . ' ('
+                . $huespedesHabitacion['adultos'] . ($huespedesHabitacion['adultos'] === 1 ? ' adulto' : ' adultos')
+                . ', ' . $huespedesHabitacion['ninos'] . ($huespedesHabitacion['ninos'] === 1 ? ' niño' : ' niños') . ')';
+        }
+        $notasCompletas .= "\nDistribución de huéspedes: " . implode('; ', $detalleDistribucion);
+    }
+
     $precioNocheTotal = array_sum(array_map(
         static fn(array $room): float => (float) $room['precio'],
         $habitacionesSeleccionadas
@@ -639,6 +680,9 @@ try {
     } elseif ($reason === 'habitaciones_insuficientes') {
         $message = 'No hay suficientes habitaciones de ese tipo disponibles para las fechas seleccionadas.';
         $statusCode = 409;
+    } elseif (str_starts_with($reason, 'ocupacion_invalida:')) {
+        $message = substr($reason, strlen('ocupacion_invalida:'));
+        $statusCode = 422;
     } elseif (str_starts_with($reason, 'wompi_')) {
         $message = match ($reason) {
             'wompi_private_key_missing' => 'Falta configurar la llave privada de Wompi en el servidor.',
