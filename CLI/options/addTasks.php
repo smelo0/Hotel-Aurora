@@ -3,6 +3,7 @@ require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/timeOut.php';
 // Definición de colores ANSI estándar
 
+echo "\n";
 loading();
 
 echo $segundos_transcurridos;
@@ -11,7 +12,6 @@ echo $segundos_transcurridos;
 echo "\r\033[K"; // Limpia la línea del spinner
 echo "{$verde}✔ ¡Añade tus tareas!{$reset}";
 
-echo "\n";
 echo "{$amarillo}
                                                                                ░██                                                         
                                                                                ░██                                                         
@@ -23,7 +23,7 @@ echo "{$amarillo}
                   ░██                            ░██                                                                                       
             ░███████                       ░███████{$reset}" . PHP_EOL;
 
-echo "\n\n";
+echo "\n";
 
 $newTasks = [];
 // 2. Solicitamos los datos de forma secuencial
@@ -75,7 +75,7 @@ do {
     echo "\n";
     echo "1. Agregar otra tarea." . PHP_EOL;
     echo "2. Ver tareas" . PHP_EOL;
-    echo "3. Volver a Iniciar Sesion" . PHP_EOL;
+    echo "3. Volver al menu." . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
     $addTasksSelector = (string) readline("Seleccione una tarea para continuar: ");
@@ -93,7 +93,7 @@ do {
             require __DIR__ . "/viewTasks.php";
             break 2;
         case "3":
-            require __DIR__ . "/../logTasks.php";
+            require __DIR__ . "/selectTasks.php";
             break 2;
         case "0":
             echo "Cerrando sesion tareas." . PHP_EOL;

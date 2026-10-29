@@ -11,7 +11,7 @@ echo "\r\033[K";
 echo "{$verde}✔ ¡Tareas cargadas correctamente desde la base de datos!{$reset}\n"; 
 
 // 1. Consultar los datos reales usando tu conexión existente ($conexion)
-$stmt = $conexion->query("SELECT cod_tar , 	tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar FROM tarea");
+$stmt = $conexion->query("SELECT cod_tar , 	tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar FROM tarea WHERE est_tar = 'pendiente'");
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo "{$amarillo}
@@ -77,7 +77,6 @@ foreach ($rows as $row) {
 
 // 5. Cerrar la tabla con la línea inferior
 $printSeparator();
-echo "\n";
 
 // menu
 $validOptions = ["1", "2", "3", "0"];
@@ -85,9 +84,9 @@ $validOptions = ["1", "2", "3", "0"];
 do {
 
     echo "\n";
-    echo "1. Volver a cargar tareas" . PHP_EOL;
+    echo "1. Recargar vista de tareas." . PHP_EOL;
     echo "2. Agregar tareas." . PHP_EOL;
-    echo "3. Volver a Iniciar Sesion" . PHP_EOL;
+    echo "3. Volver al menu." . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
     $viewTasksSelector = (string) readline("Seleccione una tarea para continuar: ");
@@ -105,7 +104,7 @@ do {
             require __DIR__ . "/addTasks.php";
             break 2;
         case "3":
-            require __DIR__ . "/../logTasks.php";
+            require __DIR__ . "/selectTasks.php";
             break 2;
         case "0":
             echo "Cerrando sesion tareas." . PHP_EOL;

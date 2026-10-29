@@ -1,5 +1,7 @@
 <?php
 
+use App\Logger;
+
 require __DIR__ . '/security/conexion.php';
 require_once __DIR__ . '/audio_helper.php';
 
@@ -80,6 +82,7 @@ do {
 
         if (!$usuario) {
             echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Usuario no encontrado.{$reset}" . PHP_EOL . PHP_EOL;
+            Logger::registrarLog();
             $trys += 1;
         } elseif (!password_verify($passwordTyped, $usuario['psw_usu'])) {
             echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Clave incorrecta.{$reset}" . PHP_EOL . PHP_EOL;
@@ -90,7 +93,8 @@ do {
         } else {
             
 
-            echo "\n{$verde}{$iconoCheck} [¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "{$reset}\n";
+            echo "\n{$verde}{$iconoCheck}[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "{$reset}\n";
+            echo "\n";
             echo "{$azul}[¡INFORMACION!] Hubieron {$trys} intento(s) fallido(s) de iniciar sesion.{$reset}\n";
 
             $sessionData = [

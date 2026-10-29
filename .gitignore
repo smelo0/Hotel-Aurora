@@ -6,5 +6,5 @@
 !.htaccess
 logs/
 session.json
-tareas_export.cvs
+tareas_export.csv
 tareas_export.txt
