@@ -20,7 +20,6 @@ echo "\n";
 $validOptions = ["1", "2", "3", "0"];
 
 do {
-    echo "En que formato quieres hacer la exportacion?\n";
     echo "1. Exportar a CSV\n";
     echo "2. Exportar a TXT\n";
     echo "3. Agregar nueva tarea.\n";
@@ -40,18 +39,27 @@ do {
                 exit;
             }
 
+            // --- EXPORTAR A CSV (Método manual compatible con cualquier versión de PHP) ---
             $filename = "tareas_export.csv";
-            $file = fopen($filename, 'w');
+            $csvContent = "";
 
-            // Escribir cabeceras basadas en las llaves del primer registro
-            fputcsv($file, array_keys($tareas[0]));
+            // Generar cabeceras
+            $headers = array_keys($tareas[0]);
+            $csvContent .= '"' . implode('","', $headers) . '"' . "\n";
 
-            // Escribir filas de datos
+            // Generar filas de datos
             foreach ($tareas as $tarea) {
-                fputcsv($file, $tarea);
+                $values = array_map(function($val) {
+                    // Si el valor es null, lo convertimos a string vacío ''
+                    $safeVal = $val ?? '';
+                    // Escapar comillas dobles internas si existen
+                    return str_replace('"', '""', $safeVal);
+                }, array_values($tarea));
+                
+                $csvContent .= '"' . implode('","', $values) . '"' . "\n";
             }
-            fclose($file);
 
+            file_put_contents($filename, $csvContent);
             echo "¡Éxito! Archivo CSV generado correctamente: $filename\n";
             echo "\n";
             break;
