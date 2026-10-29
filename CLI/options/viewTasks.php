@@ -86,7 +86,7 @@ do {
 
     echo "\n";
     echo "1. Volver a cargar tareas" . PHP_EOL;
-    echo "2. Ver tareas." . PHP_EOL;
+    echo "2. Agregar tareas." . PHP_EOL;
     echo "3. Volver a Iniciar Sesion" . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
@@ -102,7 +102,7 @@ do {
             require __DIR__ . "/viewTasks.php";
             break 2;
         case "2":
-            require __DIR__ . "/viewTasks.php";
+            require __DIR__ . "/addTasks.php";
             break 2;
         case "3":
             require __DIR__ . "/../logTasks.php";

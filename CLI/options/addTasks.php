@@ -85,7 +85,7 @@ do {
         echo "ingrese una opcion valida" . PHP_EOL;
     } 
 
-    switch ($viewTasksSelector) {
+    switch ($addTasksSelector) {
         case "1":
             require __DIR__ . "/addTasks.php";
             break 2;
