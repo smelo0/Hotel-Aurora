@@ -1,15 +1,12 @@
-
 <?php
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require __DIR__ . '/../styles/leerPassword.php';
 require __DIR__ . '/../styles/limpiarPantalla.php';
 require __DIR__ . '/../styles/loading.php';
-// conexion.php
 
-use Dotenv\Dotenv;
-// 2. Inicializar y cargar las variables del archivo .env
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
+// Cargar Dotenv apuntando a la raíz del proyecto (Hotel-Aurora)
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
 
 if (php_sapi_name() !== 'cli') {
