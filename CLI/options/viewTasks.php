@@ -1,16 +1,10 @@
 <?php
 require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/conexion.php';
+
 limpiarPantalla();
 
-$frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-$mensaje = "cargando tareas...";
-
-for ($i = 0; $i < 20; $i++) {
-    $frame = $frames[$i % count($frames)];
-    echo "\r{$cyan}{$frame}{$reset} {$mensaje}";
-    usleep(80000); // Pausa de 0.08 segundos
-}
+loading();
 
 // Mensaje final de éxito
 echo "\r\033[K";

@@ -1,13 +1,15 @@
 <?php
 require_once __DIR__ . '/../security/auth_guard.php';
-
+require_once __DIR__ . '/../security/timeOut.php';
 // Definición de colores ANSI estándar
 
 loading();
 
+echo $segundos_transcurridos;
+
 // Mensaje final de éxito en la misma línea o salto limpio
 echo "\r\033[K"; // Limpia la línea del spinner
-echo "{$verde}✔ ¡Añade tus tareas!{$reset}\n\n";
+echo "{$verde}✔ ¡Añade tus tareas!{$reset}";
 
 echo "\n";
 echo "{$amarillo}
