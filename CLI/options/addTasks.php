@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/timeOut.php';
 // Definición de colores ANSI estándar
-
+use App\Logger;
 echo "\n";
 loading();
 
@@ -13,14 +13,14 @@ echo "\r\033[K"; // Limpia la línea del spinner
 echo "{$verde}✔ ¡Añade tus tareas!{$reset}";
 
 echo "{$amarillo}
-                                                                               ░██                                                         
-                                                                               ░██                                                         
- ░██████    ░████████ ░██░████  ░███████   ░████████  ░██████   ░██░████    ░████████  ░██████   ░██░████  ░███████   ░██████    ░███████  
-      ░██  ░██    ░██ ░███     ░██    ░██ ░██    ░██       ░██  ░███           ░██          ░██  ░███     ░██    ░██       ░██  ░██        
- ░███████  ░██    ░██ ░██      ░█████████ ░██    ░██  ░███████  ░██            ░██     ░███████  ░██      ░█████████  ░███████   ░███████  
-░██   ░██  ░██   ░███ ░██      ░██        ░██   ░███ ░██   ░██  ░██            ░██    ░██   ░██  ░██      ░██        ░██   ░██         ░██ 
- ░█████░██  ░█████░██ ░██       ░███████   ░█████░██  ░█████░██ ░██             ░████  ░█████░██ ░██       ░███████   ░█████░██  ░███████  
-                  ░██                            ░██                                                                                       
+   ░███                                                                  
+  ░██░██                                                                 
+ ░██  ░██   ░████████ ░██░████  ░███████   ░████████  ░██████   ░██░████ 
+░█████████ ░██    ░██ ░███     ░██    ░██ ░██    ░██       ░██  ░███     
+░██    ░██ ░██    ░██ ░██      ░█████████ ░██    ░██  ░███████  ░██      
+░██    ░██ ░██   ░███ ░██      ░██        ░██   ░███ ░██   ░██  ░██      
+░██    ░██  ░█████░██ ░██       ░███████   ░█████░██  ░█████░██ ░██      
+                  ░██                            ░██                     
             ░███████                       ░███████{$reset}" . PHP_EOL;
 
 echo "\n";
@@ -60,9 +60,11 @@ try {
     
     // Al pasar $newTasks directamente, PDO asocia las llaves a los marcadores
     $stmt->execute($newTasks);
-    echo "\033[32m✔ Tarea registrada exitosamente.\033[0m\n";
+    echo "\033[32m✔ Tarea agregada exitosamente.\033[0m\n";
+    Logger::registrarLog("INFO", "Tarea agregada exitosamente. || User ID: $userId || CLI");
 } catch (PDOException $e) {
-    echo "\033[31m✖ Error al guardar la tarea en la base de datos:\033[0m\n";
+    echo "\033[31m✖ [Error] al guardar la tarea en la base de datos:{$reset}\n";
+    Logger::registrarLog("Error", "[Error] al guardar la tarea en la base de datos: || User ID: $userId || CLI");
     echo $e->getMessage() . "\n";
 }
 

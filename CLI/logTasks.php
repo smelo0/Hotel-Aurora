@@ -66,6 +66,7 @@ do {
     if ($trys >= 3) {
         stopBackgroundAudio();
         echo "{$rojo}{$iconoError} [¡Programa Cerrado!] Usted ha intentando iniciar sesion demasiadas veces. Verifique los datos e intente mas tarde.{$reset}" . PHP_EOL;
+        Logger::registrarLog("WARMING", "[¡Programa Cerrado!] Usuario ha intentado iniciar demasiadas veces. || CLI");
         exit(2);
     }
 
@@ -82,20 +83,23 @@ do {
 
         if (!$usuario) {
             echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Usuario no encontrado.{$reset}" . PHP_EOL . PHP_EOL;
-            Logger::registrarLog();
+            Logger::registrarLog("ERROR", "[¡ACCESO DENEGADO!] Usuario no encontrado ({$userEmailTyped}) || CLI");
             $trys += 1;
         } elseif (!password_verify($passwordTyped, $usuario['psw_usu'])) {
             echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Clave incorrecta.{$reset}" . PHP_EOL . PHP_EOL;
+            Logger::registrarLog("ERROR", "[¡ACCESO DENEGADO!] Clave incorrecta para el usuario: {$userEmailTyped} || CLI");
             $trys += 1;
         } elseif ($usuario['cod_rol_usu'] != "1") {
             echo "{$rojo}{$iconoError} [¡ACCESO DENEGADO!] Usuario no tiene el rol para este sistema.{$reset}" . PHP_EOL . PHP_EOL;
+            Logger::registrarLog("ERROR", "[¡ACCESO DENEGADO!] Rol inválido para el usuario: {$userEmailTyped} || CLI");
             $trys += 1;
         } else {
-            
-
             echo "\n{$verde}{$iconoCheck}[¡ACCESO PERMITIDO!] Bienvenid@, " . $usuario['nom_usu'] . "{$reset}\n";
             echo "\n";
             echo "{$azul}[¡INFORMACION!] Hubieron {$trys} intento(s) fallido(s) de iniciar sesion.{$reset}\n";
+
+            // Registro de éxito en el Logger
+            Logger::registrarLog("INFO", "[¡ACCESO PERMITIDO!] Inicio de sesión exitoso del usuario: " . $usuario['corr_usu'] . " || CLI");
 
             $sessionData = [
                 'id_usu'      => $usuario['id_usu'],
@@ -111,5 +115,6 @@ do {
         }
     } catch (PDOException $e) {
         echo "{$rojo}Error en la consulta: " . $e->getMessage() . "{$reset}\n";
+        Logger::registrarLog("ERROR", "Error de base de datos en inicio de sesión: " . $e->getMessage() . " || CLI");
     }
 } while ($sessionLoged != true);

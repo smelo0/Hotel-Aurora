@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/timeOut.php';
 
+use App\Logger;
 echo "\n";
 loading();
 limpiarPantalla();
@@ -62,6 +63,7 @@ do {
 
             file_put_contents($filename, $csvContent);
             echo "¡Éxito! Archivo CSV generado correctamente: $filename\n";
+            Logger::registrarLog("INFO", "Archivo CSV generado correctamente: $filename || User ID: $userId || CLI");
             echo "\n";
             break;
         case "2": 
@@ -86,6 +88,7 @@ do {
 
             file_put_contents($filename, $output);
             echo "¡Éxito! Archivo TXT generado correctamente: $filename\n";
+            Logger::registrarLog("INFO", "Archivo TXT generado correctamente: $filename || User ID: $userId || CLI");
             echo "\n";
             break;
         case "3":
@@ -93,6 +96,7 @@ do {
             exit(2);
         case "4":
             require __DIR__ . "/viewTasks.php";
+            exit(2);
         case "5":
             require __DIR__ . "/selectTasks.php";
             exit(2);

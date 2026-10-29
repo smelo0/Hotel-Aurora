@@ -1,5 +1,7 @@
 <?php
 
+use App\Logger;
+
 $sessionFile = __DIR__ . '/../session.json';
 
 $sessionData = json_decode(file_get_contents($sessionFile), true);
@@ -13,7 +15,8 @@ if (isset($lastActivity) && $lastActivity > 0) {
     $segundos_transcurridos = time() - $lastActivity;
 
     if ($segundos_transcurridos > $tiempo_inactividad) {
-        echo "\n[SESIÓN EXPIRADA] La sesión ha expirado por inactividad.\n";
+        echo "\n{$rojo}[SESIÓN EXPIRADA] La sesión ha expirado por inactividad.{$reset}\n";
+        Logger::registrarLog("INFO", "La sesión ha expirado por inactividad. || User ID: $userId|| CLI");
         @unlink($sessionFile);
         // Usamos die() en lugar de exit para garantizar que muera aquí mismo el proceso CLI
         die(1); 

@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require __DIR__ . '/../../vendor/autoload.php';
 require __DIR__ . '/../styles/leerPassword.php';
 require __DIR__ . '/../styles/limpiarPantalla.php';
 require __DIR__ . '/../styles/loading.php';
@@ -8,6 +8,7 @@ require __DIR__ . '/../styles/loading.php';
 // Cargar Dotenv apuntando a la raíz del proyecto (Hotel-Aurora)
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
+use App\Logger;
 
 if (php_sapi_name() !== 'cli') {
     die("Este script solo se puede ejecutar desde la línea de comandos.\n");

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../security/auth_guard.php';
 require_once __DIR__ . '/../security/conexion.php';
 require_once __DIR__ . '/../security/timeOut.php';
+use App\Logger;
 limpiarPantalla();
 
 loading();
@@ -74,7 +75,7 @@ foreach ($rows as $row) {
     }
     echo "\n";
 }
-
+Logger::registrarLog("INFO", "Consulto tabla de tareas. || User ID: $userId || CLI");
 // 5. Cerrar la tabla con la línea inferior
 $printSeparator();
 

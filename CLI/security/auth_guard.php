@@ -2,7 +2,11 @@
 require __DIR__ . "/conexion.php";
 require_once __DIR__ . "/../audio_helper.php";
 
+
 $sessionFile = __DIR__ . '/../session.json';
+$sessionData = json_decode(file_get_contents($sessionFile), true);
+$userId = $sessionData['id_usu'] ?? null;
+use App\Logger;
 
 // Función para eliminar el archivo de sesión
 function limpiarSesion() {
@@ -21,14 +25,19 @@ if (function_exists('sapi_windows_set_ctrl_handler')) {
         if ($event === PHP_WINDOWS_EVENT_CTRL_C) {
             limpiarSesion();
             stopBackgroundAudio();
-            exit("\n[SESIÓN CERRADA] Operación interrumpida por el usuario.\n");
+            
+            $rojo         = "\033[31m";
+            $reset        = "\033[0m";
+            exit("\n{$rojo}[SESIÓN CERRADA] Operación interrumpida por el usuario.{$reset}\n");
+            Logger::registrarLog("INFO", "Operación interrumpida por el usuario. || User ID: $userID || CLI");
         }
     });
 }
 
 // 3. Verificar si existe el archivo de sesión
 if (!file_exists($sessionFile)) {
-    echo "\n[ERROR DE SEGURIDAD] No hay una sesión activa. Inicia sesión primero.\n";
+    echo "\n{$rojo}[ERROR DE SEGURIDAD] No hay una sesión activa. Inicia sesión primero.{$reset}\n";
+    Logger::registrarLog("WARNING", "Intento de abrir un modulo CLI sin iniciar sesion || CLI");
     exit(1);
 }
 
@@ -43,13 +52,14 @@ if (!$userId) {
 }
 
 // 4. VALIDACIÓN DE TIMEOUT POR INACTIVIDAD (5 minutos = 300 segundos)
-$tiempo_inactividad = 10; // Pon 10 para probar, luego cámbialo a 300
+$tiempo_inactividad = 300; // Pon 10 para probar, luego cámbialo a 300
 
 if (isset($lastActivity) && $lastActivity > 0) {
     $segundos_transcurridos = time() - $lastActivity;
 
     if ($segundos_transcurridos > $tiempo_inactividad) {
-        echo "\n[SESIÓN EXPIRADA] La sesión ha expirado por inactividad.\n";
+        echo "\n{$azul}[SESIÓN EXPIRADA] La sesión ha expirado por inactividad.{$reset}\n";
+        Logger::registrarLog("INFO", "La sesión ha expirado por inactividad. || User ID: $userId || CLI");
         @unlink($sessionFile);
         // Usamos die() en lugar de exit para garantizar que muera aquí mismo el proceso CLI
         die(1); 
@@ -66,12 +76,14 @@ try {
     $usuarioActual = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$usuarioActual || $usuarioActual['cod_rol_usu'] != "1") {
-        echo "\n[ACCESO DENEGADO] Tu cuenta ya no es válida o perdiste los privilegios de rol #1.\n";
+        echo "\n{$azul}[ACCESO DENEGADO] Tu cuenta ya no es válida o perdiste los privilegios de rol #1.{$reset}\n";
+        Logger::registrarLog("INFO", "Usuario ya no es válida o perdio los privilegios de rol #1. || User ID: $userId || CLI");
         @unlink($sessionFile);
         exit(1);
     }
 
 } catch (PDOException $e) {
-    echo "\n[ERROR] No se pudo validar la sesión con la base de datos: " . $e->getMessage() . "\n";
+    echo "\n{$rojo}[ERROR] No se pudo validar la sesión con la base de datos: " . $e->getMessage() . "{$reset}\n";
+    Logger::registrarLog("ERROR", "No se pudo validar la sesión con la base de datos: || CLI");
     exit(1);
 }

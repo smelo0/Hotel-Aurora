@@ -1,4 +1,7 @@
 <?php
+
+use App\Logger;
+
 require_once __DIR__ . '/../security/auth_guard.php';
 
 $sessionFile = __DIR__ . '/session.json';
@@ -19,6 +22,5 @@ for ($i = 0; $i < 20; $i++) {
 // Mensaje final de éxito en la misma línea o salto limpio
 echo "\r\033[K"; // Limpia la línea del spinner
 echo "{$verde}✔ ¡Sesión cerrada correctamente!{$reset}\n\n";
-
-
+Logger::registrarLog("INFO", "Sesión cerrada correctamente || User ID: $userId || CLI");
 exit(0);
