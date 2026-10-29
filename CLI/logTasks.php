@@ -97,6 +97,7 @@ do {
                 'id_usu'      => $usuario['id_usu'],
                 'corr_usu'    => $usuario['corr_usu'],
                 'cod_rol_usu' => $usuario['cod_rol_usu'],
+                'last_activity' => time() // <--- Inicializar aquí al hacer login
             ];
             file_put_contents(__DIR__ . '/session.json', json_encode($sessionData));
 

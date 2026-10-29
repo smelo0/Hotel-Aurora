@@ -42,7 +42,21 @@ if (!$userId) {
     exit(1);
 }
 
-// 4. Verificar en la base de datos si el usuario sigue existiendo y es rol #1
+// 4. VALIDACIÓN DE TIMEOUT POR INACTIVIDAD (5 minutos = 300 segundos)
+$tiempo_inactividad = 10; // Pon 10 para probar, luego cámbialo a 300
+
+if (isset($lastActivity) && $lastActivity > 0) {
+    $segundos_transcurridos = time() - $lastActivity;
+
+    if ($segundos_transcurridos > $tiempo_inactividad) {
+        echo "\n[SESIÓN EXPIRADA] La sesión ha expirado por inactividad.\n";
+        @unlink($sessionFile);
+        // Usamos die() en lugar de exit para garantizar que muera aquí mismo el proceso CLI
+        die(1); 
+    }
+};
+
+// 5. Verificar en la base de datos si el usuario sigue existiendo y es rol #1
 try {
     global $conexion;
 
