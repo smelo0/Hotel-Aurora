@@ -30,7 +30,8 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
     echo "" . PHP_EOL;
     echo "1. Ver tareas" . PHP_EOL;
     echo "2. Agregar tareas" . PHP_EOL;
-    echo "3. Volver a Iniciar Sesion" . PHP_EOL;
+    echo "3. Volver a iniciar Sesion" . PHP_EOL;
+    echo "4. Exportar tareas." . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
     $selector = (string) readline("Seleccione una tarea para continuar: ");
@@ -50,13 +51,13 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
         case "3":
             require __DIR__ . "/../logTasks.php";
             break 2;
+        case "4":
+            require __DIR__ . "/exportTasks.php";
+            break 2;
         case "0":
             echo "Cerrando sesion tareas." . PHP_EOL;
             require_once __DIR__. '/../security/logout.php';
             exit(0);
     };
-
-
     
-
 } while ($selector !== "0");

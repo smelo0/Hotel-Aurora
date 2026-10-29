@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require __DIR__ . '/../styles/leerPassword.php';
-require __DIR__ . '/../styles/banner.php';
 require __DIR__ . '/../styles/limpiarPantalla.php';
 require __DIR__ . '/../styles/loading.php';
 

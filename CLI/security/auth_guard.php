@@ -34,6 +34,7 @@ if (!file_exists($sessionFile)) {
 
 $sessionData = json_decode(file_get_contents($sessionFile), true);
 $userId = $sessionData['id_usu'] ?? null;
+$lastActivity = $sessionData['last_activity'] ?? null;
 
 if (!$userId) {
     echo "\n[ERROR DE SEGURIDAD] Sesión corrupta.\n";

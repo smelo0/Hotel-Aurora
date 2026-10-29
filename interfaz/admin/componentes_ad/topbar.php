@@ -12,6 +12,9 @@
         <!-- boton de traduccion gon google -->
         
     </div>
+    
+    <?php include __DIR__ . '/../../../includes/CLINotificator.php' ?>
+
     <?php include __DIR__ . '/../../../includes/translate.php' ?>
     <!-- Modificación: Se eliminó botón duplicado de salida en el header; el cierre de sesión queda solo en el sidebar. -->
 </header>
