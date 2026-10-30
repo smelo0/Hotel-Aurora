@@ -9,7 +9,7 @@ $userId = $sessionData['id_usu'] ?? null;
 $lastActivity = $sessionData['last_activity'] ?? null;
 
 // 4. VALIDACIÓN DE TIMEOUT POR INACTIVIDAD (5 minutos = 300 segundos)
-$tiempo_inactividad = 300; // Pon 10 para probar, luego cámbialo a 300
+$tiempo_inactividad = 10; // Pon 10 para probar, luego cámbialo a 300
 
 if (isset($lastActivity) && $lastActivity > 0) {
     $segundos_transcurridos = time() - $lastActivity;
