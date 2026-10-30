@@ -77,7 +77,9 @@ do {
     echo "\n";
     echo "1. Agregar otra tarea." . PHP_EOL;
     echo "2. Ver tareas" . PHP_EOL;
-    echo "3. Volver al menu." . PHP_EOL;
+    echo "3. Exportar tareas. " . PHP_EOL;
+    echo "4. Ver dashboard." . PHP_EOL;
+    echo "5. Volver al menu." . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
     $addTasksSelector = (string) readline("Seleccione una tarea para continuar: ");
@@ -95,6 +97,12 @@ do {
             require __DIR__ . "/viewTasks.php";
             break 2;
         case "3":
+            require __DIR__ . "/exportTasks.php";
+            break 2;
+        case "4":
+            require __DIR__ . "/viewDashboard.php";
+            break 2;
+        case "5":
             require __DIR__ . "/selectTasks.php";
             break 2;
         case "0":

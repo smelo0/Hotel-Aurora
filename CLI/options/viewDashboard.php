@@ -166,8 +166,10 @@ if ($resumen !== null) {
 $validOptions = ["1", "2", "3", "0"];
 do {
     echo "1. Actualizar dashboard" . PHP_EOL;
-    echo "2. Ver tareas" . PHP_EOL;
-    echo "3. Volver al menú principal" . PHP_EOL;
+    echo "2. Agregar tareas" . PHP_EOL;
+    echo "3. Exportar tareas" . PHP_EOL;
+    echo "4. Ver tareas" . PHP_EOL;
+    echo "5. Volver al menú principal" . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
 
     $dashSelector = (string) readline("Seleccione una opción para continuar: ");
@@ -182,9 +184,15 @@ do {
             require __DIR__ . "/viewDashboard.php";
             break 2;
         case "2":
-            require __DIR__ . "/viewTasks.php";
+            require __DIR__ . "/addTasks.php";
             break 2;
         case "3":
+            require __DIR__ . "/exportTasks.php";
+            break 2;
+        case "4":
+            require __DIR__ . "/viewTasks.php";
+            break 2;
+        case "5":
             require __DIR__ . "/selectTasks.php";
             break 2;
         case "0":

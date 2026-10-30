@@ -26,7 +26,8 @@ do {
     echo "2. Exportar a TXT\n";
     echo "3. Agregar nueva tarea.\n";
     echo "4. Ver tareas.\n";
-    echo "5. Volver al menu.\n";
+    echo "5. Ver dashboard.\n";
+    echo "6. Volver al menu.\n";
     echo "0. Cerrar Sesion\n";
 
 
@@ -98,6 +99,9 @@ do {
             require __DIR__ . "/viewTasks.php";
             exit(2);
         case "5":
+            require __DIR__ . "/viewDashboard.php";
+            exit(2);
+        case "6":
             require __DIR__ . "/selectTasks.php";
             exit(2);
         case "0":
