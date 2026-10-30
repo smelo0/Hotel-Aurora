@@ -28,10 +28,7 @@ if (
 }
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    Logger::registrarLog('WARN', 'Intento de acceso por método no permitido al completar tarea', [
-        'id_usuario' => $idUsuarioLog,
-        'metodo' => $_SERVER['REQUEST_METHOD']
-    ]);
+    Logger::registrarLog('WARN', "Intento de acceso por método no permitido al completar tarea || Usuario ID: $idUsuarioLog");
     responder_completar_tarea([
         "status" => "error",
         "mensaje" => "Metodo no permitido"
@@ -84,10 +81,7 @@ try {
     $conexion->close();
 
     // LOG DE ÉXITO: Tarea marcada como completada correctamente
-    Logger::registrarLog('INFO', 'Tarea completada exitosamente', [
-        'id_usuario' => $idUsuarioLog,
-        'id_tarea' => $id_tarea
-    ]);
+    Logger::registrarLog('INFO', "Tarea completada exitosamente || Usuario ID: $idUsuarioLog || Tarea ID: $id_tarea");
 
     responder_completar_tarea([
         "status" => "exito",
