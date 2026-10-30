@@ -19,7 +19,7 @@ echo "{$verdeOliva}{$iconoAdmin}{$reset}" . PHP_EOL;
 $sessionLoged = false;
 
 
-$validOptions = ["1", "2", "3", "4", "0"];
+$validOptions = ["1", "2", "3", "4", "5", "0"];
 
 do {
 // animacion de carga
@@ -33,6 +33,7 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
     echo "2. Agregar tareas" . PHP_EOL;
     echo "3. Exportar tareas. " . PHP_EOL;
     echo "4. Volver a iniciar Sesion" . PHP_EOL;
+    echo "5. Ver dashboard" . PHP_EOL;
     echo "0. Cerrar sesion" . PHP_EOL;
     
     $selector = (string) readline("Seleccione una tarea para continuar: ");
@@ -54,6 +55,9 @@ echo "{$verde}✔ ¡Selector de tareas listo!{$reset}\n";
             break 2;
         case "4":
             require __DIR__ . "/../logTasks.php";
+            break 2;
+        case "5":
+            require __DIR__ . "/viewDashboard.php";
             break 2;
         case "0":
             echo "Cerrando sesion tareas." . PHP_EOL;
