@@ -80,7 +80,7 @@ Logger::registrarLog("INFO", "Consulto tabla de tareas. || User ID: $userId || C
 $printSeparator();
 
 // menu
-$validOptions = ["1", "2", "3", "0"];
+$validOptions = ["1", "2", "3", "4", "5", "0"];
 
 do {
 

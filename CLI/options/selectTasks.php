@@ -1,6 +1,8 @@
 <?php 
 // seleccionar tarea
 require_once __DIR__ . '/../security/auth_guard.php';
+require __DIR__ . "/../security/timeOut.php";
+
 echo "\n";
 loading();
 limpiarPantalla();
