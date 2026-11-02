@@ -98,6 +98,9 @@ final class ExperienceRepository
                 $experience['horarios'] = is_array($schedule) && class_exists('App\Experiencia\ExperienceSchedule')
                     ? ExperienceSchedule::normalizar($schedule, $experience['opciones'])
                     : [];
+                $experience['exclusiones_horarios'] = is_array($schedule) && class_exists('App\Experiencia\ExperienceSchedule')
+                    ? ExperienceSchedule::exclusiones($schedule)
+                    : [];
                 unset(
                     $experience['opcion_1'],
                     $experience['opcion_2'],

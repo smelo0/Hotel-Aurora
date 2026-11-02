@@ -74,8 +74,8 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
                 </div>
             </div>
             <div>
-                <label for="precioHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Precio por noche (COP)</label>
-                <input type="text" id="precioHabitacion" list="preciosHabitacionSugeridos" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required placeholder="Ej. 85000" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
+                <label for="precioHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Tarifa estándar por habitación para hasta 4 huéspedes/noche (COP)</label>
+                <input type="text" id="precioHabitacion" list="preciosHabitacionSugeridos" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required placeholder="Ej. 80000" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
                 <datalist id="preciosHabitacionSugeridos"></datalist>
                 <p id="ayudaPrecioHabitacion" class="mt-1 text-[11px] text-slate-400">Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.</p>
             </div>
@@ -109,6 +109,7 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
 
 <script>
 const ENDPOINT_HABITACIONES = '../../controladores/gestionar_habitaciones.php';
+const SUPLEMENTO_NINO_ADICIONAL = <?php echo \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT; ?>;
 let datosHabitaciones = { habitaciones: [], puede_gestionar: false };
 
 function escaparHabitaciones(valor) {
@@ -251,7 +252,7 @@ function actualizarAyudaPrecioHabitacion() {
         ayuda.textContent = 'Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.';
         return;
     }
-    ayuda.textContent = `${precioHabitacionLegible(valor)} por noche · con IVA (19 %): ${precioHabitacionLegible(Math.round(valor * 1.19))}`;
+    ayuda.textContent = `${precioHabitacionLegible(valor)} por noche para hasta 4 huéspedes · 1 niño adicional de 0 a 2 años sin costo o de 3 a 12 años por ${precioHabitacionLegible(SUPLEMENTO_NINO_ADICIONAL)}/noche · el IVA (19 %) se agrega al total.`;
 }
 
 document.getElementById('tipoHabitacion').addEventListener('input', actualizarSugerenciasPrecioHabitacion);

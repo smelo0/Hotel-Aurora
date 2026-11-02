@@ -25,24 +25,26 @@ body {
   min-height: 100vh;
   margin: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   font-family: 'DM Sans', sans-serif;
   color: var(--text-primary);
-  padding: 1.5rem;
+  padding: clamp(1rem, 4vh, 2.5rem) 1rem;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .form-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 500px;
+  margin: auto;
   background: linear-gradient(140deg, rgba(15, 23, 42, 0.45), rgba(255, 255, 255, 0.12));
   border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 28px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
   box-shadow: var(--shadow-card);
-  padding: 2.5rem 2rem;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
   box-sizing: border-box;
 }
 
@@ -74,7 +76,7 @@ h1 {
 form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 
 label {
@@ -87,9 +89,13 @@ label {
 
 input[type="email"],
 input[type="password"],
-input[type="text"] {
+input[type="text"],
+input[type="tel"],
+select {
   width: 100%;
-  padding: 0.85rem 1rem;
+  min-width: 0;
+  height: 50px;
+  padding: 0 1rem;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.92);
@@ -102,25 +108,64 @@ input[type="text"] {
   box-sizing: border-box;
 }
 
+.form-card form > label:not(.consent-label),
+.field-col > label {
+  margin-bottom: -0.4rem;
+}
+
 input[type="email"]::placeholder,
 input[type="password"]::placeholder,
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+input[type="tel"]::placeholder {
   color: #90a5b4;
 }
 
 input[type="email"]:focus,
 input[type="password"]:focus,
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="tel"]:focus,
+select:focus {
   outline: none;
   border-color: var(--gold);
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(215, 176, 106, 0.3);
-  transform: translateY(-1px);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 2.2rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='none' stroke='%2312583b' stroke-width='2' d='M1 1l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+}
+
+select:invalid {
+  color: #90a5b4;
+}
+
+select option {
+  color: #12583b;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.7rem;
+}
+
+.field-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
 }
 
 input[type="submit"] {
   margin-top: 0.75rem;
   width: 100%;
+  min-height: 52px;
   padding: 0.9rem 1rem;
   border: none;
   border-radius: 18px;
@@ -157,7 +202,9 @@ input[type="submit"]:hover {
 .captcha-wrap {
   display: flex;
   justify-content: center;
-  margin: 0.5rem 0;
+  width: 100%;
+  margin: 0.35rem 0;
+  overflow-x: auto;
 }
 
 .g_id_signin {
@@ -169,25 +216,37 @@ input[type="submit"]:hover {
 .consent-label {
   display: flex !important;
   align-items: flex-start;
-  gap: 8px;
-  margin: 0.5rem 0 0.75rem 0;
+  gap: 10px;
+  margin: 0.35rem 0 0.5rem 0;
   text-transform: none !important;
   font-size: 0.75rem !important;
-  line-height: 1.4;
-  padding: 5px;
+  line-height: 1.5;
+  padding: 0.75rem;
   letter-spacing: 0px !important;
   font-weight: 400 !important;
-  color: #000;
-  background-color: white;
+  color: #334155;
+  background-color: rgba(255, 255, 255, 0.96);
   border-radius: 14px;
 }
 
 .consent-label input[type="checkbox"] {
+  flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  margin-top: 2px;
+  margin: 2px 0 0;
   accent-color: var(--emerald-secondary);
   cursor: pointer;
+}
+
+.consent-label a {
+  color: #155e75;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.consent-label a:hover {
+  color: var(--emerald-secondary);
 }
 
 .error-msg,
@@ -197,6 +256,22 @@ input[type="submit"]:hover {
   font-size: 0.85rem;
   text-align: center;
   margin-bottom: 1rem;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 0.75rem;
+    background-attachment: scroll;
+  }
+
+  .form-card {
+    border-radius: 20px;
+    padding: 1.5rem 1.25rem;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
 }
 
 .error-msg {

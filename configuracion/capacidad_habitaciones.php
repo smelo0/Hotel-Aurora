@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Capacidad de huéspedes por habitación, según su tipo.
+ * Capacidad de huéspedes por habitación.
  * Es el único lugar donde se definen los límites: el portal del huésped (tarjetas, selector de huéspedes y
  * ventana de reserva) y controladores/guardar_reserva.php usan estos mismos valores.
  *
@@ -16,25 +16,24 @@ function capacidad_habitacion(string $tipo): array
     $t = mb_strtolower(trim($tipo), 'UTF-8');
 
     if (str_contains($t, 'premium')) {
-        return ['personas' => 6, 'adultos' => 4, 'ninos' => 3];
+        return ['personas' => 5, 'adultos' => 4, 'ninos' => 4];
     }
     if (str_contains($t, 'suite')) {
-        return ['personas' => 4, 'adultos' => 3, 'ninos' => 2];
+        return ['personas' => 5, 'adultos' => 3, 'ninos' => 3];
     }
     if (str_contains($t, 'doble') || str_contains($t, 'matrimonial') || str_contains($t, 'familiar')) {
-        return ['personas' => 4, 'adultos' => 4, 'ninos' => 2];
+        return ['personas' => 5, 'adultos' => 4, 'ninos' => 3];
     }
     if (str_contains($t, 'sencilla') || str_contains($t, 'simple') || str_contains($t, 'individual')) {
-        return ['personas' => 2, 'adultos' => 2, 'ninos' => 1];
+        return ['personas' => 3, 'adultos' => 2, 'ninos' => 2];
     }
 
-    return ['personas' => 4, 'adultos' => 4, 'ninos' => 2];
+    return ['personas' => 5, 'adultos' => 4, 'ninos' => 3];
 }
 
 function texto_capacidad_habitacion(array $capacidad): string
 {
-    return 'hasta ' . $capacidad['personas'] . ' personas (máx. ' . $capacidad['adultos'] . ' adultos y '
-        . $capacidad['ninos'] . ($capacidad['ninos'] === 1 ? ' niño)' : ' niños)');
+    return 'máximo ' . $capacidad['personas'] . ' personas por habitación';
 }
 
 /**

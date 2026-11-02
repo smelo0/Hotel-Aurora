@@ -5,9 +5,17 @@ const {
 } = window.PORTAL_CONFIG;
 
 const isUserAuthenticated = window.PORTAL_CONFIG.isUserAuthenticated;
+const SCHEDULED_EXPERIENCES = Array.isArray(window.PORTAL_CONFIG.scheduledExperiences)
+    ? window.PORTAL_CONFIG.scheduledExperiences
+    : [];
+const ROOM_RATE_POLICY = window.PORTAL_CONFIG.roomPricing;
 const guests = { adults: 2, children: 0 };
+const childAges = [];
 const searchState = { checkin: '', checkout: '' };
 const roomCart = [];
+let selectedRoomFilter = 'all';
+let latestAvailableRoomIds = null;
+let availabilitySearchApplied = false;
 
 // ─────────────────────────────────────────────────────────
 // Carrusel de habitaciones
@@ -53,22 +61,8 @@ const roomCart = [];
     }, { passive: false });
 
     function applyFilter(filter){
-        const cards = Array.from(carousel.querySelectorAll('[data-room-card]'));
-        let visibleCards = 0;
-        cards.forEach(card => {
-            const type = (card.getAttribute('data-room-type') || 'otra').toLowerCase();
-            const filterLower = filter.toLowerCase();
-            const show = filterLower === 'all' || type.includes(filterLower) || (filterLower === 'sencilla' && type.includes('simple'));
-            card.classList.toggle('hidden', !show);
-            card.style.display = show ? '' : 'none';
-            if (show) visibleCards++;
-        });
-        const emptyState = document.getElementById('emptyRoomsState');
-        const isSearchApplied = typeof currentSearchIsReady === 'function' ? currentSearchIsReady() : false;
-        if (emptyState) {
-            if (!isSearchApplied && cards.length > 0) emptyState.classList.add('hidden');
-            else emptyState.classList.toggle('hidden', visibleCards > 0);
-        }
+        selectedRoomFilter = filter.toLowerCase();
+        applyRoomVisibility();
         carousel.scrollLeft = 0;
         setTimeout(updateNavState, 120);
     }
@@ -134,6 +128,27 @@ function formatCurrency(value) {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
+function nightlyRateForRoom(room, adults, ages) {
+    if (Number.isFinite(room.singleOccupancyPrice) && adults + ages.length === 1) {
+        return Number(room.singleOccupancyPrice);
+    }
+    const includedChildren = Math.max(0, ROOM_RATE_POLICY.standardOccupancy - adults);
+    const additionalChildCount = ages.slice(includedChildren).filter(age => Number(age) > ROOM_RATE_POLICY.freeChildMaxAge).length;
+    return Number(room.price || 0) + additionalChildCount * ROOM_RATE_POLICY.additionalChildSupplement;
+}
+
+function validChildAge(age) {
+    return String(age).trim() !== '' && Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) <= ROOM_RATE_POLICY.maxChildAge;
+}
+
+function calculateBookingNightlyRate() {
+    return roomCart.reduce((total, room) => {
+        const occupancy = roomCart.length > 1 ? roomGuests[room.id] : guests;
+        const ages = roomCart.length > 1 ? (occupancy?.ages || []) : childAges;
+        return total + nightlyRateForRoom(room, occupancy?.adults || 1, ages);
+    }, 0);
+}
+
 function setControlState(element, enabled) {
     if (!element) return;
     element.classList.toggle('is-active', enabled);
@@ -147,7 +162,8 @@ function calculateNights() {
 }
 
 function calcularTotalesCobro(noches) {
-    const subtotal = selectedReservation.roomPrice * selectedReservation.roomQuantity * noches;
+    selectedReservation.roomPrice = calculateBookingNightlyRate();
+    const subtotal = selectedReservation.roomPrice * noches;
     const iva = subtotal * 0.19;
     const total = subtotal + iva;
     const aPagar = (total * selectedReservation.porcentajePago) / 100;
@@ -157,6 +173,7 @@ function calcularTotalesCobro(noches) {
     if ($('modalIva')) $('modalIva').innerText = formatCurrency(iva);
     if ($('modalTotal')) $('modalTotal').innerText = formatCurrency(total);
     if ($('modalMontoPagarAhora')) $('modalMontoPagarAhora').innerText = formatCurrency(aPagar);
+    if ($('modalNightlyRate')) $('modalNightlyRate').innerText = formatCurrency(selectedReservation.roomPrice);
 }
 
 function currentSearchIsReady() {
@@ -212,6 +229,9 @@ function initializeCalendar() {
         onChange: (selectedDates, _dateStr, instance) => {
             searchState.checkin = selectedDates[0] ? instance.formatDate(selectedDates[0], 'Y-m-d') : '';
             searchState.checkout = selectedDates[1] ? instance.formatDate(selectedDates[1], 'Y-m-d') : '';
+            availabilitySearchApplied = false;
+            latestAvailableRoomIds = null;
+            applyRoomVisibility();
             updateDateSummary(selectedDates);
             if (selectedDates.length === 2) setTimeout(() => instance.close(), 140);
         }
@@ -222,11 +242,11 @@ function initializeCalendar() {
 
 // ---- Capacidad por habitación y límites de huéspedes ----
 // Los límites de cada tipo de habitación llegan en los data-room-max-* de su tarjeta (se definen en configuracion/capacidad_habitaciones.php).
-const MAX_ROOM_CAPACITY = { adults: 4, children: 3, people: 6 }; // la habitación más grande, mientras no haya ninguna elegida
-const roomGuests = {}; // id de habitación -> { adults, children } (solo cuando hay 2 o más habitaciones)
+const MAX_ROOM_CAPACITY = { adults: 4, children: 4, people: 5 }; // capacidad máxima mientras no haya habitaciones elegidas
+const roomGuests = {}; // id de habitación -> { adults, children, ages } (solo cuando hay 2 o más habitaciones)
 
-function limitsText(people, adults, children) {
-    return `hasta ${people} personas (máx. ${adults} ${adults === 1 ? 'adulto' : 'adultos'} y ${children} ${children === 1 ? 'niño' : 'niños'})`;
+function limitsText(people) {
+    return `máximo ${people} personas`;
 }
 
 function escapeGuestText(value) {
@@ -264,18 +284,19 @@ function updateGuestSummary() {
     if ($('childrenPlus')) $('childrenPlus').disabled = guests.children >= limits.children || total >= limits.people;
     if ($('guestLimitHint')) {
         $('guestLimitHint').innerText = limits.rooms === 0
-            ? `Cada habitación admite ${limitsText(limits.people, limits.adults, limits.children)}. Si viajan más, agrega otra habitación.`
+            ? `Cada habitación admite ${limitsText(limits.people)}. Si viajan más, agrega otra habitación.`
             : limits.rooms === 1
-                ? `La habitación elegida admite ${limitsText(limits.people, limits.adults, limits.children)}.`
-                : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people, limits.adults, limits.children)} en total. Cada habitación necesita al menos un adulto.`;
+                ? `La habitación elegida admite ${limitsText(limits.people)}.`
+                : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people)} en total. Cada habitación necesita al menos un adulto.`;
     }
     if ($('modalGuests')) $('modalGuests').innerText = `${guests.adults} adultos, ${guests.children} niños`;
+    if (availabilitySearchApplied) applyRoomVisibility();
 }
 
 // Reparte los huéspedes entre las habitaciones: un adulto en cada una y el resto de forma pareja, respetando sus límites.
 function defaultRoomGuests() {
     const distribution = {};
-    roomCart.forEach(room => { distribution[room.id] = { adults: 1, children: 0 }; });
+    roomCart.forEach(room => { distribution[room.id] = { adults: 1, children: 0, ages: [] }; });
     const hasSpace = (room, kind) => {
         const d = distribution[room.id];
         return d.adults + d.children < room.maxPeople && (kind === 'adults' ? d.adults < room.maxAdults : d.children < room.maxChildren);
@@ -291,6 +312,9 @@ function defaultRoomGuests() {
     };
     spread('adults', guests.adults - roomCart.length);
     spread('children', guests.children);
+    roomCart.forEach(room => {
+        distribution[room.id].ages = Array.from({ length: distribution[room.id].children }, () => '');
+    });
     return distribution;
 }
 
@@ -307,11 +331,14 @@ function ensureRoomGuests() {
 // Devuelve el texto del problema (o '' si todo está bien) antes de pagar.
 function validateGuestsForRooms() {
     if (roomCart.length === 0) return '';
-    const limitText = room => `${room.name} admite ${limitsText(room.maxPeople, room.maxAdults, room.maxChildren)}.`;
+    const limitText = room => `${room.name} admite ${limitsText(room.maxPeople)}.`;
     if (roomCart.length === 1) {
         const room = roomCart[0];
-        return guests.adults > room.maxAdults || guests.children > room.maxChildren || guests.adults + guests.children > room.maxPeople
-            ? limitText(room) : '';
+        if (guests.adults > room.maxAdults || guests.children > room.maxChildren || guests.adults + guests.children > room.maxPeople) {
+            return limitText(room);
+        }
+        return childAges.length !== guests.children || childAges.some(age => !validChildAge(age))
+            ? 'Indica la edad de cada niño para calcular la tarifa correcta.' : '';
     }
     ensureRoomGuests();
     let sumAdults = 0;
@@ -321,6 +348,9 @@ function validateGuestsForRooms() {
         if (!d) return 'Indica cuántas personas habrá en cada habitación.';
         if (d.adults < 1) return `${room.name} necesita al menos un adulto.`;
         if (d.adults > room.maxAdults || d.children > room.maxChildren || d.adults + d.children > room.maxPeople) return limitText(room);
+        if (d.ages.length !== d.children || d.ages.some(age => !validChildAge(age))) {
+            return `Indica la edad de cada niño en ${room.name}.`;
+        }
         sumAdults += d.adults;
         sumChildren += d.children;
     }
@@ -347,9 +377,10 @@ function refreshRoomGuestsEditor() {
     });
     if (hint) {
         const problem = validateGuestsForRooms();
-        hint.textContent = problem || `Total: ${guests.adults} adultos, ${guests.children} niños. Cada habitación necesita al menos un adulto.`;
+        hint.textContent = problem || `La tarifa cubre hasta 4 huéspedes; se permite 1 niño adicional de 0 a 12 años por habitación.`;
         hint.classList.toggle('text-rose-300', Boolean(problem));
     }
+    calcularTotalesCobro(calculateNights());
 }
 
 function renderRoomGuestsEditor() {
@@ -367,14 +398,43 @@ function renderRoomGuestsEditor() {
                 <button type="button" data-room-guest="${roomId}|${kind}|1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Agregar ${label.toLowerCase()}">+</button>
             </span>
         </div>`;
+    const ageFields = room => roomGuests[room.id].ages.map((age, index) => `
+        <label class="block text-xs font-bold text-white/70">Edad del niño ${index + 1}
+            <select data-room-child-age="${room.id}|${index}" required class="mt-1 w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
+                <option value="" ${age === '' ? 'selected' : ''}>Selecciona edad</option>
+                ${Array.from({ length: ROOM_RATE_POLICY.maxChildAge + 1 }, (_, childAge) => `<option value="${childAge}" ${age !== '' && Number(age) === childAge ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
+            </select>
+        </label>`).join('');
     list.innerHTML = roomCart.map(room => `
         <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
             <p class="text-sm font-black">${escapeGuestText(room.name)}</p>
-            <p class="text-[11px] text-white/55">${limitsText(room.maxPeople, room.maxAdults, room.maxChildren).replace(/^h/, 'H')}</p>
+            <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
             <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">${stepper(room.id, 'adults', 'Adultos')}${stepper(room.id, 'children', 'Niños')}</div>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">${ageFields(room)}</div>
         </div>`).join('');
     box.classList.remove('hidden');
     refreshRoomGuestsEditor();
+}
+
+function renderSingleRoomChildAges() {
+    const box = $('modalSingleRoomChildAges');
+    const list = $('modalSingleRoomChildAgesList');
+    if (!box || !list) return;
+    if (roomCart.length !== 1 || guests.children === 0) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    while (childAges.length < guests.children) childAges.push('');
+    childAges.length = guests.children;
+    list.innerHTML = childAges.map((age, index) => `
+        <label class="block text-xs font-bold text-white/70">Edad del niño ${index + 1}
+            <select data-single-child-age="${index}" required class="mt-1 w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
+                <option value="" ${age === '' ? 'selected' : ''}>Selecciona edad</option>
+                ${Array.from({ length: ROOM_RATE_POLICY.maxChildAge + 1 }, (_, childAge) => `<option value="${childAge}" ${age !== '' && Number(age) === childAge ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
+            </select>
+        </label>`).join('');
+    box.classList.remove('hidden');
 }
 
 function changeRoomGuest(roomId, kind, delta) {
@@ -387,10 +447,14 @@ function changeRoomGuest(roomId, kind, delta) {
     if (kind === 'children' && (next < 0 || next > room.maxChildren)) return;
     if (delta > 0 && total >= room.maxPeople) return;
     d[kind] = next;
+    if (kind === 'children') {
+        if (delta > 0) d.ages.push('');
+        else d.ages.pop();
+    }
     guests.adults = roomCart.reduce((sum, r) => sum + roomGuests[r.id].adults, 0);
     guests.children = roomCart.reduce((sum, r) => sum + roomGuests[r.id].children, 0);
     updateGuestSummary();
-    refreshRoomGuestsEditor();
+    renderRoomGuestsEditor();
 }
 
 document.addEventListener('click', event => {
@@ -398,6 +462,21 @@ document.addEventListener('click', event => {
     if (!button || button.disabled) return;
     const [roomId, kind, delta] = button.dataset.roomGuest.split('|');
     changeRoomGuest(Number(roomId), kind, Number(delta));
+});
+
+document.addEventListener('change', event => {
+    const roomAge = event.target.closest('[data-room-child-age]');
+    if (roomAge) {
+        const [roomId, index] = roomAge.dataset.roomChildAge.split('|').map(Number);
+        if (roomGuests[roomId]) roomGuests[roomId].ages[index] = roomAge.value;
+        calcularTotalesCobro(calculateNights());
+        return;
+    }
+    const singleAge = event.target.closest('[data-single-child-age]');
+    if (singleAge) {
+        childAges[Number(singleAge.dataset.singleChildAge)] = singleAge.value;
+        calcularTotalesCobro(calculateNights());
+    }
 });
 
 function toggleGuestPopover(forceState = null) {
@@ -418,6 +497,10 @@ function changeGuest(type, delta) {
     let next = Math.min(Math.max(min, guests[type] + delta), max);
     if (next + otherTotal > limits.people) next = Math.max(min, limits.people - otherTotal);
     guests[type] = next;
+    if (type === 'children') {
+        while (childAges.length < next) childAges.push('');
+        childAges.length = next;
+    }
     updateGuestSummary();
 }
 
@@ -432,10 +515,16 @@ function formatNextAvailableDate(isoDate) {
 }
 
 function updateVisibleRooms(visibleIds, nextAvailability = {}) {
-    const idsSet = visibleIds instanceof Set ? visibleIds : new Set(visibleIds || []);
+    const availableIds = nextAvailability.habitaciones_disponibles_ids || visibleIds || [];
+    latestAvailableRoomIds = new Set(Array.from(availableIds, Number));
+    availabilitySearchApplied = true;
+    return applyRoomVisibility();
+}
+
+function applyRoomVisibility() {
     const cards = document.querySelectorAll('[data-room-card]');
-    const isSearchApplied = currentSearchIsReady();
     let visibleCount = 0;
+    let hasDateAvailableRooms = false;
 
     cards.forEach(card => {
         let roomIds = [];
@@ -443,32 +532,38 @@ function updateVisibleRooms(visibleIds, nextAvailability = {}) {
         const currentRoomId = Number(card.getAttribute('data-room-card')) || 0;
         if (currentRoomId > 0 && !roomIds.includes(currentRoomId)) roomIds.push(currentRoomId);
 
-        const availableCount = isSearchApplied ? roomIds.filter(id => idsSet.has(id) || idsSet.has(String(id))).length : 1;
-        const soldOut = isSearchApplied && availableCount === 0;
+        const availableCount = availabilitySearchApplied
+            ? roomIds.filter(id => latestAvailableRoomIds.has(id)).length
+            : 1;
+        const dateAvailable = !availabilitySearchApplied || availableCount > 0;
+        const addButton = card.querySelector('[data-room-add]');
+        const fitsGuests = !availabilitySearchApplied || (
+            guests.adults <= Number(addButton?.dataset.roomMaxAdults || 0)
+            && guests.children <= Number(addButton?.dataset.roomMaxChildren || 0)
+            && guests.adults + guests.children <= Number(addButton?.dataset.roomMaxPeople || 0)
+        );
+        const type = (card.getAttribute('data-room-type') || 'otra').toLowerCase();
+        const typeMatches = selectedRoomFilter === 'all'
+            || type.includes(selectedRoomFilter)
+            || (selectedRoomFilter === 'sencilla' && type.includes('simple'));
+        const show = dateAvailable && fitsGuests && typeMatches;
+        hasDateAvailableRooms = hasDateAvailableRooms || dateAvailable;
+        card.classList.toggle('hidden', !show);
+        card.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
 
-        if (!soldOut) {
-            card.classList.remove('hidden');
-            card.style.display = '';
-            visibleCount++;
-        } else {
-            card.classList.add('hidden');
-            card.style.display = 'none';
-        }
-
-        const button = card.querySelector('[data-room-add]');
+        const button = addButton;
         const label = card.querySelector('[data-room-availability]');
         if (button) {
-            button.disabled = soldOut;
+            button.disabled = availabilitySearchApplied && (!dateAvailable || !fitsGuests);
             const labelSpan = button.querySelector('[data-room-add-label]');
-            if (labelSpan) labelSpan.textContent = soldOut ? 'No disponible' : 'Agregar';
-            if (!isSearchApplied) {
-                button.disabled = false;
-                if (labelSpan) labelSpan.textContent = 'Agregar';
-            }
+            if (labelSpan) labelSpan.textContent = button.disabled
+                ? (dateAvailable ? 'Capacidad insuficiente' : 'No disponible')
+                : 'Agregar';
         }
         if (label) {
-            if (soldOut && isSearchApplied) {
-                label.textContent = 'No hay habitaciones disponibles para esas fechas.';
+            if (availabilitySearchApplied && !dateAvailable) {
+                label.textContent = 'No disponible para esas fechas.';
                 label.classList.remove('hidden');
             } else {
                 label.textContent = '';
@@ -477,10 +572,16 @@ function updateVisibleRooms(visibleIds, nextAvailability = {}) {
         }
     });
 
-    const emptyState = $('emptyRoomsState');
+    const emptyState = document.getElementById('emptyRoomsState');
     if (emptyState) {
-        if (isSearchApplied && visibleCount === 0) emptyState.classList.remove('hidden');
+        if (availabilitySearchApplied && visibleCount === 0) emptyState.classList.remove('hidden');
         else if (cards.length > 0) emptyState.classList.add('hidden');
+    }
+    const emptyDetail = document.getElementById('emptyRoomsDetail');
+    if (emptyDetail && availabilitySearchApplied && visibleCount === 0) {
+        emptyDetail.textContent = hasDateAvailableRooms
+            ? 'No hay habitaciones que coincidan con el tipo, las fechas y la capacidad del grupo seleccionado.'
+            : 'Cambia el rango de fechas o vuelve a consultar en unos segundos.';
     }
     return visibleCount;
 }
@@ -519,7 +620,7 @@ async function searchAvailability(showFeedback = true) {
         if (!response.ok || result.status !== 'exito') throw new Error(result.mensaje || 'No se pudo consultar disponibilidad.');
 
         const ids = new Set((result.habitaciones_ids || []).map(Number));
-        updateVisibleRooms(ids, result.proximas_disponibilidades || {});
+        updateVisibleRooms(ids, result);
 
         if (showFeedback && feedback) {
             feedback.className = 'text-sm font-bold text-emerald-300';
@@ -554,6 +655,10 @@ function toggleRoomInCart(button) {
             id,
             name: button.dataset.roomName || `Habitación ${id}`,
             price: Number(button.dataset.roomPrice || 0),
+            singleOccupancyPrice: button.dataset.roomSingleOccupancyPrice === ''
+                ? null
+                : Number(button.dataset.roomSingleOccupancyPrice),
+            type: button.dataset.roomType || '',
             maxPeople: Number(button.dataset.roomMaxPeople || MAX_ROOM_CAPACITY.people),
             maxAdults: Number(button.dataset.roomMaxAdults || MAX_ROOM_CAPACITY.adults),
             maxChildren: Number(button.dataset.roomMaxChildren || MAX_ROOM_CAPACITY.children),
@@ -572,8 +677,7 @@ function renderRoomCart() {
     const summary = $('roomCartSummary');
     if (!cart || !summary) return;
     if (roomCart.length === 0) { cart.classList.add('hidden'); return; }
-    const total = roomCart.reduce((s, r) => s + r.price, 0);
-    summary.textContent = `${roomCart.length} habitación${roomCart.length > 1 ? 'es' : ''} · ${formatCurrency(total)}/noche`;
+    summary.textContent = `${roomCart.length} habitación${roomCart.length > 1 ? 'es' : ''} · tarifa ajustada a la ocupación`;
     cart.classList.remove('hidden');
 }
 
@@ -629,6 +733,7 @@ function openBookingModalForCart(sourceButton = null) {
     if ($('modalCheckout')) $('modalCheckout').innerText = searchState.checkout;
     if ($('modalGuests')) $('modalGuests').innerText = `${guests.adults} adultos, ${guests.children} niños`;
     renderRoomGuestsEditor();
+    renderSingleRoomChildAges();
     calcularTotalesCobro(nights);
     if ($('modalFeedback')) $('modalFeedback').className = 'mt-4 hidden text-sm font-bold';
 
@@ -648,6 +753,20 @@ function closeBookingModal() {
         document.body.classList.remove('overflow-hidden');
     }
 }
+
+document.querySelectorAll('input[name="hospedaje_a_nombre_de"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const esOtraPersona = document.querySelector('input[name="hospedaje_a_nombre_de"]:checked')?.value === 'otra_persona';
+        const wrapper = $('nombreHuespedAlternativoWrapper');
+        const input = $('nombreHuespedAlternativo');
+        if (wrapper) wrapper.classList.toggle('hidden', !esOtraPersona);
+        if (input) {
+            input.disabled = !esOtraPersona;
+            input.required = esOtraPersona;
+            if (!esOtraPersona) input.value = '';
+        }
+    });
+});
 
 async function processReservationPayment() {
     const feedback = document.getElementById('modalFeedback');
@@ -673,6 +792,32 @@ async function processReservationPayment() {
         }
         return;
     }
+
+    const titularHospedaje = document.querySelector('input[name="hospedaje_a_nombre_de"]:checked')?.value || 'cuenta';
+    const nombreHuespedAlternativo = $('nombreHuespedAlternativo')?.value.trim() || '';
+    if (titularHospedaje === 'otra_persona' && nombreHuespedAlternativo === '') {
+        if (feedback) {
+            feedback.className = 'mt-4 text-sm font-bold text-rose-400 block';
+            feedback.innerText = 'Escribe el nombre de la persona que se hospedará.';
+            feedback.classList.remove('hidden');
+        }
+        $('nombreHuespedAlternativo')?.focus();
+        return;
+    }
+
+    const confirmation = await Swal.fire({
+        icon: 'question',
+        title: '¿Confirmas esta reserva?',
+        text: `${selectedReservation.roomName} · ${searchState.checkin} al ${searchState.checkout} · Hospedaje a nombre de ${titularHospedaje === 'otra_persona' ? nombreHuespedAlternativo : 'tu cuenta'} · Total: ${formatCurrency(selectedReservation.montoTotal)}. La disponibilidad se validará nuevamente antes de guardar.`,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Revisar reserva',
+        confirmButtonColor: '#17354f',
+        cancelButtonColor: '#64748b',
+        background: '#fffdf8'
+    });
+    if (!confirmation.isConfirmed) return;
+
     if (metodoPago !== 'Recepción' && btn) {
         btn.disabled = true;
         btn.innerText = 'ABRIENDO WOMPI...';
@@ -707,13 +852,19 @@ async function processReservationPayment() {
         fd.append('id_habitacion', String(ids[0]));
         fd.append('fecha_in', searchState.checkin);
         fd.append('fecha_out', searchState.checkout);
+        fd.append('hospedaje_a_nombre_de', titularHospedaje);
+        if (titularHospedaje === 'otra_persona') {
+            fd.append('nombre_huesped_estadia', nombreHuespedAlternativo);
+        }
         fd.append('cant_adultos', guests.adults);
         fd.append('cant_ninos', guests.children);
+        fd.append('edades_ninos', JSON.stringify(childAges));
         if (roomCart.length > 1) {
             fd.append('huespedes_por_habitacion', JSON.stringify(roomCart.map(r => ({
                 id: r.id,
                 adultos: roomGuests[r.id].adults,
                 ninos: roomGuests[r.id].children,
+                edades_ninos: roomGuests[r.id].ages,
             }))));
         }
         fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
@@ -844,7 +995,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCalendar();
     updateGuestSummary();
     attachLogoutFlow();
-    updateVisibleRooms(null, {});
+    document.querySelectorAll('[data-collapse-target]').forEach(button => {
+        button.addEventListener('click', () => {
+            const content = document.getElementById(button.dataset.collapseTarget);
+            if (!content) return;
+            const isExpanded = button.getAttribute('aria-expanded') === 'true';
+            content.classList.toggle('hidden', isExpanded);
+            button.setAttribute('aria-expanded', String(!isExpanded));
+            button.textContent = isExpanded ? button.dataset.collapseShow : button.dataset.collapseHide;
+        });
+    });
 
     if ($('systemHelpButton')) $('systemHelpButton').addEventListener('click', () => toggleSystemHelp());
     if ($('closeSystemHelp')) $('closeSystemHelp').addEventListener('click', () => toggleSystemHelp(false));
@@ -883,6 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 precios: JSON.parse(boton.dataset.experiencePrices || '[]'),
                 indices: JSON.parse(boton.dataset.experienceOptionIndices || '[]'),
                 horarios: JSON.parse(boton.dataset.experienceSchedule || '{}'),
+                exclusiones: JSON.parse(boton.dataset.experienceExclusions || '{}'),
                 reservas: JSON.parse(boton.dataset.reservationStays || '[]')
             };
         } catch (err) {
@@ -926,35 +1087,13 @@ document.addEventListener('DOMContentLoaded', () => {
         aplicarSeleccionEnModal(boton);
     };
 
-    const togglePersonalizada = $('experienciaPersonalizadaToggle');
-    if (togglePersonalizada) {
-        togglePersonalizada.addEventListener('change', () => {
-            const activo = togglePersonalizada.checked;
-            $('experienciaPersonalizadaCategoria')?.classList.toggle('hidden', !activo);
-            $('experienciaPersonalizadaNombre')?.classList.toggle('hidden', !activo);
-            if (activo) {
-                if ($('experienciaIdActividad')) $('experienciaIdActividad').value = '';
-                if ($('cantidadPersonasActividad')) {
-                    $('cantidadPersonasActividad').disabled = false;
-                    $('cantidadPersonasActividad').value = '1';
-                }
-                if ($('seleccionExperiencia')) {
-                    $('seleccionExperiencia').className = 'rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-white';
-                    $('seleccionExperiencia').textContent = 'Solicitud personalizada';
-                }
-                generarOpcionesPorPersona(1);
-                pintarFechasDisponibles();
-                actualizarResumenPrecio();
-            }
-        });
-    }
-
     const inputPersonas = $('cantidadPersonasActividad');
     if (inputPersonas) {
         inputPersonas.addEventListener('input', () => {
             const cantidad = Math.max(1, Math.min(20, Number(inputPersonas.value) || 1));
             generarOpcionesPorPersona(cantidad);
             actualizarResumenPrecio();
+            pintarFechasDisponibles();
         });
     }
 
@@ -971,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const opciones = experienciaActual.opciones.map((op, idx) => {
                 const precio = experienciaActual.precios[idx];
                 const precioTexto = precio === null || precio === undefined ? 'Sin precio' : '$' + Number(precio).toLocaleString('es-CO');
-                return `<option value="${String(op).replace(/"/g, '&quot;')}">${op} · ${precioTexto}</option>`;
+                return `<option value="${escapeGuestText(op)}">${escapeGuestText(op)} · ${precioTexto}</option>`;
             }).join('');
             html += `
                 <div class="rounded-xl border border-white/15 bg-white/5 p-3">
@@ -982,7 +1121,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
         }
         contenedor.innerHTML = html;
-        contenedor.querySelectorAll('[data-persona-select]').forEach(sel => sel.addEventListener('change', actualizarResumenPrecio));
+        contenedor.querySelectorAll('[data-persona-select]').forEach(sel => sel.addEventListener('change', () => {
+            actualizarResumenPrecio();
+            pintarFechasDisponibles();
+        }));
         actualizarResumenPrecio();
     }
 
@@ -1011,43 +1153,237 @@ document.addEventListener('DOMContentLoaded', () => {
             : `Precio estimado: parcial (opciones sin precio)`;
     }
 
+    function optionIndexesSelected() {
+        if (!experienciaActual) return [];
+        return [...document.querySelectorAll('[data-persona-select]')]
+            .map(select => {
+                const index = experienciaActual.opciones.indexOf(select.value);
+                return index >= 0 ? Number(experienciaActual.indices[index] || index + 1) : 0;
+            })
+            .filter(Boolean)
+            .filter((index, position, all) => all.indexOf(index) === position);
+    }
+
+    function horarioCompartido(fecha) {
+        const indices = optionIndexesSelected();
+        if (!indices.length) return null;
+        const rangos = indices.map(index => experienciaActual.horarios?.[String(index)]?.[fecha]);
+        if (rangos.some(rango => !rango)) return null;
+        const inicio = rangos.reduce((maximo, rango) => rango.inicio > maximo ? rango.inicio : maximo, '00:00');
+        const fin = rangos.reduce((minimo, rango) => rango.fin < minimo ? rango.fin : minimo, '23:59');
+        return inicio <= fin ? { inicio, fin } : null;
+    }
+
+    function fechaActualBogota() {
+        const partes = new Intl.DateTimeFormat('en', {
+            timeZone: 'America/Bogota',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23'
+        }).formatToParts(new Date());
+        const valores = Object.fromEntries(partes.map(parte => [parte.type, parte.value]));
+        return {
+            fecha: `${valores.year}-${valores.month}-${valores.day}`,
+            minutos: Number(valores.hour) * 60 + Number(valores.minute)
+        };
+    }
+
+    function horarioTieneHoraDisponible(fecha, rango, ahora) {
+        if (fecha !== ahora.fecha) return true;
+        const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
+        const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
+        const primerInicio = Math.max(
+            horaInicio * 60 + minutoInicio,
+            (Math.floor(ahora.minutos / 30) + 1) * 30
+        );
+        return primerInicio <= horaFin * 60 + minutoFin;
+    }
+
+    function fechasDentroEstancia(fechas, reservas) {
+        if (reservas.length === 0) return [];
+        return fechas.filter(fecha =>
+            reservas.some(reserva => fecha >= reserva.inicio && fecha < reserva.fin)
+        );
+    }
+
+    function siguienteFecha(fecha, dias) {
+        const [anio, mes, dia] = fecha.split('-').map(Number);
+        return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10);
+    }
+
+    function etiquetaDisponibilidadFechas(fechas, exclusiones = []) {
+        if (fechas.length === 1) return etiquetaRangoFechas(fechas[0], fechas[0]);
+        const rango = etiquetaRangoFechas(fechas[0], fechas[fechas.length - 1]);
+        const textoExclusiones = exclusiones.length
+            ? `, excepto ${exclusiones.map(fecha => etiquetaRangoFechas(fecha, fecha)).join(' y ')}`
+            : '';
+        return `${rango}${textoExclusiones}`;
+    }
+
+    function resumirHorariosOpcion(fechas, horarios, fechasExcluidas = []) {
+        const grupos = new Map();
+        fechas.forEach(fecha => {
+            const rango = horarios[fecha];
+            const clave = `${rango.inicio}|${rango.fin}`;
+            if (!grupos.has(clave)) grupos.set(clave, []);
+            grupos.get(clave).push(fecha);
+        });
+        return [...grupos.entries()].map(([clave, fechasGrupo]) => {
+            const [inicio, fin] = clave.split('|');
+            const segmentos = [];
+            let segmento = [fechasGrupo[0]];
+            let exclusionesSegmento = [];
+            for (let indice = 1; indice < fechasGrupo.length; indice++) {
+                const fechaAnterior = fechasGrupo[indice - 1];
+                const fechaActual = fechasGrupo[indice];
+                const huecos = [];
+                let fechaHueco = siguienteFecha(fechaAnterior, 1);
+                while (fechaHueco < fechaActual) {
+                    huecos.push(fechaHueco);
+                    fechaHueco = siguienteFecha(fechaHueco, 1);
+                }
+                if (huecos.length > 0 && !huecos.every(fecha => fechasExcluidas.includes(fecha))) {
+                    segmentos.push({ fechas: segmento, exclusiones: exclusionesSegmento });
+                    segmento = [fechaActual];
+                    exclusionesSegmento = [];
+                    continue;
+                }
+                exclusionesSegmento.push(...huecos);
+                segmento.push(fechaActual);
+            }
+            segmentos.push({ fechas: segmento, exclusiones: exclusionesSegmento });
+            return segmentos.map(item =>
+                `Disponible ${etiquetaDisponibilidadFechas(item.fechas, item.exclusiones)} · ${inicio}–${fin}`
+            );
+        }).flat();
+    }
+
+    function fechasDisponibles() {
+        const indices = optionIndexesSelected();
+        if (!indices.length) return [];
+        const reservas = experienciaActual.reservas || [];
+        if (reservas.length === 0) return [];
+        const ahora = fechaActualBogota();
+        const hoyIso = ahora.fecha;
+        const candidatas = Object.keys(experienciaActual.horarios?.[String(indices[0])] || {}).sort();
+        return candidatas.filter(fecha => {
+            const rango = horarioCompartido(fecha);
+            if (fecha < hoyIso || !rango || !horarioTieneHoraDisponible(fecha, rango, ahora)) return false;
+            return reservas.length === 0 || reservas.some(reserva => fecha >= reserva.inicio && fecha < reserva.fin);
+        });
+    }
+
+    function resumenSinDisponibilidadComun() {
+        const indices = optionIndexesSelected();
+        if (!indices.length) return 'Selecciona una opción para cada persona.';
+
+        const ahora = fechaActualBogota();
+        const hoy = ahora.fecha;
+        const reservas = experienciaActual.reservas || [];
+        if (reservas.length === 0) {
+            return 'Necesitas una reserva vigente para ver fechas disponibles.';
+        }
+        const opciones = indices.map(indice => {
+            const nombre = experienciaActual.opciones[
+                experienciaActual.indices.indexOf(indice)
+            ] || `Opción ${indice}`;
+            const horariosOpcion = experienciaActual.horarios?.[String(indice)] || {};
+            const fechasFuturas = Object.keys(horariosOpcion)
+                .filter(fecha => fecha >= hoy)
+                .sort();
+            const fechasConHoraFutura = fechasFuturas.filter(fecha =>
+                horarioTieneHoraDisponible(fecha, horariosOpcion[fecha], ahora)
+            );
+            const fechasEnEstancia = fechasDentroEstancia(fechasConHoraFutura, reservas);
+            const fechasExcluidas = experienciaActual.exclusiones?.[String(indice)] || [];
+            const horarios = resumirHorariosOpcion(fechasEnEstancia, horariosOpcion, fechasExcluidas);
+            let detalle = horarios.join('; ');
+            if (!detalle) {
+                const horarioDeHoyFinalizado = fechasFuturas.includes(hoy)
+                    && !horarioTieneHoraDisponible(hoy, horariosOpcion[hoy], ahora);
+                if (horarioDeHoyFinalizado) {
+                    detalle = 'el horario publicado para hoy ya finalizó';
+                } else if (fechasConHoraFutura.length > 0 && reservas.length > 0) {
+                    detalle = 'horarios fuera de tu estancia';
+                } else {
+                    detalle = 'sin horarios futuros publicados';
+                }
+            }
+            return `${nombre}: ${detalle}`;
+        });
+
+        return `No hay una fecha y horario común dentro de tu estancia para todas las opciones seleccionadas. ${opciones.join(' · ')}`;
+    }
+
+    function fechaLegible(fecha) {
+        return new Date(`${fecha}T00:00:00`).toLocaleDateString('es-CO', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+    }
+
+    function etiquetaRangoFechas(inicio, fin) {
+        const fechaInicio = new Date(`${inicio}T00:00:00`);
+        const fechaFin = new Date(`${fin}T00:00:00`);
+        const formato = (fecha, opciones) => new Intl.DateTimeFormat('es-CO', opciones).format(fecha);
+        if (inicio === fin) return formato(fechaInicio, { day: 'numeric', month: 'long', year: 'numeric' });
+        if (fechaInicio.getFullYear() === fechaFin.getFullYear() && fechaInicio.getMonth() === fechaFin.getMonth()) {
+            return `del ${fechaInicio.getDate()} al ${formato(fechaFin, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        }
+        return `del ${formato(fechaInicio, { day: 'numeric', month: 'short' })} al ${formato(fechaFin, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
+    function agruparFechasConHorario(fechas) {
+        const grupos = [];
+        fechas.forEach(fecha => {
+            const rango = horarioCompartido(fecha);
+            const ultimo = grupos[grupos.length - 1];
+            let fechaSiguiente = null;
+            if (ultimo) {
+                const siguiente = new Date(`${ultimo.fin}T00:00:00`);
+                siguiente.setDate(siguiente.getDate() + 1);
+                fechaSiguiente = `${siguiente.getFullYear()}-${String(siguiente.getMonth() + 1).padStart(2, '0')}-${String(siguiente.getDate()).padStart(2, '0')}`;
+            }
+            if (ultimo && fecha === fechaSiguiente && ultimo.inicio_hora === rango.inicio && ultimo.fin_hora === rango.fin) {
+                ultimo.fin = fecha;
+            } else {
+                grupos.push({ inicio: fecha, fin: fecha, inicio_hora: rango.inicio, fin_hora: rango.fin });
+            }
+        });
+        return grupos;
+    }
+
     function pintarFechasDisponibles() {
         const selectFecha = $('fechaActividad');
         if (!selectFecha) return;
-        selectFecha.innerHTML = '<option value="">Selecciona una fecha</option>';
-
-        if (!experienciaActual) {
-            selectFecha.disabled = false;
-            const hoy = new Date();
-            for (let i = 0; i < 30; i++) {
-                const f = new Date(hoy.getTime() + i * 86400000);
-                const iso = f.toISOString().slice(0, 10);
-                selectFecha.insertAdjacentHTML('beforeend', `<option value="${iso}">${f.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</option>`);
-            }
-            return;
-        }
-
-        const reservas = experienciaActual.reservas || [];
-        const fechasEnHorarios = new Set();
-        Object.values(experienciaActual.horarios || {}).forEach(porFecha => {
-            Object.keys(porFecha || {}).forEach(fecha => fechasEnHorarios.add(fecha));
-        });
-        const hoy = new Date().toISOString().slice(0, 10);
-        const fechasValidas = [...fechasEnHorarios]
-            .filter(f => f >= hoy)
-            .filter(f => reservas.length === 0 || reservas.some(r => f >= r.inicio && f < r.fin))
-            .sort();
+        const fechaAnterior = selectFecha.value;
+        selectFecha.innerHTML = '<option value="">Selecciona un día</option>';
+        const fechasValidas = experienciaActual ? fechasDisponibles() : [];
 
         if (fechasValidas.length === 0) {
             selectFecha.disabled = true;
-            selectFecha.innerHTML = '<option value="">No hay fechas disponibles dentro de tu estancia</option>';
+            selectFecha.innerHTML = `<option value="">${experienciaActual ? 'No hay fechas disponibles para las opciones seleccionadas' : 'Primero elige una experiencia'}</option>`;
+            const resumenDisponibilidad = $('experienceAvailabilitySummary');
+            if (resumenDisponibilidad) resumenDisponibilidad.textContent = experienciaActual
+                ? resumenSinDisponibilidadComun()
+                : '';
+            pintarHoras('');
             return;
         }
+
         selectFecha.disabled = false;
-        fechasValidas.forEach(f => {
-            const d = new Date(f + 'T00:00:00');
-            selectFecha.insertAdjacentHTML('beforeend', `<option value="${f}">${d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'long' })}</option>`);
-        });
+        fechasValidas.forEach(fecha => selectFecha.add(new Option(fechaLegible(fecha), fecha)));
+        const grupos = agruparFechasConHorario(fechasValidas);
+        const resumenDisponibilidad = $('experienceAvailabilitySummary');
+        if (resumenDisponibilidad) {
+            resumenDisponibilidad.textContent = `Fechas disponibles dentro de tu estancia (${fechasValidas.length}): ` + grupos
+                .map(grupo => `${etiquetaRangoFechas(grupo.inicio, grupo.fin)} · ${grupo.inicio_hora}–${grupo.fin_hora}`)
+                .join(' | ');
+        }
+        selectFecha.value = fechasValidas.includes(fechaAnterior) ? fechaAnterior : '';
+        pintarHoras(selectFecha.value);
     }
 
     const selectFecha = $('fechaActividad');
@@ -1058,56 +1394,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputHora = $('horaActividad');
         if (!contenedor) return;
         if (inputHora) inputHora.value = '';
-        if (!fecha) {
-            contenedor.innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>';
+        if (!fecha || !experienciaActual) {
+            contenedor.textContent = 'Primero elige una experiencia y un día.';
             return;
         }
-        if (!experienciaActual) {
-            const horas = [];
-            for (let h = 8; h <= 20; h++) {
-                horas.push(`${String(h).padStart(2, '0')}:00`);
-                if (h < 20) horas.push(`${String(h).padStart(2, '0')}:30`);
-            }
-            contenedor.innerHTML = horas.map(h => `<button type="button" data-hora="${h}" class="m-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">${h}</button>`).join('');
-        } else {
-            const selecciones = [...document.querySelectorAll('[data-persona-select]')].map(s => s.value);
-            const indices = selecciones.map(op => experienciaActual.opciones.indexOf(op) + 1).filter(Boolean);
-            const indicesUnicos = [...new Set(indices)];
-            const bloques = [];
-            indicesUnicos.forEach(indiceOpcion => {
-                const porFecha = experienciaActual.horarios?.[String(indiceOpcion)]?.[fecha];
-                if (!porFecha) return;
-                const inicio = porFecha.inicio || '08:00';
-                const fin = porFecha.fin || '20:00';
-                const [hi, mi] = inicio.split(':').map(Number);
-                const [hf, mf] = fin.split(':').map(Number);
-                let t = hi * 60 + mi;
-                const tFin = hf * 60 + mf;
-                while (t <= tFin) {
-                    const hh = String(Math.floor(t / 60)).padStart(2, '0');
-                    const mm = String(t % 60).padStart(2, '0');
-                    bloques.push(`${hh}:${mm}`);
-                    t += 30;
-                }
-            });
-            const unicos = [...new Set(bloques)].sort();
-            if (unicos.length === 0) {
-                contenedor.innerHTML = '<p class="px-3 py-2 text-sm text-slate-500">No hay horarios disponibles para esa fecha.</p>';
-                return;
-            }
-            contenedor.innerHTML = unicos.map(h => `<button type="button" data-hora="${h}" class="m-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">${h}</button>`).join('');
+
+        const rango = horarioCompartido(fecha);
+        if (!rango) {
+            contenedor.textContent = 'No hay un horario común disponible para las opciones seleccionadas.';
+            return;
         }
-        contenedor.querySelectorAll('[data-hora]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                contenedor.querySelectorAll('[data-hora]').forEach(b => {
-                    b.classList.remove('bg-emerald-600', 'text-white');
-                    b.classList.add('bg-slate-100', 'text-slate-700');
-                });
-                btn.classList.add('bg-emerald-600', 'text-white');
-                btn.classList.remove('bg-slate-100', 'text-slate-700');
-                if (inputHora) inputHora.value = btn.dataset.hora;
-            });
-        });
+        const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
+        const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
+        let inicioMinutos = horaInicio * 60 + minutoInicio;
+        const finMinutos = horaFin * 60 + minutoFin;
+        const ahoraBogota = fechaActualBogota();
+        if (fecha === ahoraBogota.fecha) {
+            inicioMinutos = Math.max(inicioMinutos, (Math.floor(ahoraBogota.minutos / 30) + 1) * 30);
+        }
+        if (inicioMinutos > finMinutos) {
+            contenedor.textContent = 'El horario publicado para hoy ya pasó. Elige otra fecha disponible.';
+            return;
+        }
+        const horaProgramada = `${String(Math.floor(inicioMinutos / 60)).padStart(2, '0')}:${String(inicioMinutos % 60).padStart(2, '0')}`;
+        if (inputHora) inputHora.value = horaProgramada;
+        contenedor.textContent = `Horario publicado: ${rango.inicio}–${rango.fin}. La experiencia quedará programada a las ${horaProgramada}.`;
     }
 
     form.addEventListener('submit', async event => {
@@ -1116,46 +1427,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitBtn = form.querySelector('button[type="submit"]');
         const textoOriginal = submitBtn ? submitBtn.innerHTML : '';
         const feedback = $('activityModalFeedback') || crearFeedbackModal();
-        const esPersonalizada = $('experienciaPersonalizadaToggle')?.checked
-            || ($('experienciaPersonalizadaNombre')?.value || '').trim() !== ''
-            || ($('experienciaPersonalizadaCategoria')?.value || '').trim() !== '';
         const cantidadPersonas = Number($('cantidadPersonasActividad')?.value || 1);
         const participantesRaw = $('participantesActividad')?.value || '';
         const fecha = $('fechaActividad')?.value || '';
         const hora = $('horaActividad')?.value || '';
-        const nombre = ($('nombreActividad')?.value || '').trim();
-        const correo = ($('correoActividad')?.value || '').trim();
 
-        if (!esPersonalizada && !experienciaActual) return mostrarError(feedback, 'Selecciona una experiencia o marca "personalizada".');
+        if (!experienciaActual) return mostrarError(feedback, 'Selecciona una experiencia disponible.');
         if (!fecha) return mostrarError(feedback, 'Selecciona una fecha.');
-        if (!hora) return mostrarError(feedback, 'Selecciona una hora.');
-        if (!correo || !/^\S+@\S+\.\S+$/.test(correo)) return mostrarError(feedback, 'Ingresa un correo válido.');
+        if (!fechasDisponibles().includes(fecha)) {
+            pintarFechasDisponibles();
+            return mostrarError(feedback, 'La fecha debe tener horario publicado y estar dentro de una reserva vigente a tu nombre.');
+        }
+        if (!hora) return mostrarError(feedback, 'No hay un horario válido para esa fecha. Elige otra fecha disponible.');
 
         let participantes;
-        if (esPersonalizada) {
-            participantes = Array(cantidadPersonas).fill('Solicitud personalizada');
-        } else {
-            try { participantes = JSON.parse(participantesRaw || '[]'); } catch (_) { participantes = []; }
-            if (participantes.length !== cantidadPersonas) return mostrarError(feedback, 'Selecciona una opción por persona.');
-        }
+        try { participantes = JSON.parse(participantesRaw || '[]'); } catch (_) { participantes = []; }
+        if (participantes.length !== cantidadPersonas) return mostrarError(feedback, 'Selecciona una opción por persona.');
 
         const fd = new FormData();
         fd.append('accion', 'agendar_actividad');
-        fd.append('experiencia_id', esPersonalizada ? '' : String(experienciaActual.id));
-        fd.append('solicitud_personalizada', esPersonalizada ? '1' : '0');
-        fd.append('categoria_personalizada', $('experienciaPersonalizadaCategoria')?.value || '');
-        fd.append('experiencia_personalizada', $('experienciaPersonalizadaNombre')?.value || '');
+        fd.append('experiencia_id', String(experienciaActual.id));
         fd.append('cantidad_personas', String(cantidadPersonas));
         fd.append('participantes', JSON.stringify(participantes));
         fd.append('fecha', fecha);
         fd.append('hora', hora);
-        fd.append('nombre', nombre);
-        fd.append('correo', correo);
         fd.append('csrf_token', CSRF_TOKEN);
 
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = 'Enviando...'; }
-
         try {
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = 'Confirmando...'; }
+            closeActivityModal();
+            const experienciasMismoDia = SCHEDULED_EXPERIENCES.filter(experiencia =>
+                experiencia.date === fecha
+                && experiencia.status.trim().toLocaleLowerCase('es-CO') !== 'cancelada'
+            );
+            const textoConfirmacion = experienciasMismoDia.length > 0
+                ? `Ya tienes ${experienciasMismoDia.length === 1 ? 'una experiencia programada' : `${experienciasMismoDia.length} experiencias programadas`} para el ${fechaLegible(fecha)}${experienciasMismoDia.length === 1 ? '' : `: ${experienciasMismoDia.map(experiencia => experiencia.name).join(', ')}`}. ¿Seguro que quieres programar "${experienciaActual.nombre}" para este día?`
+                : `Tu reserva vigente cubre el ${fechaLegible(fecha)}. ¿Confirmas programar "${experienciaActual.nombre}" ese día a las ${hora}? La solicitud quedará asociada a esa reserva.`;
+            const confirmacion = await Swal.fire({
+                icon: 'question',
+                title: experienciasMismoDia.length > 0 ? 'Ya tienes experiencias para este día' : 'Confirma tu experiencia',
+                text: textoConfirmacion,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, programar',
+                cancelButtonText: 'Seguir revisando',
+                confirmButtonColor: '#17354f',
+                cancelButtonColor: '#64748b',
+                background: '#fffdf8'
+            });
+            if (!confirmacion.isConfirmed) {
+                openActivityModal();
+                return;
+            }
+
+            if (submitBtn) submitBtn.innerHTML = 'Enviando...';
             const res = await fetch('controladores/portal_huesped.php', {
                 method: 'POST',
                 body: fd,
@@ -1170,6 +1494,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await Swal.fire({ icon: 'success', title: 'Experiencia programada', text: result.mensaje || 'Enviada.', confirmButtonColor: '#17354f' });
             window.location.reload();
         } catch (err) {
+            openActivityModal();
             mostrarError(feedback, err.message || 'No se pudo programar la experiencia.');
         } finally {
             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = textoOriginal; }

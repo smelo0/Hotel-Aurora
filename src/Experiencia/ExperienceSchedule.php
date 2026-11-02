@@ -5,8 +5,33 @@ namespace App\Experiencia;
 
 final class ExperienceSchedule
 {
+    public static function exclusiones(array $schedules): array
+    {
+        $exclusions = $schedules['exclusiones'] ?? [];
+        if (!is_array($exclusions)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ([1, 2, 3] as $index) {
+            $dates = $exclusions[(string) $index] ?? $exclusions[$index] ?? [];
+            if (!is_array($dates)) {
+                continue;
+            }
+            $result[(string) $index] = array_values(array_unique(array_filter(
+                $dates,
+                static fn($date): bool => is_string($date)
+                    && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1
+            )));
+            sort($result[(string) $index], SORT_STRING);
+        }
+
+        return $result;
+    }
+
     public static function normalizar(array $schedules, array $options = []): array
     {
+        $today = (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d');
         if (isset($schedules['opciones']) && is_array($schedules['opciones'])) {
             $schedulesByOption = $schedules['opciones'];
         } elseif (isset($schedules['1']) || isset($schedules['2']) || isset($schedules['3'])) {
@@ -26,7 +51,11 @@ final class ExperienceSchedule
             }
             $result[(string) $index] = [];
             foreach ($dates as $date => $range) {
-                if (!is_string($date) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                if (
+                    !is_string($date)
+                    || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+                    || $date < $today
+                ) {
                     continue;
                 }
                 if (is_array($range) && array_is_list($range)) {

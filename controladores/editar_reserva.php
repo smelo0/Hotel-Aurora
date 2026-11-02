@@ -5,6 +5,7 @@ require_once '../configuracion/permiso.php';
 
 // Incluimos Composer y la clase Logger
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
 use App\Logger;
 
 /**
@@ -24,6 +25,7 @@ if (!function_exists('calcularNochesEstancia')) {
 header('Content-Type: application/json; charset=utf-8');
 /**@var mysqli $conexion */
 exigir_permiso($conexion, 'reservas.editar');
+\App\Reserva\RoomRateSchemaMigrator::ensure($conexion);
 
 // Obtenemos el ID del usuario actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
@@ -139,7 +141,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
                 $noches = calcularNochesEstancia((string) $reservaActual['fec_ent_res'], (string) $reservaActual['fec_sal_res']);
                 $stmtTotalHabitaciones = $conexion->prepare(
-                    'SELECT COALESCE(SUM(COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0)), 0)
+                    'SELECT COALESCE(SUM(COALESCE(d.precio_noche_det, NULLIF(h.pre_hab, 0), h.precio_hab, 0)), 0)
                      FROM detalle d INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
                      WHERE d.cod_res_det = ?'
                 );

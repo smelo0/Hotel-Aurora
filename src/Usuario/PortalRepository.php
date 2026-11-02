@@ -3,33 +3,44 @@ declare(strict_types=1);
 
 namespace App\Usuario;
 
+use App\Reserva\RoomRateCalculator;
 use mysqli;
+use RuntimeException;
+
+require_once __DIR__ . '/../../configuracion/capacidad_habitaciones.php';
 
 final class PortalRepository
 {
-    public function findReservationForExperience(mysqli $connection, int $userId, ?string $date): ?int
+    public function fetchGuestContact(mysqli $connection, int $userId): ?array
     {
-        if ($date === null) {
-            $statement = $connection->prepare(
-                "SELECT cod_res FROM reservas
-                 WHERE id_usu_res = ?
-                   AND est_res NOT IN ('Cancelada', 'Cancelado')
-                 ORDER BY fec_ent_res DESC, cod_res DESC
-                 LIMIT 1"
-            );
-            $statement->bind_param('i', $userId);
-        } else {
-            $statement = $connection->prepare(
-                "SELECT cod_res FROM reservas
-                 WHERE id_usu_res = ?
-                   AND est_res NOT IN ('Cancelada', 'Cancelado')
-                   AND DATE(fec_ent_res) <= ?
-                   AND DATE(fec_sal_res) > ?
-                 ORDER BY fec_ent_res DESC, cod_res DESC
-                 LIMIT 1"
-            );
-            $statement->bind_param('iss', $userId, $date, $date);
+        $statement = $connection->prepare(
+            'SELECT nom_usu, corr_usu FROM usuario WHERE id_usu = ? LIMIT 1'
+        );
+        if (!$statement) {
+            throw new RuntimeException('No se pudieron consultar los datos de la cuenta.');
         }
+        $statement->bind_param('i', $userId);
+        $statement->execute();
+        $contact = $statement->get_result()->fetch_assoc() ?: null;
+        $statement->close();
+
+        return $contact;
+    }
+
+    public function findReservationForExperience(mysqli $connection, int $userId, string $date, bool $forUpdate = false): ?int
+    {
+        $sql = "SELECT cod_res FROM reservas
+                WHERE id_usu_res = ?
+                  AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+                  AND DATE(fec_ent_res) <= ?
+                  AND DATE(fec_sal_res) > ?
+                ORDER BY fec_ent_res DESC, cod_res DESC
+                LIMIT 1";
+        if ($forUpdate) {
+            $sql .= ' FOR UPDATE';
+        }
+        $statement = $connection->prepare($sql);
+        $statement->bind_param('iss', $userId, $date, $date);
 
         $statement->execute();
         $statement->bind_result($reservationId);
@@ -53,37 +64,6 @@ final class PortalRepository
         return $experience;
     }
 
-    public function insertCustomActivity(
-        mysqli $connection,
-        string $activity,
-        string $selectionsJson,
-        string $name,
-        string $email,
-        int $userId,
-        string $pricesJson,
-        ?int $reservationId
-    ): void {
-        $statement = $connection->prepare(
-            "INSERT INTO agenda_actividad (actividad, opcion_actividad, selecciones_personas_json, fecha_agenda, hora_agenda,
-                                           nombre_contacto, correo_contacto, id_usu_agenda, monto_experiencia, precios_personas_json, cod_res_agenda)
-             VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, NULL, ?, ?)"
-        );
-        $option = 'Personalizada';
-        $statement->bind_param(
-            'sssssisi',
-            $activity,
-            $option,
-            $selectionsJson,
-            $name,
-            $email,
-            $userId,
-            $pricesJson,
-            $reservationId
-        );
-        $statement->execute();
-        $statement->close();
-    }
-
     public function insertScheduledActivity(
         mysqli $connection,
         string $activity,
@@ -97,7 +77,57 @@ final class PortalRepository
         ?string $amount,
         string $pricesJson,
         int $reservationId
-    ): void {
+    ): bool {
+        $statement = $connection->prepare(
+            "INSERT INTO agenda_actividad (actividad, opcion_actividad, selecciones_personas_json, fecha_agenda, hora_agenda,
+                                           nombre_contacto, correo_contacto, id_usu_agenda, monto_experiencia, precios_personas_json, cod_res_agenda)
+             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+             FROM reservas r
+             WHERE r.cod_res = ?
+               AND r.id_usu_res = ?
+               AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+               AND DATE(r.fec_ent_res) <= ?
+               AND DATE(r.fec_sal_res) > ?"
+        );
+        $statement->bind_param(
+            'sssssssissiiiss',
+            $activity,
+            $optionSummary,
+            $selectionsJson,
+            $date,
+            $time,
+            $name,
+            $email,
+            $userId,
+            $amount,
+            $pricesJson,
+            $reservationId,
+            $reservationId,
+            $userId,
+            $date,
+            $date
+        );
+        $statement->execute();
+        $inserted = $statement->affected_rows === 1;
+        $statement->close();
+
+        return $inserted;
+    }
+
+    public function insertReceptionScheduledActivity(
+        mysqli $connection,
+        string $activity,
+        string $optionSummary,
+        string $selectionsJson,
+        string $date,
+        string $time,
+        string $name,
+        string $email,
+        int $userId,
+        ?string $amount,
+        string $pricesJson,
+        ?int $reservationId
+    ): bool {
         $statement = $connection->prepare(
             "INSERT INTO agenda_actividad (actividad, opcion_actividad, selecciones_personas_json, fecha_agenda, hora_agenda,
                                            nombre_contacto, correo_contacto, id_usu_agenda, monto_experiencia, precios_personas_json, cod_res_agenda)
@@ -118,7 +148,10 @@ final class PortalRepository
             $reservationId
         );
         $statement->execute();
+        $inserted = $statement->affected_rows === 1;
         $statement->close();
+
+        return $inserted;
     }
 
     public function fetchRoomCatalog(mysqli $connection): array
@@ -126,7 +159,7 @@ final class PortalRepository
         $statement = $connection->prepare(
             "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab
              FROM habitacion h
-             WHERE LOWER(TRIM(h.est_hab)) = 'disponible' OR h.est_hab IS NULL OR h.est_hab = ''
+             WHERE LOWER(TRIM(COALESCE(h.est_hab, ''))) NOT IN ('mantenimiento', 'sucia')
              ORDER BY h.num_hab ASC"
         );
         if (!$statement) {
@@ -143,7 +176,9 @@ final class PortalRepository
                 ? array_values(array_filter(array_map(static fn($item): string => trim((string) $item), $amenities), static fn(string $item): bool => $item !== ''))
                 : [];
 
-            $finalPrice = (float) ($primaryPrice ?: $secondaryPrice ?: 0);
+            $configuredPrice = (float) ($primaryPrice ?: $secondaryPrice ?: 0);
+            $isSingleRoom = preg_match('/sencilla|simple|individual/i', (string) $roomType) === 1;
+            $finalPrice = RoomRateCalculator::standardNightlyRate((string) $roomType, $configuredPrice);
 
             $rooms[] = [
                 'img_hab' => $image !== null && trim((string) $image) !== '' ? (string) $image : null,
@@ -157,6 +192,7 @@ final class PortalRepository
                 'pre_hab'  => $finalPrice,
                 'precio_hab' => $finalPrice,
                 'precio'   => $finalPrice,
+                'precio_una_persona' => $isSingleRoom && $configuredPrice === 50000.0 ? 50000.0 : null,
                 'est_hab'  => (string) ($status ?: 'Disponible'),
                 'obs_hab'  => $description !== null && trim((string) $description) !== ''
                     ? (string) $description
@@ -165,15 +201,71 @@ final class PortalRepository
         }
 
         $statement->close();
+        $today = (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d');
+        $reservationsStatement = $connection->prepare(
+            "SELECT d.cod_hab_det, DATE(r.fec_ent_res), DATE(r.fec_sal_res)
+             FROM detalle d
+             INNER JOIN reservas r ON r.cod_res = d.cod_res_det
+             WHERE LOWER(TRIM(COALESCE(r.est_res, ''))) NOT IN ('cancelada', 'cancelado', 'finalizada')
+               AND DATE(r.fec_sal_res) > ?
+             ORDER BY d.cod_hab_det ASC, r.fec_ent_res ASC"
+        );
+        if (!$reservationsStatement) {
+            throw new RuntimeException('No se pudieron consultar las fechas reservadas por habitación.');
+        }
+
+        $reservationsStatement->bind_param('s', $today);
+        $reservationsStatement->execute();
+        $reservationsStatement->bind_result($reservedRoomId, $reservationStart, $reservationEnd);
+        $reservationsByRoom = [];
+        while ($reservationsStatement->fetch()) {
+            $start = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $reservationStart);
+            $end = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $reservationEnd);
+            if ($start === false || $end === false || $end <= $start) {
+                continue;
+            }
+
+            $lastOccupiedNight = $end->modify('-1 day');
+            $roomId = (int) $reservedRoomId;
+            $ranges = &$reservationsByRoom[$roomId];
+            $lastIndex = count($ranges ?? []) - 1;
+            if ($lastIndex >= 0) {
+                $previousEnd = new \DateTimeImmutable($ranges[$lastIndex]['fin']);
+                if ($start <= $previousEnd->modify('+1 day')) {
+                    if ($lastOccupiedNight > $previousEnd) {
+                        $ranges[$lastIndex]['fin'] = $lastOccupiedNight->format('Y-m-d');
+                    }
+                    unset($ranges);
+                    continue;
+                }
+            }
+            $ranges[] = [
+                'inicio' => $start->format('Y-m-d'),
+                'fin' => $lastOccupiedNight->format('Y-m-d'),
+            ];
+            unset($ranges);
+        }
+        $reservationsStatement->close();
+
+        foreach ($rooms as &$room) {
+            $room['fechas_reservadas'] = $reservationsByRoom[(int) $room['cod_hab']] ?? [];
+        }
+        unset($room);
+
         return $rooms;
     }
 
-    public function fetchAvailableRoomIds(mysqli $connection, string $checkin, string $checkout): array
-    {
+    public function fetchAvailableRooms(
+        mysqli $connection,
+        string $checkin,
+        string $checkout,
+        int $adults,
+        int $children
+    ): array {
         $statement = $connection->prepare(
-            "SELECT h.cod_hab
+            "SELECT h.cod_hab, h.tipo_hab
              FROM habitacion h
-             WHERE LOWER(TRIM(h.est_hab)) NOT IN ('mantenimiento', 'sucia')
+             WHERE LOWER(TRIM(COALESCE(h.est_hab, ''))) NOT IN ('mantenimiento', 'sucia')
                AND NOT EXISTS (
                    SELECT 1
                    FROM detalle d
@@ -186,20 +278,34 @@ final class PortalRepository
              ORDER BY h.num_hab ASC"
         );
         if (!$statement) {
-            return [];
+            throw new RuntimeException('No se pudo consultar la disponibilidad de habitaciones.');
         }
 
         $statement->bind_param('ss', $checkin, $checkout);
         $statement->execute();
-        $statement->bind_result($roomId);
+        $statement->bind_result($roomId, $roomType);
 
         $availableIds = [];
+        $matchingIds = [];
         while ($statement->fetch()) {
-            $availableIds[] = (int) $roomId;
+            $roomId = (int) $roomId;
+            $availableIds[] = $roomId;
+
+            $capacity = capacidad_habitacion((string) $roomType);
+            if (
+                $adults <= $capacity['adultos']
+                && $children <= $capacity['ninos']
+                && $adults + $children <= $capacity['personas']
+            ) {
+                $matchingIds[] = $roomId;
+            }
         }
 
         $statement->close();
-        return $availableIds;
+        return [
+            'disponibles' => $availableIds,
+            'compatibles' => $matchingIds,
+        ];
     }
 
     public function fetchNextAvailability(mysqli $connection, string $checkinDate, int $nights): array
@@ -267,19 +373,20 @@ final class PortalRepository
 
     public function fetchReservationStays(mysqli $connection, int $userId): array
     {
+        $today = (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d');
         $statement = $connection->prepare(
             "SELECT DATE(fec_ent_res) AS fecha_inicio, DATE(fec_sal_res) AS fecha_fin
              FROM reservas
              WHERE id_usu_res = ?
-               AND LOWER(TRIM(est_res)) NOT IN ('cancelada', 'cancelado')
-               AND DATE(fec_sal_res) > CURDATE()
+               AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+               AND DATE(fec_sal_res) > ?
              ORDER BY fec_ent_res ASC"
         );
         if (!$statement) {
             return [];
         }
 
-        $statement->bind_param('i', $userId);
+        $statement->bind_param('is', $userId, $today);
         $statement->execute();
         $result = $statement->get_result();
 

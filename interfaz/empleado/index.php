@@ -66,6 +66,6 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     require_once __DIR__ . '/../../includes/system_help.php';
     ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=4"></script>
+    <script src="../../assets/js/inactividad.js?v=7"></script>
 </body>
 </html>

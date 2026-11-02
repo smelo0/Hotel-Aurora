@@ -113,6 +113,104 @@ function experienciaImagen(string $categoria, int $indice, ?string $imagen = nul
     return $galeria[$indice % count($galeria)];
 }
 
+function agruparHorariosExperiencia(array $horarios, string $desdeFecha, array $fechasExcluidas = []): array
+{
+    $fechas = array_filter(
+        $horarios,
+        static fn($rango, $fecha): bool => is_string($fecha)
+            && $fecha >= $desdeFecha
+            && is_array($rango)
+            && isset($rango['inicio'], $rango['fin']),
+        ARRAY_FILTER_USE_BOTH
+    );
+    ksort($fechas, SORT_STRING);
+
+    $fechasExcluidas = array_fill_keys($fechasExcluidas, true);
+    $fechasPorHorario = [];
+    foreach ($fechas as $fecha => $rango) {
+        $claveHorario = $rango['inicio'] . '|' . $rango['fin'];
+        $fechasPorHorario[$claveHorario][$fecha] = $rango;
+    }
+
+    $grupos = [];
+    foreach ($fechasPorHorario as $fechasHorario) {
+        $fechasHorarioOrdenadas = array_keys($fechasHorario);
+        $inicioGrupo = $fechaAnterior = $fechasHorarioOrdenadas[0];
+        $exclusionesGrupo = [];
+        for ($indice = 1, $cantidad = count($fechasHorarioOrdenadas); $indice < $cantidad; $indice++) {
+            $fechaActual = $fechasHorarioOrdenadas[$indice];
+            $huecos = [];
+            $fechaHueco = (new DateTimeImmutable($fechaAnterior))->modify('+1 day');
+            while ($fechaHueco->format('Y-m-d') < $fechaActual) {
+                $huecos[] = $fechaHueco->format('Y-m-d');
+                $fechaHueco = $fechaHueco->modify('+1 day');
+            }
+
+            if ($huecos !== [] && !array_reduce(
+                $huecos,
+                static fn(bool $todosExcluidos, string $fecha): bool => $todosExcluidos && isset($fechasExcluidas[$fecha]),
+                true
+            )) {
+                $grupos[] = [
+                    'inicio' => $inicioGrupo,
+                    'fin' => $fechaAnterior,
+                    'inicio_hora' => (string) $fechasHorario[$inicioGrupo]['inicio'],
+                    'fin_hora' => (string) $fechasHorario[$inicioGrupo]['fin'],
+                    'exclusiones' => $exclusionesGrupo,
+                ];
+                $inicioGrupo = $fechaActual;
+                $exclusionesGrupo = [];
+            } elseif ($huecos !== []) {
+                array_push($exclusionesGrupo, ...$huecos);
+            }
+            $fechaAnterior = $fechaActual;
+        }
+
+        $grupos[] = [
+            'inicio' => $inicioGrupo,
+            'fin' => $fechaAnterior,
+            'inicio_hora' => (string) $fechasHorario[$inicioGrupo]['inicio'],
+            'fin_hora' => (string) $fechasHorario[$inicioGrupo]['fin'],
+            'exclusiones' => $exclusionesGrupo,
+        ];
+    }
+
+    usort($grupos, static fn(array $a, array $b): int => [$a['inicio'], $a['inicio_hora']] <=> [$b['inicio'], $b['inicio_hora']]);
+    return $grupos;
+}
+
+function etiquetaRangoFechasExperiencia(string $inicio, string $fin): string
+{
+    $fechaInicio = new DateTimeImmutable($inicio);
+    $fechaFin = new DateTimeImmutable($fin);
+    $meses = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    $formatearFecha = static fn(DateTimeImmutable $fecha, bool $incluirAnio): string => $fecha->format('j')
+        . ' de ' . $meses[(int) $fecha->format('n')]
+        . ($incluirAnio ? ' de ' . $fecha->format('Y') : '');
+    if ($inicio === $fin) {
+        return $formatearFecha($fechaInicio, true);
+    }
+    if ($fechaInicio->format('Y-m') === $fechaFin->format('Y-m')) {
+        return $fechaInicio->format('j') . ' al ' . $formatearFecha($fechaFin, true);
+    }
+    if ($fechaInicio->format('Y') === $fechaFin->format('Y')) {
+        return $formatearFecha($fechaInicio, false) . ' al ' . $formatearFecha($fechaFin, true);
+    }
+    return $formatearFecha($fechaInicio, true) . ' al ' . $formatearFecha($fechaFin, true);
+}
+
+function etiquetaFechasExcluidasExperiencia(array $fechas): string
+{
+    $etiquetas = array_map(
+        static fn(string $fecha): string => etiquetaRangoFechasExperiencia($fecha, $fecha),
+        $fechas
+    );
+    if (count($etiquetas) < 2) {
+        return implode('', $etiquetas);
+    }
+    return implode(', ', array_slice($etiquetas, 0, -1)) . ' y ' . $etiquetas[array_key_last($etiquetas)];
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     require __DIR__ . '/controladores/portal_huesped.php';
     exit;
@@ -160,13 +258,30 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=14">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=15">
     <script>
         window.PORTAL_CONFIG = <?php echo json_encode([
             'wompiPublicKey' => WOMPI_PUBLIC_KEY,
             'csrfToken' => csrf_token(),
             'recaptchaSiteKey' => $recaptchaSiteKey,
             'isUserAuthenticated' => $usuarioAutenticado,
+            'scheduledExperiences' => array_values(array_map(
+                static fn(array $experience): array => [
+                    'date' => (string) ($experience['fecha_agenda'] ?? ''),
+                    'name' => (string) ($experience['actividad'] ?? ''),
+                    'status' => (string) ($experience['estado_agenda'] ?? 'Pendiente'),
+                ],
+                array_filter(
+                    $historialExperiencias,
+                    static fn(array $experience): bool => mb_strtolower(trim((string) ($experience['estado_agenda'] ?? 'Pendiente'))) !== 'cancelada'
+                )
+            )),
+            'roomPricing' => [
+                'standardOccupancy' => \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY,
+                'additionalChildSupplement' => \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT,
+                'freeChildMaxAge' => \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE,
+                'maxChildAge' => \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE,
+            ],
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 </head>
@@ -340,6 +455,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     <div class="flex flex-wrap items-center gap-3">
                         <button type="button" data-filter="all" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/6 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition transform duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/25">Todas</button>
                         <button type="button" data-filter="suite" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite</button>
+                        <button type="button" data-filter="suite-premium" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Suite Premium</button>
                         <button type="button" data-filter="doble" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Doble</button>
                         <button type="button" data-filter="sencilla" class="room-filter inline-flex items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white/70 transition transform duration-200 hover:scale-105 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20">Sencillas</button>
                     </div>
@@ -361,7 +477,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 $codHab = $room['cod_hab'] ?? $room['id'] ?? 0;
                                 $numHab = $room['num_hab'] ?? $room['numero'] ?? '';
                                 $tipoHab = (string) ($room['tipo_hab'] ?? $room['tipo'] ?? 'Habitación');
-                                $precioHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
+                                $precioConfiguradoHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
+                                $precioHab = \App\Reserva\RoomRateCalculator::standardNightlyRate($tipoHab, $precioConfiguradoHab);
+                                $precioUnaPersona = isset($room['precio_una_persona']) ? (float) $room['precio_una_persona'] : null;
                                 $roomName = 'Habitación ' . $numHab . ' · ' . $tipoHab;
                                 $capacidadHab = capacidad_habitacion($tipoHab);
 
@@ -369,7 +487,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 $roomPhoto = !empty($room['img_hab']) ? (string) $room['img_hab'] : roomImage($tipoHab);
 
                                 $tipoLower = mb_strtolower($tipoHab, 'UTF-8');
-                                if (str_contains($tipoLower, 'suite')) {
+                                if (str_contains($tipoLower, 'premium')) {
+                                    $roomType = 'suite-premium';
+                                } elseif (str_contains($tipoLower, 'suite')) {
                                     $roomType = 'suite';
                                 } elseif (str_contains($tipoLower, 'doble')) {
                                     $roomType = 'doble';
@@ -392,7 +512,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                             <div>
                                                 <p class="section-kicker text-xs font-black uppercase tracking-[0.18em]"><?php echo e($tipoHab); ?></p>
                                                 <h3 class="room-card__title mt-2 text-2xl font-black text-white"><?php echo e($roomName); ?></h3>
-                                                <p class="mt-1 text-xs font-bold text-white/70">Hasta <?php echo (int) $capacidadHab['personas']; ?> personas · máx. <?php echo (int) $capacidadHab['adultos']; ?> adultos y <?php echo (int) $capacidadHab['ninos']; ?> <?php echo $capacidadHab['ninos'] === 1 ? 'niño' : 'niños'; ?></p>
+                                                <p class="mt-1 text-xs font-bold text-white/70">Máximo <?php echo (int) $capacidadHab['personas']; ?> personas por habitación</p>
                                             </div>
                                             <span class="soft-chip rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.18em]">
                                                 Reserva online
@@ -409,12 +529,32 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                             <?php endforeach; ?>
                                         </div>
 
+                                        <div class="mt-5 rounded-xl border border-amber-200/30 bg-amber-950/20 px-4 py-3 text-xs font-bold leading-5 text-amber-100" aria-label="Fechas reservadas">
+                                            <span class="block uppercase tracking-wider text-amber-200">Noches reservadas</span>
+                                            <?php if (!empty($room['fechas_reservadas'])): ?>
+                                                <span class="mt-1 block">
+                                                    <?php
+                                                    $rangosReservados = array_map(
+                                                        static fn(array $rango): string => etiquetaRangoFechasExperiencia($rango['inicio'], $rango['fin']),
+                                                        $room['fechas_reservadas']
+                                                    );
+                                                    echo e(implode(' · ', $rangosReservados));
+                                                    ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="mt-1 block text-white/70">Sin reservas futuras</span>
+                                            <?php endif; ?>
+                                        </div>
+
                                         <p data-room-availability class="hidden mt-4 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-xs font-bold leading-5 text-white" role="status"></p>
 
                                         <div class="mt-6 flex items-center justify-between gap-4">
                                             <div>
-                                                <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa por noche</p>
+                                                <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa estándar</p>
                                                 <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?></p>
+                                                <?php if ($precioUnaPersona !== null): ?>
+                                                    <p class="mt-1 text-xs font-bold text-emerald-200">1 persona: $<?php echo number_format($precioUnaPersona, 0, ',', '.'); ?> por noche</p>
+                                                <?php endif; ?>
                                             </div>
                                            <button
     type="button"
@@ -423,6 +563,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
     data-room-id="<?php echo (int) $codHab; ?>"
     data-room-name="<?php echo e($roomName); ?>"
     data-room-price="<?php echo $precioHab; ?>"
+    data-room-single-occupancy-price="<?php echo $precioUnaPersona === null ? '' : $precioUnaPersona; ?>"
+    data-room-type="<?php echo e($tipoHab); ?>"
     data-room-max-people="<?php echo (int) $capacidadHab['personas']; ?>"
     data-room-max-adults="<?php echo (int) $capacidadHab['adultos']; ?>"
     data-room-max-children="<?php echo (int) $capacidadHab['ninos']; ?>"
@@ -445,6 +587,11 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </section>
 
         <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <h2 class="section-title font-display text-3xl text-white">Experiencias</h2>
+                <button type="button" data-collapse-target="experienciasCatalogo" aria-controls="experienciasCatalogo" aria-expanded="true" data-collapse-hide="Ocultar experiencias" data-collapse-show="Mostrar experiencias" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar experiencias</button>
+            </div>
+            <div id="experienciasCatalogo">
             <?php if ($experiencias === []): ?>
                 <p class="muted-light text-center text-sm">Muy pronto compartiremos nuevas experiencias.</p>
             <?php else: ?>
@@ -457,19 +604,53 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <h3 class="card-title mt-3 text-2xl font-black text-white"><?php echo e($experiencia['nombre']); ?></h3>
                             <p class="muted-light mt-3 text-sm leading-7"><?php echo nl2br(e($experiencia['descripcion'])); ?></p>
                             <?php
-                                $fechasConfiguradas = [];
                                 $fechaHoyExperiencia = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d');
-                                foreach (array_keys($experiencia['opciones']) as $indiceOpcion) {
-                                    $numeroOpcion = $experiencia['numeros_opciones'][$indiceOpcion] ?? ($indiceOpcion + 1);
-                                    foreach (array_keys($experiencia['horarios'][(string) $numeroOpcion] ?? []) as $fechaProgramada) {
-                                        if (is_string($fechaProgramada) && $fechaProgramada >= $fechaHoyExperiencia) {
-                                            $fechasConfiguradas[$fechaProgramada] = true;
+                                $horariosVisibles = [];
+                                $hayHorariosPublicados = false;
+                                foreach ($experiencia['numeros_opciones'] as $indiceOpcion => $numeroOpcion) {
+                                    $horariosOpcion = $experiencia['horarios'][(string) $numeroOpcion] ?? [];
+                                    $gruposPublicados = agruparHorariosExperiencia($horariosOpcion, $fechaHoyExperiencia);
+                                    if ($gruposPublicados !== []) {
+                                        $hayHorariosPublicados = true;
+                                    }
+                                    if ($usuarioAutenticado) {
+                                        $horariosOpcion = array_filter(
+                                            $horariosOpcion,
+                                            static function ($rango, $fecha) use ($reservasEstanciaExperiencia): bool {
+                                                if (!is_string($fecha)) {
+                                                    return false;
+                                                }
+                                                foreach ($reservasEstanciaExperiencia as $reservaEstancia) {
+                                                    if ($fecha >= $reservaEstancia['inicio'] && $fecha < $reservaEstancia['fin']) {
+                                                        return true;
+                                                    }
+                                                }
+                                                return false;
+                                            },
+                                            ARRAY_FILTER_USE_BOTH
+                                        );
+                                    }
+                                    $exclusionesOpcion = $experiencia['exclusiones_horarios'][(string) $numeroOpcion] ?? [];
+                                    $gruposHorario = agruparHorariosExperiencia(
+                                        $horariosOpcion,
+                                        $fechaHoyExperiencia,
+                                        $exclusionesOpcion
+                                    );
+                                    foreach ($gruposHorario as $grupoHorario) {
+                                        $claveGrupo = implode('|', [
+                                            $grupoHorario['inicio'],
+                                            $grupoHorario['fin'],
+                                            $grupoHorario['inicio_hora'],
+                                            $grupoHorario['fin_hora'],
+                                            implode(',', $grupoHorario['exclusiones']),
+                                        ]);
+                                        if (!isset($horariosVisibles[$claveGrupo])) {
+                                            $horariosVisibles[$claveGrupo] = $grupoHorario;
                                         }
                                     }
                                 }
-                                $fechasConfiguradas = array_keys($fechasConfiguradas);
-                                sort($fechasConfiguradas, SORT_STRING);
-                                $horariosConfigurados = $fechasConfiguradas !== [];
+                                $horariosVisibles = array_values($horariosVisibles);
+                                $horariosConfigurados = $horariosVisibles !== [];
                             ?>
                             <div class="mt-5">
                                 <div class="mb-3 flex flex-wrap gap-2">
@@ -480,7 +661,22 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <?php endforeach; ?>
                                 </div>
                                 <?php if ($horariosConfigurados): ?>
-                                    <p class="mb-3 text-xs text-white/70">Fechas disponibles: <?php echo e(implode(', ', array_map(static fn(string $fechaProgramada): string => date('d/m/Y', strtotime($fechaProgramada)), $fechasConfiguradas))); ?></p>
+                                    <div class="mb-3 space-y-2 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/80">
+                                        <p class="font-black uppercase tracking-[0.12em] text-emerald-200"><?php echo $usuarioAutenticado ? 'Fechas y horarios dentro de tu estancia' : 'Horarios publicados · disponibilidad sujeta a tu estancia'; ?></p>
+                                        <?php foreach ($horariosVisibles as $grupoHorario): ?>
+                                            <p>
+                                                <?php echo e(etiquetaRangoFechasExperiencia($grupoHorario['inicio'], $grupoHorario['fin'])); ?>
+                                                · <?php echo e($grupoHorario['inicio_hora']); ?>–<?php echo e($grupoHorario['fin_hora']); ?>
+                                                <?php if ($grupoHorario['exclusiones'] !== []): ?>
+                                                    · excepto <?php echo e(etiquetaFechasExcluidasExperiencia($grupoHorario['exclusiones'])); ?>
+                                                <?php endif; ?>
+                                            </p>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php elseif ($usuarioAutenticado && $hayHorariosPublicados): ?>
+                                    <p class="mb-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white/80">
+                                        No hay fechas de esta experiencia que coincidan con tus reservas actuales.
+                                    </p>
                                 <?php endif; ?>
                                 <button
                                     type="button"
@@ -491,6 +687,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     data-experience-prices="<?php echo e(json_encode($experiencia['precios'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     data-experience-option-indices="<?php echo e(json_encode($experiencia['numeros_opciones'], JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     data-experience-schedule="<?php echo e(json_encode($experiencia['horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
+                                    data-experience-exclusions="<?php echo e(json_encode($experiencia['exclusiones_horarios'], JSON_UNESCAPED_UNICODE) ?: '{}'); ?>"
                                     data-reservation-stays="<?php echo e(json_encode($reservasEstanciaExperiencia, JSON_UNESCAPED_UNICODE) ?: '[]'); ?>"
                                     <?php echo $experiencia['opciones'] === [] || !$horariosConfigurados || !$usuarioAutenticado || !$usuarioTieneReserva ? 'disabled' : ''; ?>>
                                     <?php echo !$usuarioAutenticado ? 'Inicia sesión para programar' : (!$usuarioTieneReserva ? 'Reserva primero para programar' : 'Elegir esta experiencia'); ?>
@@ -501,6 +698,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
+            </div>
         </section>
 
         <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
@@ -552,20 +750,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                         <p class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Selección</p>
                                         <div id="seleccionExperiencia" class="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/70">Elige una experiencia en una de las tarjetas.</div>
                                         <input id="experienciaIdActividad" name="experiencia_id" type="hidden">
-                                        <label class="mt-3 flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white/80">
-                                            <input id="experienciaPersonalizadaToggle" name="solicitud_personalizada" value="1" type="checkbox" class="h-4 w-4 rounded border-white/30 bg-white/10 text-emerald-500 focus:ring-emerald-400" aria-label="Solicitar una experiencia personalizada">
-                                            <span>Solicitar experiencia personalizada</span>
-                                        </label>
-                                        <select id="experienciaPersonalizadaCategoria" name="categoria_personalizada" class="mt-3 hidden w-full rounded-2xl border-white/20 bg-white/90 text-slate-900">
-                                            <option value="">Selecciona una categoría (opcional)</option>
-                                            <option value="Spa y bienestar">Spa y bienestar</option>
-                                            <option value="Gastronomía">Gastronomía</option>
-                                            <option value="Aventura">Aventura</option>
-                                            <option value="Romántica">Romántica</option>
-                                            <option value="Celebración">Celebración</option>
-                                            <option value="Otra">Otra</option>
-                                        </select>
-                                        <input id="experienciaPersonalizadaNombre" name="experiencia_personalizada" type="text" placeholder="Opcional: describe la idea o servicio que buscas" class="mt-3 hidden w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 placeholder:text-slate-500">
                                     </div>
 
                                     <div class="md:col-span-2">
@@ -577,29 +761,20 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     </div>
 
                                     <div>
-                                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="fechaActividad">Fecha</label>
+                                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="fechaActividad">Día de la experiencia</label>
                                         <select id="fechaActividad" name="fecha" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
                                             <option value="">Primero elige una experiencia</option>
                                         </select>
                                     </div>
 
                                     <div>
-                                        <p id="etiquetaHoraActividad" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Hora</p>
+                                        <p id="etiquetaHoraActividad" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Horario publicado</p>
                                         <input id="horaActividad" name="hora" type="hidden">
-                                        <div id="listaHorasActividad" class="experience-time-list mt-2 rounded-2xl border border-white/20 bg-white/90 p-2 text-slate-900" role="listbox" aria-labelledby="etiquetaHoraActividad" aria-disabled="true">
-                                            <p class="px-3 py-2 text-sm text-slate-500">Primero elige una fecha</p>
+                                        <div id="listaHorasActividad" class="experience-time-list mt-2 rounded-2xl border border-white/20 bg-white/90 p-3 text-sm text-slate-700" role="status" aria-labelledby="etiquetaHoraActividad">
+                                            <p>Primero elige una experiencia y un día.</p>
                                         </div>
                                     </div>
-
-                                    <div>
-                                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="nombreActividad">Nombre</label>
-                                        <input id="nombreActividad" name="nombre" type="text" value="<?php echo e($usuarioNombre); ?>" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" readonly>
-                                    </div>
-
-                                    <div>
-                                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="correoActividad">Correo</label>
-                                        <input id="correoActividad" name="correo" type="email" class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900" placeholder="ejemplo@correo.com">
-                                    </div>
+                                    <p id="experienceAvailabilitySummary" class="md:col-span-2 rounded-xl border border-emerald-300/20 bg-emerald-950/30 px-4 py-3 text-sm leading-6 text-emerald-100" aria-live="polite"></p>
                                 </div>
 
                                 <button type="submit" class="hero-button primary-button mt-5 w-full px-5 py-4 text-sm uppercase tracking-[0.18em]">
@@ -659,7 +834,10 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
 
         <div class="mt-10">
-            <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
+                <button type="button" data-collapse-target="rsPedidos" aria-controls="rsPedidos" aria-expanded="true" data-collapse-hide="Ocultar historial" data-collapse-show="Mostrar historial" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar historial</button>
+            </div>
             <div id="rsPedidos" class="mt-4 space-y-3"></div>
         </div>
     </div>
@@ -671,17 +849,20 @@ $historialExperiencias = $portalData['historialExperiencias'];
 <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
     <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         
-        <div class="flex items-center justify-between gap-4 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
                 <h2 class="mt-2 text-3xl font-black text-white">Reservas realizadas</h2>
             </div>
-        
-            <span class="rounded-full bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800 border border-slate-200">
-                <?php echo count($historialReservas); ?> registros
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                <span class="rounded-full bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800 border border-slate-200">
+                    <?php echo count($historialReservas); ?> registros
+                </span>
+                <button type="button" data-collapse-target="reservasHistorialContenido" aria-controls="reservasHistorialContenido" aria-expanded="true" data-collapse-hide="Ocultar" data-collapse-show="Mostrar" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar</button>
+            </div>
         </div>
 
+        <div id="reservasHistorialContenido">
         <?php if (empty($historialReservas)): ?>
             <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
                 <span class="material-symbols-outlined text-4xl text-emerald-700">travel_explore</span>
@@ -724,6 +905,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 </table>
             </div>
         <?php endif; ?>
+        </div>
     </div>
 </section>
 <section id="historial-experiencias" class="mx-auto mt-8 max-w-7xl reveal">
@@ -733,11 +915,15 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Mi historial</p>
                 <h2 class="mt-2 text-3xl font-black text-white">Experiencias programadas</h2>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800">
-                <?php echo count($historialExperiencias); ?> registros
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                <span class="rounded-full border border-slate-200 bg-slate-200 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-800">
+                    <?php echo count($historialExperiencias); ?> registros
+                </span>
+                <button type="button" data-collapse-target="experienciasHistorialContenido" aria-controls="experienciasHistorialContenido" aria-expanded="true" data-collapse-hide="Ocultar" data-collapse-show="Mostrar" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar</button>
+            </div>
         </div>
 
+        <div id="experienciasHistorialContenido">
         <?php if ($historialExperiencias === []): ?>
             <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
                 <span class="material-symbols-outlined text-4xl text-emerald-700">event_note</span>
@@ -797,6 +983,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 </table>
             </div>
         <?php endif; ?>
+        </div>
     </div>
 </section>
 <?php endif; ?>
@@ -898,9 +1085,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
     require_once __DIR__ . '/includes/system_tour.php';
     ?>
 
-    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-center justify-center bg-emerald-950/40 px-4 py-10">
-        <div class="flex min-h-full items-center justify-center">
-            <div class="glass-card w-full max-w-5xl overflow-hidden rounded-[32px]">
+    <div id="bookingModal" class="booking-modal fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-emerald-950/40 px-4 py-4">
+        <div class="flex min-h-full w-full items-center justify-center">
+            <div class="booking-modal-scroll glass-card w-full max-w-5xl overflow-x-hidden rounded-[32px]">
                 <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
                     <aside class="bg-[#17354f] px-7 py-8 text-white">
                         <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
@@ -918,8 +1105,37 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <div id="modalRoomGuestsList" class="mt-3 space-y-3"></div>
                             <p id="modalRoomGuestsHint" class="mt-3 text-xs font-bold leading-5 text-white/70" role="status"></p>
                         </div>
+                        <div id="modalSingleRoomChildAges" class="mt-6 hidden rounded-[28px] border border-white/10 bg-white/6 p-5">
+                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Edad de los niños</p>
+                            <div id="modalSingleRoomChildAgesList" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
+                            <p class="mt-3 text-xs leading-5 text-white/60">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años no tiene costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos. El IVA del 19% se suma al total.</p>
+                        </div>
+
+                        <fieldset class="mt-6 rounded-[28px] border border-white/10 bg-white/6 p-5">
+                            <legend class="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Titular del hospedaje</legend>
+                            <p class="mb-3 text-sm font-bold text-white">¿El hospedaje estará a tu nombre?</p>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-3 text-sm font-semibold text-white">
+                                    <input type="radio" name="hospedaje_a_nombre_de" value="cuenta" checked class="accent-emerald-500">
+                                    A mi nombre
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-3 text-sm font-semibold text-white">
+                                    <input type="radio" name="hospedaje_a_nombre_de" value="otra_persona" class="accent-emerald-500">
+                                    A nombre de otra persona
+                                </label>
+                            </div>
+                            <label id="nombreHuespedAlternativoWrapper" for="nombreHuespedAlternativo" class="mt-4 hidden text-xs font-bold text-white/80">
+                                Nombre de la persona que se hospedará
+                                <input id="nombreHuespedAlternativo" type="text" maxlength="100" autocomplete="name" disabled class="mt-2 w-full rounded-xl border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900" placeholder="Escribe el nombre completo">
+                            </label>
+                        </fieldset>
 
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
+                            <p class="text-xs leading-5 text-white/55">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años sin costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos. Se adiciona IVA del 19%.</p>
+                            <div class="flex justify-between text-sm text-white/70">
+                                <span>Tarifa según ocupación/noche:</span>
+                                <span id="modalNightlyRate">$0</span>
+                            </div>
                             <div class="flex justify-between text-sm text-white/70">
                                 <span>Subtotal estadía:</span>
                                 <span id="modalSubtotal">$0</span>
@@ -939,7 +1155,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         </div>
                     </aside>
 
-                    <section class="bg-white/88 px-7 py-8 backdrop-blur-lg overflow-y-auto max-h-[85vh]">
+                    <section class="bg-white/88 px-7 py-8 backdrop-blur-lg">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
@@ -1025,7 +1241,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=3"></script>
+    <script src="assets/js/interfaz_usu.js?v=18"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
@@ -1034,8 +1250,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     ?>
     <?php if (!empty($_SESSION['user_auth'])): ?>
         <?php require_once __DIR__ . '/includes/timeOut.php'; ?>
-        <script src="assets/js/inactividad.js?v=4"></script>
-        <script src="assets/js/interfaz_usu.js?v=100"></script>
+        <script src="assets/js/inactividad.js?v=7"></script>
     <?php endif; ?>
 </body>
 </html>

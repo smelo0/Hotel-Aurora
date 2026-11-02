@@ -34,94 +34,60 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
     $cantidadPersonasRaw = $_POST['cantidad_personas'] ?? null;
     $fechaRaw = $_POST['fecha'] ?? null;
     $horaRaw = $_POST['hora'] ?? null;
-    $nombreRaw = $_POST['nombre'] ?? ($_SESSION['user_auth']['nombre_usuario'] ?? '');
-    $correoRaw = $_POST['correo'] ?? '';
-    $experienciaPersonalizadaRaw = $_POST['experiencia_personalizada'] ?? null;
-    $categoriaPersonalizadaRaw = $_POST['categoria_personalizada'] ?? null;
-    $solicitudPersonalizadaRaw = $_POST['solicitud_personalizada'] ?? '0';
 
     if (($experienciaIdRaw !== null && !is_string($experienciaIdRaw))
         || !is_string($participantesRaw)
         || !is_string($cantidadPersonasRaw)
         || ($fechaRaw !== null && !is_string($fechaRaw))
-        || ($horaRaw !== null && !is_string($horaRaw))
-        || !is_string($nombreRaw) || !is_string($correoRaw)
-        || ($experienciaPersonalizadaRaw !== null && !is_string($experienciaPersonalizadaRaw))
-        || ($categoriaPersonalizadaRaw !== null && !is_string($categoriaPersonalizadaRaw))
-        || !is_string($solicitudPersonalizadaRaw)) {
+        || ($horaRaw !== null && !is_string($horaRaw))) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
 
-    $experienciaPersonalizada = trim((string) $experienciaPersonalizadaRaw);
-    $categoriaPersonalizada = trim((string) $categoriaPersonalizadaRaw);
-    $solicitudPersonalizada = in_array(strtolower(trim((string) $solicitudPersonalizadaRaw)), ['1', 'true', 'on'], true);
-    $esPersonalizada = $solicitudPersonalizada || $categoriaPersonalizada !== '' || $experienciaPersonalizada !== '';
-    $experienciaId = $esPersonalizada ? null : filter_var((string) $experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $experienciaId = filter_var((string) $experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $cantidadPersonas = filter_var($cantidadPersonasRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
     $participantes = json_decode($participantesRaw, true);
     $fecha = trim((string) ($fechaRaw ?? ''));
     $hora = trim((string) ($horaRaw ?? ''));
-    $nombre = trim($nombreRaw);
-    $correo = trim($correoRaw);
 
-    if (!$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes)
-        || $nombre === '' || mb_strlen($nombre) > 140 || mb_strlen($correo) > 140 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+    if (!$experienciaId || !$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes)
+        || count($participantes) !== $cantidadPersonas) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
 
-    if ($esPersonalizada) {
-        if (count($participantes) > 0 && count($participantes) !== $cantidadPersonas) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de personas no coincide con la reserva.']);
-        }
-        $participantes = array_fill(0, $cantidadPersonas, 'Solicitud personalizada');
-    } else {
-        if (!$experienciaId || count($participantes) !== $cantidadPersonas) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
-        }
-        $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
-        if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < date('Y-m-d')) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
-        }
-        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora)) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
-        }
+    $zonaHorariaHotel = new DateTimeZone('America/Bogota');
+    $ahoraHotel = new DateTimeImmutable('now', $zonaHorariaHotel);
+    $hoyHotel = $ahoraHotel->format('Y-m-d');
+    $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $zonaHorariaHotel);
+    if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fecha || $fecha < $hoyHotel) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
+    }
+    if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
 
     try {
-        $idReservaExperiencia = $portalRepository->findReservationForExperience(
-            $conexion,
-            $idUsuario,
-            $esPersonalizada ? null : $fecha
-        );
+        $contacto = $portalRepository->fetchGuestContact($conexion, $idUsuario);
+    } catch (Throwable $error) {
+        error_log('Error al consultar los datos de la cuenta para programar una experiencia: ' . $error->getMessage());
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible validar los datos de tu cuenta.']);
+    }
+    $nombre = trim((string) ($contacto['nom_usu'] ?? ''));
+    $correo = trim((string) ($contacto['corr_usu'] ?? ''));
+    if ($nombre === '' || mb_strlen($nombre) > 140 || mb_strlen($correo) > 140 || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Actualiza el nombre y correo de tu cuenta antes de programar una experiencia.']);
+    }
+
+    try {
+        $idReservaExperiencia = $portalRepository->findReservationForExperience($conexion, $idUsuario, $fecha);
     } catch (Throwable $error) {
         error_log('Error al validar la estancia para programar una experiencia: ' . $error->getMessage());
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible validar la reserva para la experiencia.']);
     }
-    if (!$esPersonalizada && $idReservaExperiencia === null) {
+    if ($idReservaExperiencia === null) {
         jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
     }
 
     try {
-        if ($esPersonalizada) {
-            $actividadPersonalizada = $experienciaPersonalizada !== '' ? $experienciaPersonalizada : ($categoriaPersonalizada !== '' ? $categoriaPersonalizada : 'Solicitud personalizada');
-            $seleccionesJson = json_encode(array_fill(0, $cantidadPersonas, 'Solicitud personalizada'), JSON_UNESCAPED_UNICODE);
-            $preciosJson = json_encode(array_fill(0, $cantidadPersonas, null), JSON_UNESCAPED_UNICODE);
-            if ($seleccionesJson === false || $preciosJson === false) {
-                throw new RuntimeException('No se pudieron procesar las opciones de la experiencia personalizada.');
-            }
-            $portalRepository->insertCustomActivity(
-                $conexion,
-                $actividadPersonalizada,
-                $seleccionesJson,
-                $nombre,
-                $correo,
-                $idUsuario,
-                $preciosJson,
-                $idReservaExperiencia
-            );
-            jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Tu solicitud personalizada fue enviada correctamente.']);
-        }
-
         $experiencia = $portalRepository->fetchExperienceForActivity($conexion, (int) $experienciaId);
         if (!$experiencia) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'La experiencia seleccionada ya no está disponible.']);
@@ -184,12 +150,26 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
                 break;
             }
         }
-        if (!$horarioDisponible || ($fecha === date('Y-m-d') && $hora <= date('H:i'))) {
+        if (!$horarioDisponible || ($fecha === $hoyHotel && $hora <= $ahoraHotel->format('H:i'))) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'El horario no está disponible para ese día. Elige uno de los horarios publicados.']);
         }
 
         $actividad = (string) $experiencia['nombre'];
-        $portalRepository->insertScheduledActivity(
+        $transaccionIniciada = false;
+        $conexion->begin_transaction();
+        $transaccionIniciada = true;
+        $reservaBloqueada = $portalRepository->findReservationForExperience(
+            $conexion,
+            $idUsuario,
+            $fecha,
+            true
+        );
+        if ($reservaBloqueada === null) {
+            $conexion->rollback();
+            $transaccionIniciada = false;
+            jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
+        }
+        $experienciaInsertada = $portalRepository->insertScheduledActivity(
             $conexion,
             $actividad,
             $opcionResumen,
@@ -201,11 +181,21 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
             $idUsuario,
             $montoExperiencia,
             $preciosJson,
-            $idReservaExperiencia
+            $reservaBloqueada
         );
+        if (!$experienciaInsertada) {
+            $conexion->rollback();
+            $transaccionIniciada = false;
+            jsonResponse(403, ['status' => 'error', 'mensaje' => 'No se pudo programar: la fecha debe estar dentro de una reserva vigente a tu nombre.']);
+        }
+        $conexion->commit();
+        $transaccionIniciada = false;
 
         jsonResponse(200, ['status' => 'exito', 'mensaje' => 'Experiencia programada correctamente.']);
     } catch (Throwable $error) {
+        if (!empty($transaccionIniciada)) {
+            $conexion->rollback();
+        }
         error_log('Error al registrar solicitud de experiencia: ' . $error->getMessage());
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible guardar la experiencia.']);
     }
@@ -250,20 +240,30 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
 
     $checkinSql = $checkinDate->setTime(15, 0, 0)->format('Y-m-d H:i:s');
     $checkoutSql = $checkoutDate->setTime(12, 0, 0)->format('Y-m-d H:i:s');
-    $availableIds = [];
+    $availableRooms = ['disponibles' => [], 'compatibles' => []];
 
     try {
-        $availableIds = $portalRepository->fetchAvailableRoomIds($conexion, $checkinSql, $checkoutSql);
+        $availableRooms = $portalRepository->fetchAvailableRooms(
+            $conexion,
+            $checkinSql,
+            $checkoutSql,
+            $adultos,
+            $ninos
+        );
     } catch (Throwable $error) {
         error_log('Error al consultar disponibilidad de habitaciones: ' . $error->getMessage());
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible consultar la disponibilidad.']);
     }
 
+    $matchingIds = $availableRooms['compatibles'];
     jsonResponse(200, [
         'status' => 'exito',
-        'mensaje' => 'Disponibilidad actualizada en tiempo real.',
-        'total_disponibles' => count($availableIds),
-        'habitaciones_ids' => $availableIds,
+        'mensaje' => count($matchingIds) > 0
+            ? 'Disponibilidad actualizada para las fechas y huéspedes seleccionados.'
+            : 'No hay habitaciones disponibles para esas fechas con capacidad para los huéspedes seleccionados.',
+        'total_disponibles' => count($matchingIds),
+        'habitaciones_ids' => $matchingIds,
+        'habitaciones_disponibles_ids' => $availableRooms['disponibles'],
         'filtros' => [
             'checkin' => $checkin,
             'checkout' => $checkout,

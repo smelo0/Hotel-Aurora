@@ -16,7 +16,9 @@ final class EmpleadoRepository
         // "Ocupada" se calcula con las reservas que cubren hoy (misma regla del dashboard del admin), no con el campo manual est_hab.
         // Cada habitación muestra su reserva en curso y, si no hay, la próxima. Las reservas que ya terminaron no se muestran.
         $ahora = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s');
-        $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.est_hab, h.obs_hab,
+        $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab,
+                       COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) AS precio_configurado,
+                       h.est_hab, h.obs_hab,
                        r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res,
                        u.nom_usu AS huesped_nombre,
                        EXISTS (
@@ -65,7 +67,10 @@ final class EmpleadoRepository
                 'id' => $id,
                 'numero' => $fila['num_hab'],
                 'tipo' => $fila['tipo_hab'],
-                'precio' => $fila['pre_hab'],
+                'precio' => \App\Reserva\RoomRateCalculator::standardNightlyRate(
+                    (string) $fila['tipo_hab'],
+                    (float) $fila['precio_configurado']
+                ),
                 'estado' => $estadoVisible,
                 'estado_registrado' => $estadoRegistrado,
                 'ocupada_ahora' => $ocupadaAhora,

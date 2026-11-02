@@ -3,6 +3,8 @@ require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
+require_once __DIR__ . '/../src/Usuario/PortalRepository.php';
+require_once __DIR__ . '/../src/Experiencia/ExperienceSchedule.php';
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 header('Content-Type: application/json; charset=utf-8');
 
@@ -251,13 +253,57 @@ if ($metodo === 'GET' && $accion === 'listar') {
     $puedeGestionar = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
     $experienceRepository = new \App\Experiencia\ExperienceRepository();
     $historial = [];
+    $huespedesRecepcion = [];
     if ($puedeGestionar) {
         $historial = $experienceRepository->obtenerHistorial($conexion);
+        $statementHuespedes = $conexion->prepare(
+            "SELECT u.id_usu, u.nom_usu, u.corr_usu,
+                    r.cod_res, DATE(r.fec_ent_res) AS fecha_inicio, DATE(r.fec_sal_res) AS fecha_fin
+             FROM usuario u
+             LEFT JOIN reservas r
+               ON r.id_usu_res = u.id_usu
+              AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+              AND DATE(r.fec_sal_res) > CURDATE()
+             WHERE u.cod_rol_usu = 6
+               AND u.est_usu = 1
+             ORDER BY u.nom_usu ASC, r.fec_ent_res ASC"
+        );
+        if (!$statementHuespedes) {
+            error_log('No se pudo preparar la lista de huéspedes para solicitudes de experiencias en recepción.');
+            responder_experiencias(500, 'No se pudieron cargar los huéspedes para recepción');
+        }
+        if (!$statementHuespedes->execute()) {
+            error_log('No se pudo consultar la lista de huéspedes para solicitudes de experiencias en recepción.');
+            $statementHuespedes->close();
+            responder_experiencias(500, 'No se pudieron cargar los huéspedes para recepción');
+        }
+        $resultHuespedes = $statementHuespedes->get_result();
+        while ($huesped = $resultHuespedes->fetch_assoc()) {
+            $userId = (int) $huesped['id_usu'];
+            if (!isset($huespedesRecepcion[$userId])) {
+                $huespedesRecepcion[$userId] = [
+                    'id' => $userId,
+                    'nombre' => (string) $huesped['nom_usu'],
+                    'correo' => (string) $huesped['corr_usu'],
+                    'estancias' => [],
+                ];
+            }
+            if ($huesped['cod_res'] !== null) {
+                $huespedesRecepcion[$userId]['estancias'][] = [
+                    'reserva_id' => (int) $huesped['cod_res'],
+                    'inicio' => (string) $huesped['fecha_inicio'],
+                    'fin' => (string) $huesped['fecha_fin'],
+                ];
+            }
+        }
+        $statementHuespedes->close();
+        $huespedesRecepcion = array_values($huespedesRecepcion);
     }
     responder_experiencias(200, 'Experiencias cargadas', [
         'experiencias' => $experienceRepository->obtenerExperiencias($conexion),
         'historial' => $historial,
         'puede_gestionar' => $puedeGestionar,
+        'huespedes_recepcion' => $huespedesRecepcion,
     ]);
 }
 
@@ -269,6 +315,175 @@ exigir_csrf();
 
 if (!usuario_tiene_permiso($conexion, 'experiencias.gestionar')) {
     responder_experiencias(403, 'No tienes permiso para gestionar las experiencias');
+}
+
+if ($accion === 'solicitar_recepcion') {
+    $userId = filter_var($_POST['id_usuario'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $reservationRaw = $_POST['cod_res_agenda'] ?? '0';
+    $reservationId = filter_var($reservationRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+    $experienceId = filter_var($_POST['id_experiencia'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $participantsRaw = $_POST['participantes'] ?? null;
+    $date = trim((string) ($_POST['fecha'] ?? ''));
+    $time = trim((string) ($_POST['hora'] ?? ''));
+    $participants = is_string($participantsRaw) ? json_decode($participantsRaw, true) : null;
+    $dateValue = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('America/Bogota'));
+    $today = (new DateTimeImmutable('today', new DateTimeZone('America/Bogota')))->format('Y-m-d');
+    if (
+        $userId === false || $reservationId === false || $experienceId === false
+        || !is_array($participants) || !array_is_list($participants)
+        || count($participants) < 1 || count($participants) > 20
+        || $dateValue === false || $dateValue->format('Y-m-d') !== $date || $date < $today
+        || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time)
+    ) {
+        responder_experiencias(422, 'Completa correctamente huésped, experiencia, personas, fecha y hora.');
+    }
+
+    $portalRepository = new \App\Usuario\PortalRepository();
+    $transaccionIniciada = false;
+    try {
+        $conexion->begin_transaction();
+        $transaccionIniciada = true;
+        $reservationFound = null;
+        $statementGuest = $conexion->prepare(
+            'SELECT id_usu FROM usuario WHERE id_usu = ? AND cod_rol_usu = 6 AND est_usu = 1 LIMIT 1 FOR UPDATE'
+        );
+        $statementGuest->bind_param('i', $userId);
+        $statementGuest->execute();
+        $guestFound = $statementGuest->get_result()->fetch_assoc();
+        $statementGuest->close();
+        if (!$guestFound) {
+            throw new RuntimeException('huesped_no_valido');
+        }
+        if ($reservationId > 0) {
+            $statementEstancia = $conexion->prepare(
+                "SELECT r.cod_res
+                 FROM reservas r
+                 INNER JOIN usuario u ON u.id_usu = r.id_usu_res
+                 WHERE r.cod_res = ?
+                   AND r.id_usu_res = ?
+                   AND u.cod_rol_usu = 6
+                   AND u.est_usu = 1
+                   AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+                   AND DATE(r.fec_ent_res) <= ?
+                   AND DATE(r.fec_sal_res) > ?
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            $statementEstancia->bind_param('iiss', $reservationId, $userId, $date, $date);
+            $statementEstancia->execute();
+            $reservationFound = $statementEstancia->get_result()->fetch_assoc();
+            $statementEstancia->close();
+            if (!$reservationFound) {
+                throw new RuntimeException('estancia_no_valida');
+            }
+        }
+
+        $contact = $portalRepository->fetchGuestContact($conexion, $userId);
+        $name = trim((string) ($contact['nom_usu'] ?? ''));
+        $email = trim((string) ($contact['corr_usu'] ?? ''));
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('contacto_no_valido');
+        }
+        $experience = $portalRepository->fetchExperienceForActivity($conexion, $experienceId);
+        if (!$experience) {
+            throw new RuntimeException('experiencia_no_disponible');
+        }
+
+        $options = [
+            1 => trim((string) $experience['opcion_1']),
+            2 => trim((string) $experience['opcion_2']),
+            3 => trim((string) $experience['opcion_3']),
+        ];
+        $prices = [
+            $experience['precio_opcion_1'] === null ? null : (string) $experience['precio_opcion_1'],
+            $experience['precio_opcion_2'] === null ? null : (string) $experience['precio_opcion_2'],
+            $experience['precio_opcion_3'] === null ? null : (string) $experience['precio_opcion_3'],
+        ];
+        $selections = [];
+        $optionIndexes = [];
+        $pricesPerPerson = [];
+        $total = 0.0;
+        $totalKnown = true;
+        foreach ($participants as $selection) {
+            if (!is_string($selection) || !in_array($selection, array_filter($options, static fn(string $option): bool => $option !== ''), true)) {
+                throw new RuntimeException('opcion_no_valida');
+            }
+            $index = array_search($selection, $options, true);
+            $selections[] = $selection;
+            $optionIndexes[] = (int) $index;
+            $price = $prices[$index - 1];
+            $pricesPerPerson[] = $price;
+            if ($price === null) {
+                $totalKnown = false;
+            } else {
+                $total += (float) $price;
+            }
+        }
+
+        $scheduleSource = json_decode((string) ($experience['horarios_json'] ?? ''), true);
+        $schedule = is_array($scheduleSource)
+            ? \App\Experiencia\ExperienceSchedule::normalizar($scheduleSource, array_values($options))
+            : [];
+        $minute = (int) substr($time, 0, 2) * 60 + (int) substr($time, 3, 2);
+        foreach (array_unique($optionIndexes) as $optionIndex) {
+            $range = $schedule[(string) $optionIndex][$date] ?? null;
+            $start = is_array($range) ? (int) substr($range['inicio'], 0, 2) * 60 + (int) substr($range['inicio'], 3, 2) : -1;
+            $end = is_array($range) ? (int) substr($range['fin'], 0, 2) * 60 + (int) substr($range['fin'], 3, 2) : -1;
+            if (!is_array($range) || $minute < $start || $minute > $end || ($minute - $start) % 30 !== 0) {
+                throw new RuntimeException('horario_no_disponible');
+            }
+        }
+        if ($date === $today && $time <= (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('H:i')) {
+            throw new RuntimeException('horario_no_disponible');
+        }
+
+        $selectionsJson = json_encode($selections, JSON_UNESCAPED_UNICODE);
+        $pricesJson = json_encode($pricesPerPerson, JSON_UNESCAPED_UNICODE);
+        if ($selectionsJson === false || $pricesJson === false) {
+            throw new RuntimeException('datos_no_validos');
+        }
+        $amount = $totalKnown ? number_format($total, 2, '.', '') : null;
+        $inserted = $portalRepository->insertReceptionScheduledActivity(
+            $conexion,
+            (string) $experience['nombre'],
+            count($selections) . ' personas',
+            $selectionsJson,
+            $date,
+            $time,
+            $name,
+            $email,
+            $userId,
+            $amount,
+            $pricesJson,
+            $reservationFound === null ? null : (int) $reservationFound['cod_res']
+        );
+        if (!$inserted) {
+            throw new RuntimeException('estancia_no_valida');
+        }
+        $conexion->commit();
+        $transaccionIniciada = false;
+        responder_experiencias(201, 'Solicitud registrada para el huésped desde recepción.');
+    } catch (Throwable $error) {
+        if ($transaccionIniciada) {
+            $conexion->rollback();
+        }
+        if ($error instanceof RuntimeException) {
+            $errors = [
+                'estancia_no_valida' => [403, 'La fecha debe estar dentro de la estancia vigente o futura del huésped.'],
+                'huesped_no_valido' => [422, 'Selecciona un huésped activo de la lista.'],
+                'contacto_no_valido' => [422, 'El huésped debe tener nombre y correo válidos en su cuenta.'],
+                'experiencia_no_disponible' => [422, 'La experiencia seleccionada ya no está disponible.'],
+                'opcion_no_valida' => [422, 'Elige una opción válida para cada persona.'],
+                'horario_no_disponible' => [422, 'La fecha u hora no coincide con los horarios publicados para todas las opciones.'],
+                'datos_no_validos' => [422, 'No se pudieron procesar las opciones seleccionadas.'],
+            ];
+            if (isset($errors[$error->getMessage()])) {
+                responder_experiencias($errors[$error->getMessage()][0], $errors[$error->getMessage()][1]);
+            }
+        }
+        error_log('No se pudo registrar una experiencia desde recepción: ' . $error->getMessage());
+        responder_experiencias(500, 'No se pudo registrar la solicitud de experiencia.');
+    }
 }
 
 if ($accion === 'guardar') {
@@ -357,6 +572,10 @@ if ($accion === 'guardar') {
     if (!is_array($horarios) || !isset($horarios['opciones']) || !is_array($horarios['opciones'])) {
         responder_experiencias(422, 'Configura los horarios de la experiencia');
     }
+    $exclusionesRecibidas = $horarios['exclusiones'] ?? [];
+    if (!is_array($exclusionesRecibidas)) {
+        responder_experiencias(422, 'Revisa las fechas eliminadas de la experiencia');
+    }
     $horariosValidados = [];
     foreach ([1, 2, 3] as $numeroOpcion) {
         if ($opciones[$numeroOpcion - 1] === '') {
@@ -390,6 +609,38 @@ if ($accion === 'guardar') {
             }
             $horariosValidados[(string) $numeroOpcion][$fecha] = $rango;
         }
+    }
+    $exclusionesValidadas = [];
+    foreach ([1, 2, 3] as $numeroOpcion) {
+        $fechasExcluidas = $exclusionesRecibidas[(string) $numeroOpcion] ?? $exclusionesRecibidas[$numeroOpcion] ?? [];
+        if (!is_array($fechasExcluidas) || count($fechasExcluidas) > 100) {
+            responder_experiencias(422, 'Revisa las fechas eliminadas de la experiencia');
+        }
+        $fechasProgramadas = array_keys($horariosValidados[(string) $numeroOpcion]);
+        $fechaMinimaProgramada = $fechasProgramadas === [] ? null : min($fechasProgramadas);
+        $fechaMaximaProgramada = $fechasProgramadas === [] ? null : max($fechasProgramadas);
+        $exclusionesValidadas[(string) $numeroOpcion] = [];
+        foreach ($fechasExcluidas as $fechaExcluida) {
+            if (!is_string($fechaExcluida)) {
+                responder_experiencias(422, 'Revisa las fechas eliminadas de la experiencia');
+            }
+            $fechaValidada = DateTimeImmutable::createFromFormat('!Y-m-d', $fechaExcluida, $zonaHorariaHotel);
+            if ($fechaValidada === false || $fechaValidada->format('Y-m-d') !== $fechaExcluida) {
+                responder_experiencias(422, 'Revisa las fechas eliminadas de la experiencia');
+            }
+            if (
+                isset($horariosValidados[(string) $numeroOpcion][$fechaExcluida])
+                || $fechaMinimaProgramada === null
+                || $fechaMaximaProgramada === null
+                || $fechaExcluida <= $fechaMinimaProgramada
+                || $fechaExcluida >= $fechaMaximaProgramada
+            ) {
+                continue;
+            }
+            $exclusionesValidadas[(string) $numeroOpcion][] = $fechaExcluida;
+        }
+        $exclusionesValidadas[(string) $numeroOpcion] = array_values(array_unique($exclusionesValidadas[(string) $numeroOpcion]));
+        sort($exclusionesValidadas[(string) $numeroOpcion], SORT_STRING);
     }
 
     $imagenActual = null;
@@ -444,7 +695,10 @@ if ($accion === 'guardar') {
     }
 
     $imagen = $imagenNueva ?? ($quitarImagen ? null : $imagenActual);
-    $horariosJson = json_encode($horariosValidados, JSON_UNESCAPED_UNICODE);
+    $horariosJson = json_encode(
+        ['opciones' => $horariosValidados, 'exclusiones' => $exclusionesValidadas],
+        JSON_UNESCAPED_UNICODE
+    );
     if ($horariosJson === false) {
         responder_experiencias(500, 'No se pudieron procesar los horarios');
     }

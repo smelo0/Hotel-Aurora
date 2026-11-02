@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Admin;
 
 use mysqli;
+use App\Reserva\RoomRateSchemaMigrator;
 
 final class AdminReservationRepository
 {
@@ -15,6 +16,8 @@ final class AdminReservationRepository
 
     public function obtenerDatos(int $requestedPage = 1, string $search = ''): array
     {
+        RoomRateSchemaMigrator::ensure($this->connection);
+
         $search = trim(mb_substr($search, 0, 100, 'UTF-8'));
         $searchSql = $search === '' ? '' : ' WHERE u.nom_usu LIKE ?';
         $countStatement = $this->connection->prepare(
@@ -49,7 +52,7 @@ final class AdminReservationRepository
                         (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
                         GREATEST(
                             COALESCE((
-                                SELECT SUM(COALESCE(NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))
+                                SELECT SUM(COALESCE(d2.precio_noche_det, NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))
                                 FROM detalle d2
                                 INNER JOIN habitacion h2 ON h2.cod_hab = d2.cod_hab_det
                                 WHERE d2.cod_res_det = r.cod_res
@@ -106,7 +109,7 @@ final class AdminReservationRepository
 
         $habitaciones = $this->obtenerFilas(
             "SELECT cod_hab, num_hab, tipo_hab, pre_hab, precio_hab
-             FROM habitacion WHERE est_hab = 'Disponible' ORDER BY num_hab ASC"
+             FROM habitacion WHERE est_hab NOT IN ('Mantenimiento', 'Sucia') ORDER BY num_hab ASC"
         );
 
         return [

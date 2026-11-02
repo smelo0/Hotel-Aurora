@@ -20,6 +20,7 @@ require_once __DIR__ . '/../configuracion/permiso.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 require_once __DIR__ . '/../src/RoomService/RoomServiceRepository.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
 
 use App\Billing\BillingRegistrar;
 use App\Logger;
@@ -30,6 +31,7 @@ header('Content-Type: application/json; charset=utf-8');
 exigir_permiso($conexion, 'reservas.editar');
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 BillingRegistrar::asegurarEsquema($conexion);
+\App\Reserva\RoomRateSchemaMigrator::ensure($conexion);
 
 $puedeCobrarExperiencias = usuario_tiene_permiso($conexion, 'finanzas.ver') && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
 $puedeCobrarRoomService = usuario_tiene_permiso($conexion, 'finanzas.ver') && usuario_tiene_permiso($conexion, 'roomservice.gestionar');
@@ -105,7 +107,8 @@ function cuenta_construir(mysqli $db, int $codRes, bool $puedeExperiencias, bool
 
     $habitaciones = cuenta_filas(
         $db,
-        'SELECT h.num_hab, h.tipo_hab, COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) AS precio
+        'SELECT h.num_hab, h.tipo_hab,
+                COALESCE(d.precio_noche_det, NULLIF(h.pre_hab, 0), h.precio_hab, 0) AS precio
          FROM detalle d INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
          WHERE d.cod_res_det = ? ORDER BY h.num_hab',
         'i',

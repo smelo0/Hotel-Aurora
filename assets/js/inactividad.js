@@ -300,8 +300,11 @@
             } else if (result.data.intentos_agotados) {
                 errorEl.textContent = 'Se agotaron los intentos. La sesión se cerrará al terminar el contador.';
                 errorEl.style.display = 'block';
-            } else {
+            } else if (result.data.status === 'invalid_password') {
                 errorEl.textContent = 'Contraseña incorrecta.';
+                errorEl.style.display = 'block';
+            } else {
+                errorEl.textContent = result.data.mensaje || 'No se pudo verificar la contraseña. Intenta de nuevo.';
                 errorEl.style.display = 'block';
             }
         } catch (error) {
@@ -312,14 +315,22 @@
         }
     };
 
-    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    activityEvents.forEach((eventType) => {
-        window.addEventListener(eventType, () => {
-            if (modal.style.display !== 'flex') {
-                startIdleTimer();
-                reportActivity();
-            }
-        }, { passive: true });
+    function registerUserActivity() {
+        if (modal.style.display === 'flex') {
+            return;
+        }
+        startIdleTimer();
+        reportActivity();
+    }
+
+    ['pointerdown', 'pointermove', 'keydown', 'click', 'wheel', 'touchstart', 'input'].forEach(eventType => {
+        window.addEventListener(eventType, registerUserActivity, { passive: true, capture: true });
+    });
+    window.addEventListener('scroll', registerUserActivity, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            registerUserActivity();
+        }
     });
 
     startIdleTimer();

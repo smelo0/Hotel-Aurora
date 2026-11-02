@@ -95,26 +95,37 @@ if ((int) ($_SESSION['sesion_bloqueo_intentos'] ?? 0) >= 5) {
     exit;
 }
 
-$stmt = $conexion->prepare("SELECT psw_usu FROM usuario WHERE id_usu = ?");
-if (!$stmt) {
+$valido = false;
+try {
+    $stmt = $conexion->prepare('SELECT psw_usu FROM usuario WHERE id_usu = ? LIMIT 1');
+    if (!$stmt) {
+        throw new RuntimeException('No se pudo preparar la verificación de contraseña.');
+    }
+
+    foreach ($idsCandidatos as $idCandidato) {
+        $stmt->bind_param('i', $idCandidato);
+        $stmt->execute();
+        $resultado = $stmt->get_result()->fetch_assoc();
+        $hashGuardado = (string) ($resultado['psw_usu'] ?? '');
+        if ($hashGuardado !== '' && password_verify($clave, $hashGuardado)) {
+            $valido = true;
+            break;
+        }
+    }
+    $stmt->close();
+} catch (Throwable $error) {
+    if (isset($stmt) && $stmt instanceof mysqli_stmt) {
+        $stmt->close();
+    }
+    error_log('Error al verificar contraseña para desbloquear sesión: ' . $error->getMessage());
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'valido' => false]);
+    echo json_encode([
+        'status' => 'error',
+        'valido' => false,
+        'mensaje' => 'No fue posible verificar la contraseña. Intenta de nuevo.',
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
-$valido = false;
-foreach ($idsCandidatos as $idCandidato) {
-    $hashGuardado = null;
-    $stmt->bind_param('i', $idCandidato);
-    $stmt->execute();
-    $stmt->bind_result($hashGuardado);
-    $stmt->fetch();
-    $stmt->free_result();
-    if ($hashGuardado && password_verify($clave, $hashGuardado)) {
-        $valido = true;
-        break;
-    }
-}
-$stmt->close();
 
 if ($valido) {
     unset(
@@ -131,7 +142,7 @@ if ($valido) {
 }
 
 echo json_encode([
-    'status' => $valido ? 'ok' : 'error',
+    'status' => $valido ? 'ok' : 'invalid_password',
     'valido' => $valido,
     'intentos_restantes' => max(0, 5 - (int) ($_SESSION['sesion_bloqueo_intentos'] ?? 0)),
 ]);

@@ -138,12 +138,12 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=19" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=19';"></script>
+ <script src="js_ad/admin.js?v=21" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=21';"></script>
     <script src="js_ad/scroll_admin.js?v=1"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=4"></script>
+    <script src="../../assets/js/inactividad.js?v=7"></script>
 <?php endif; ?>
 </body>
 </html>

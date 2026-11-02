@@ -7,7 +7,9 @@ require_once '../configuracion/conexion.php';
 require_once '../configuracion/wompi.php';
 require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
+require_once __DIR__ . '/../src/Database/ReceptionGuestSchemaMigrator.php';
 require_once __DIR__ . '/../configuracion/capacidad_habitaciones.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
 /**@var mysqli $conexion */
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
@@ -22,6 +24,7 @@ if (!isset($_SESSION['user_auth'])) {
 }
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+\App\Reserva\RoomRateSchemaMigrator::ensure($conexion);
 
 function jsonResponse(int $statusCode, array $payload): never
 {
@@ -43,6 +46,34 @@ function parseDateOnly(string $value): ?DateTimeImmutable
     }
 
     return $date;
+}
+
+function parseChildAges(mixed $value): ?array
+{
+    if (is_string($value)) {
+        if (trim($value) === '') {
+            $value = [];
+        } else {
+            $value = json_decode($value, true);
+        }
+    }
+    if (!is_array($value)) {
+        return null;
+    }
+
+    $ages = [];
+    foreach ($value as $age) {
+        if (!is_scalar($age) || filter_var((string) $age, FILTER_VALIDATE_INT) === false) {
+            return null;
+        }
+        $age = (int) $age;
+        if ($age < 0 || $age > \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE) {
+            return null;
+        }
+        $ages[] = $age;
+    }
+
+    return $ages;
 }
 
 function normalizarMetodoPago(string $metodo): string
@@ -87,9 +118,10 @@ $fechaOut = trim((string) ($_POST['fecha_out'] ?? ''));
 $notasReserva = trim((string) ($_POST['notas_reserva'] ?? ''));
 $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
 $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
+$edadesNinos = parseChildAges($_POST['edades_ninos'] ?? []);
 
 // Distribución de huéspedes por habitación (portal del huésped con varias habitaciones):
-// JSON [{"id": 12, "adultos": 2, "ninos": 1}, ...]. Se valida más abajo, cuando ya se conocen las habitaciones.
+// JSON [{"id": 12, "adultos": 2, "ninos": 1, "edades_ninos": [7]}, ...].
 $distribucionHuespedes = null;
 $distribucionRaw = $_POST['huespedes_por_habitacion'] ?? '';
 if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
@@ -99,15 +131,25 @@ if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
     }
     $distribucionHuespedes = [];
     foreach ($distribucionJson as $filaDistribucion) {
+        if (!is_array($filaDistribucion)) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
+        }
         $idDistribucion = (int) ($filaDistribucion['id'] ?? 0);
         if ($idDistribucion < 1 || isset($distribucionHuespedes[$idDistribucion])) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
         }
+        $edadesDistribucion = parseChildAges($filaDistribucion['edades_ninos'] ?? []);
+        if ($edadesDistribucion === null || count($edadesDistribucion) !== max(0, (int) ($filaDistribucion['ninos'] ?? 0))) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Indica la edad de cada niño para calcular la tarifa correcta.']);
+        }
         $distribucionHuespedes[$idDistribucion] = [
             'adultos' => max(0, (int) ($filaDistribucion['adultos'] ?? 0)),
             'ninos' => max(0, (int) ($filaDistribucion['ninos'] ?? 0)),
+            'edades_ninos' => $edadesDistribucion,
         ];
     }
+} elseif ($edadesNinos === null || count($edadesNinos) !== $cantidadNinos) {
+    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Indica la edad de cada niño para calcular la tarifa correcta.']);
 }
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
 $tipoHabitacion = trim((string) ($_POST['tipo_habitacion'] ?? ''));
@@ -130,6 +172,81 @@ $accion = trim((string) ($_POST['accion'] ?? ''));
 // (sin accion ni tipo_huesped), se trata como reserva de cliente.
 $esPersonal = isset($_SESSION['emp_auth']['id_usuario'])
     && ($accion !== '' || $tipoHuesped !== '' || !isset($_SESSION['user_auth']['id_usuario']));
+$datosNuevoHuesped = null;
+if ($esPersonal && $tipoHuesped === 'nuevo') {
+    $nombreNuevoRaw = $_POST['nuevo_nombre'] ?? '';
+    $correoNuevoRaw = $_POST['nuevo_correo'] ?? '';
+    $tipoDocumentoNuevoRaw = $_POST['nuevo_tipo_documento'] ?? '';
+    $documentoNuevoRaw = $_POST['nuevo_documento'] ?? '';
+    $telefonoNuevoRaw = $_POST['nuevo_telefono'] ?? '';
+    if (
+        !is_string($nombreNuevoRaw)
+        || !is_string($correoNuevoRaw)
+        || !is_string($tipoDocumentoNuevoRaw)
+        || !is_string($documentoNuevoRaw)
+        || !is_string($telefonoNuevoRaw)
+    ) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Revisa los datos ingresados del huésped.']);
+    }
+
+    $nombreNuevo = trim($nombreNuevoRaw);
+    $correoNuevo = trim($correoNuevoRaw);
+    $tipoDocumentoNuevo = trim($tipoDocumentoNuevoRaw);
+    $documentoNuevo = trim($documentoNuevoRaw);
+    $telefonoNuevo = trim($telefonoNuevoRaw);
+    $tiposDocumentoPermitidos = ['CC', 'CE', 'PAS', 'PPT', 'PEP'];
+    if (
+        ($nombreNuevo !== '' && (preg_match('//u', $nombreNuevo) !== 1
+            || preg_match('/[\x00-\x1F\x7F]/u', $nombreNuevo) === 1
+            || mb_strlen($nombreNuevo, 'UTF-8') > 100))
+        || ($correoNuevo !== '' && (!filter_var($correoNuevo, FILTER_VALIDATE_EMAIL) || strlen($correoNuevo) > 100))
+        || ($tipoDocumentoNuevo !== '' && !in_array($tipoDocumentoNuevo, $tiposDocumentoPermitidos, true))
+        || ($documentoNuevo !== '' && preg_match('/^[0-9]{5,12}$/', $documentoNuevo) !== 1)
+        || ($telefonoNuevo !== '' && preg_match('/^\+?[0-9 ]{7,20}$/', $telefonoNuevo) !== 1)
+    ) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Revisa los datos ingresados. El documento debe tener solo números y entre 5 y 12 dígitos; el correo y teléfono también deben tener un formato válido si los ingresas.']);
+    }
+
+    try {
+        \App\Database\ReceptionGuestSchemaMigrator::ensure($conexion);
+    } catch (Throwable $error) {
+        error_log('No se pudo preparar el esquema de huéspedes de recepción: ' . $error->getMessage());
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'No se pudieron guardar los datos opcionales del huésped.']);
+    }
+
+    $datosNuevoHuesped = [
+        'nombre' => $nombreNuevo !== '' ? $nombreNuevo : 'Huésped de recepción',
+        'correo' => $correoNuevo !== '' ? $correoNuevo : null,
+        'tipo_documento' => $tipoDocumentoNuevo !== '' ? $tipoDocumentoNuevo : null,
+        'documento' => $documentoNuevo !== '' ? $documentoNuevo : null,
+        'telefono' => $telefonoNuevo !== '' ? $telefonoNuevo : null,
+    ];
+}
+$reservaDesdeCuentaHuesped = !$esPersonal
+    && isset($_SESSION['user_auth']['id_usuario'])
+    && (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0) === 6;
+$hospedajeANombreDe = $_POST['hospedaje_a_nombre_de'] ?? 'cuenta';
+$nombreHuespedEstadia = '';
+if ($reservaDesdeCuentaHuesped) {
+    if (!is_string($hospedajeANombreDe) || !in_array($hospedajeANombreDe, ['cuenta', 'otra_persona'], true)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona a nombre de quién estará el hospedaje.']);
+    }
+    if ($hospedajeANombreDe === 'otra_persona') {
+        $nombreHuespedRaw = $_POST['nombre_huesped_estadia'] ?? null;
+        if (!is_string($nombreHuespedRaw)) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Escribe el nombre de la persona que se hospedará.']);
+        }
+        $nombreHuespedEstadia = trim($nombreHuespedRaw);
+        if (
+            $nombreHuespedEstadia === ''
+            || preg_match('//u', $nombreHuespedEstadia) !== 1
+            || preg_match('/[\x00-\x1F\x7F]/u', $nombreHuespedEstadia) === 1
+            || mb_strlen($nombreHuespedEstadia, 'UTF-8') > 100
+        ) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'El nombre de la persona debe tener entre 1 y 100 caracteres.']);
+        }
+    }
+}
 
 $metodoRecibido = trim((string) ($_POST['metodo_pago'] ?? ''));
 if ($esPersonal && $accion === 'guardar') {
@@ -241,6 +358,9 @@ $resumenHabitaciones = $tipoHabitacion !== ''
         : "Habitación seleccionada: {$idHabitacion}");
 $notasCompletas = trim(
     "Adultos: {$cantidadAdultos} | Niños: {$cantidadNinos} | Pago: {$metodoPago} | {$resumenHabitaciones}" .
+    ($reservaDesdeCuentaHuesped && $hospedajeANombreDe === 'otra_persona'
+        ? "\nHospedaje a nombre de: {$nombreHuespedEstadia}"
+        : '') .
     ($notasReserva !== '' ? "\n{$notasReserva}" : '')
 );
 
@@ -272,32 +392,40 @@ try {
             }
             $stmtHuesped->close();
         } elseif ($tipoHuesped === 'nuevo') {
-            $nombreNuevo = trim((string) ($_POST['nuevo_nombre'] ?? ''));
-            $correoNuevo = trim((string) ($_POST['nuevo_correo'] ?? ''));
-
-            if ($nombreNuevo === '' || !filter_var($correoNuevo, FILTER_VALIDATE_EMAIL)) {
-                throw new RuntimeException('datos_huesped_invalidos');
-            }
-
-            $sqlUsuarioExistente = 'SELECT id_usu, cod_rol_usu FROM usuario WHERE corr_usu = ? LIMIT 1';
-            $stmtUsuarioExistente = $conexion->prepare($sqlUsuarioExistente);
-            $stmtUsuarioExistente->bind_param('s', $correoNuevo);
-            $stmtUsuarioExistente->execute();
-            $stmtUsuarioExistente->bind_result($idUsuarioEncontrado, $rolEncontrado);
-
-            if ($stmtUsuarioExistente->fetch()) {
-                $stmtUsuarioExistente->close();
-                if ((int) $rolEncontrado !== 6) {
-                    throw new RuntimeException('datos_huesped_invalidos');
+            $correoNuevo = $datosNuevoHuesped['correo'];
+            if ($correoNuevo !== null) {
+                $stmtUsuarioExistente = $conexion->prepare(
+                    'SELECT id_usu, cod_rol_usu FROM usuario WHERE corr_usu = ? LIMIT 1'
+                );
+                $stmtUsuarioExistente->bind_param('s', $correoNuevo);
+                $stmtUsuarioExistente->execute();
+                $stmtUsuarioExistente->bind_result($idUsuarioEncontrado, $rolEncontrado);
+                if ($stmtUsuarioExistente->fetch()) {
+                    $stmtUsuarioExistente->close();
+                    if ((int) $rolEncontrado !== 6) {
+                        throw new RuntimeException('datos_huesped_invalidos');
+                    }
+                    $idUsuarioFinal = (int) $idUsuarioEncontrado;
+                } else {
+                    $stmtUsuarioExistente->close();
                 }
-                $idUsuarioFinal = (int) $idUsuarioEncontrado;
-            } else {
-                $stmtUsuarioExistente->close();
+            }
+            if ($idUsuarioFinal === 0) {
                 $passwordGenerica = password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT);
                 $rolHuesped = 6;
-                $sqlNuevoUsuario = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu) VALUES (?, ?, ?, ?)';
+                $sqlNuevoUsuario = 'INSERT INTO usuario (nom_usu, doc_usu, tipo_doc_usu, tel_usu, corr_usu, psw_usu, cod_rol_usu)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)';
                 $stmtNuevoUsuario = $conexion->prepare($sqlNuevoUsuario);
-                $stmtNuevoUsuario->bind_param('sssi', $nombreNuevo, $correoNuevo, $passwordGenerica, $rolHuesped);
+                $stmtNuevoUsuario->bind_param(
+                    'ssssssi',
+                    $datosNuevoHuesped['nombre'],
+                    $datosNuevoHuesped['documento'],
+                    $datosNuevoHuesped['tipo_documento'],
+                    $datosNuevoHuesped['telefono'],
+                    $datosNuevoHuesped['correo'],
+                    $passwordGenerica,
+                    $rolHuesped
+                );
                 $stmtNuevoUsuario->execute();
                 $idUsuarioFinal = (int) $conexion->insert_id;
                 $stmtNuevoUsuario->close();
@@ -489,12 +617,33 @@ try {
     }
 
     // Límite de personas por habitación (adultos, niños y total) y reparto entre habitaciones.
+    if (count($habitacionesSeleccionadas) > 1 && empty($distribucionHuespedes)) {
+        throw new RuntimeException('ocupacion_invalida:Indica cuántas personas habrá en cada una de las habitaciones.');
+    }
     $distribucionValidada = validar_ocupacion_habitaciones(
         $habitacionesSeleccionadas,
         $cantidadAdultos,
         $cantidadNinos,
         count($habitacionesSeleccionadas) > 1 ? $distribucionHuespedes : null
     );
+    foreach ($habitacionesSeleccionadas as &$habitacionTarificada) {
+        $ocupacionHabitacion = $distribucionValidada[$habitacionTarificada['cod_hab']] ?? [
+            'adultos' => $cantidadAdultos,
+            'ninos' => $cantidadNinos,
+            'edades_ninos' => $edadesNinos,
+        ];
+        if (count($ocupacionHabitacion['edades_ninos']) !== $ocupacionHabitacion['ninos']) {
+            throw new RuntimeException('edades_ninos_invalidas');
+        }
+        $habitacionTarificada['precio'] = \App\Reserva\RoomRateCalculator::nightlyRate(
+            (string) $habitacionTarificada['tipo_hab'],
+            (float) $habitacionTarificada['precio'],
+            (int) $ocupacionHabitacion['adultos'],
+            $ocupacionHabitacion['edades_ninos']
+        );
+    }
+    unset($habitacionTarificada);
+
     if ($distribucionValidada !== [] && count($habitacionesSeleccionadas) > 1) {
         $detalleDistribucion = [];
         foreach ($habitacionesSeleccionadas as $habitacionDistribuida) {
@@ -525,11 +674,12 @@ try {
     $stmtReserva->close();
 
     // 2. Insertar un detalle por cada habitación.
-    $sqlDetalle = 'INSERT INTO detalle (can_noc_det, cod_res_det, cod_hab_det) VALUES (?, ?, ?)';
+    $sqlDetalle = 'INSERT INTO detalle (can_noc_det, cod_res_det, cod_hab_det, precio_noche_det) VALUES (?, ?, ?, ?)';
     $stmtDetalle = $conexion->prepare($sqlDetalle);
     foreach ($habitacionesSeleccionadas as $room) {
         $roomIdDetalle = (int) $room['cod_hab'];
-        $stmtDetalle->bind_param('iii', $noches, $idReservaNueva, $roomIdDetalle);
+        $precioNocheHabitacion = (float) $room['precio'];
+        $stmtDetalle->bind_param('iiid', $noches, $idReservaNueva, $roomIdDetalle, $precioNocheHabitacion);
         $stmtDetalle->execute();
     }
     $stmtDetalle->close();
@@ -666,7 +816,7 @@ try {
     $statusCode = 400;
 
     if (in_array($reason, ['datos_huesped_invalidos', 'usuario_invalido'], true)) {
-        $message = 'Completa un nombre y un correo válidos para continuar.';
+        $message = 'Revisa los datos del huésped. El correo debe tener un formato válido si lo ingresas.';
         $statusCode = 422;
     } elseif ($reason === 'habitacion_no_existe') {
         $message = 'La habitación seleccionada no existe.';
@@ -682,6 +832,9 @@ try {
         $statusCode = 409;
     } elseif (str_starts_with($reason, 'ocupacion_invalida:')) {
         $message = substr($reason, strlen('ocupacion_invalida:'));
+        $statusCode = 422;
+    } elseif ($reason === 'edades_ninos_invalidas') {
+        $message = 'Indica la edad de cada niño para calcular la tarifa correcta.';
         $statusCode = 422;
     } elseif (str_starts_with($reason, 'wompi_')) {
         $message = match ($reason) {

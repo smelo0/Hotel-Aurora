@@ -175,6 +175,22 @@ let intervaloHousekeeping = null;
 function abrirModalReserva() {
     const modal = document.getElementById('modalReserva');
     if (!modal) return;
+    const form = document.getElementById('formCrearReserva');
+    if (form) {
+        form.reset();
+        if (typeof limpiarHuespedSeleccionado === 'function') {
+            limpiarHuespedSeleccionado();
+        }
+        if (typeof sincronizarHuespedesAdmin === 'function') {
+            sincronizarHuespedesAdmin();
+        }
+        const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+        form.querySelectorAll('[name="fecha_in"], [name="fecha_out"]').forEach(campo => {
+            campo.min = hoy;
+        });
+        if (typeof actualizarTotalReservaPreview === 'function') actualizarTotalReservaPreview();
+    }
+    document.getElementById('subModalNuevoHuesped')?.classList.add('hidden');
     modal.classList.remove('hidden');
     requestAnimationFrame(() => modal.classList.add('modal-reserva-visible'));
 }

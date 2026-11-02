@@ -30,6 +30,16 @@ if (!isset($conexion) || $conexion->connect_errno) {
 
 $conexion->set_charset('utf8');
 
+// Garantiza que exista la columna del tipo de documento (compatible con MariaDB 10.4 / XAMPP).
+$colTipoDoc = $conexion->query("SHOW COLUMNS FROM usuario LIKE 'tipo_doc_usu'");
+if ($colTipoDoc instanceof mysqli_result) {
+    $existeTipoDoc = $colTipoDoc->num_rows > 0;
+    $colTipoDoc->free();
+    if (!$existeTipoDoc) {
+        $conexion->query("ALTER TABLE usuario ADD COLUMN tipo_doc_usu VARCHAR(10) DEFAULT NULL AFTER doc_usu");
+    }
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     redirectToUserLogin();
 }
@@ -38,12 +48,15 @@ exigir_csrf();
 
 $nombre = trim((string) ($_POST['nom_usu'] ?? ''));
 $correo = trim((string) ($_POST['corr_usu'] ?? ''));
+$tipoDocumento = strtoupper(trim((string) ($_POST['tipo_doc_usu'] ?? '')));
+$documento = preg_replace('/[\s.\-]/', '', trim((string) ($_POST['doc_usu'] ?? ''))) ?? '';
+$telefono = trim((string) ($_POST['tel_usu'] ?? ''));
 $passwordPura = (string) ($_POST['psw_usu'] ?? '');
 $dataConsent = (int) ($_POST['data_consent'] ?? 0);
 $captchaToken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
 $consentIp = $_SERVER['REMOTE_ADDR'] ?? '';
 
-if ($nombre === '' || $correo === '' || $passwordPura === '') {
+if ($nombre === '' || $correo === '' || $passwordPura === '' || $tipoDocumento === '' || $documento === '' || $telefono === '') {
     Logger::registrarLog('WARN', 'Intento de registro con campos vacíos', ['correo' => $correo]);
     redirectToUserLogin('vista=registro&error=vacio');
 }
@@ -57,6 +70,30 @@ if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
     Logger::registrarLog('WARN', 'Intento de registro con formato de correo electrónico inválido', ['correo' => $correo]);
     redirectToUserLogin('vista=registro&error=email');
 }
+
+$tiposDocumentoValidos = ['CC', 'CE', 'PAS', 'PPT', 'PEP'];
+if (!in_array($tipoDocumento, $tiposDocumentoValidos, true)) {
+    Logger::registrarLog('WARN', 'Intento de registro con tipo de documento inválido', ['correo' => $correo]);
+    redirectToUserLogin('vista=registro&error=tipo_doc');
+}
+
+// El pasaporte puede ser alfanumérico; las cédulas y permisos solo numéricos.
+$documentoValido = $tipoDocumento === 'PAS'
+    ? preg_match('/^[A-Za-z0-9]{4,20}$/', $documento) === 1
+    : preg_match('/^[0-9]{4,20}$/', $documento) === 1;
+
+if (!$documentoValido) {
+    Logger::registrarLog('WARN', 'Intento de registro con número de documento inválido', ['correo' => $correo, 'tipo_doc' => $tipoDocumento]);
+    redirectToUserLogin('vista=registro&error=documento');
+}
+$documento = strtoupper($documento);
+
+$telefonoLimpio = preg_replace('/\s+/', '', $telefono) ?? '';
+if (preg_match('/^\+?[0-9]{7,15}$/', $telefonoLimpio) !== 1) {
+    Logger::registrarLog('WARN', 'Intento de registro con número de celular inválido', ['correo' => $correo]);
+    redirectToUserLogin('vista=registro&error=telefono');
+}
+$telefono = $telefonoLimpio;
 
 if (Recaptcha::isEnabled() && !Recaptcha::verify($captchaToken)) {
     Logger::registrarLog('WARN', 'Fallo en la validación del token de reCAPTCHA durante el registro', ['correo' => $correo]);
@@ -104,10 +141,25 @@ if ($stmtCheck->num_rows > 0) {
 
 $stmtCheck->close();
 
+$stmtDoc = $conexion->prepare('SELECT id_usu FROM usuario WHERE tipo_doc_usu = ? AND doc_usu = ? LIMIT 1');
+if ($stmtDoc) {
+    $stmtDoc->bind_param('ss', $tipoDocumento, $documento);
+    $stmtDoc->execute();
+    $stmtDoc->store_result();
+    $docDuplicado = $stmtDoc->num_rows > 0;
+    $stmtDoc->close();
+
+    if ($docDuplicado) {
+        $conexion->close();
+        Logger::registrarLog('WARN', 'Intento de registro con un documento ya existente', ['correo' => $correo, 'tipo_doc' => $tipoDocumento]);
+        redirectToUserLogin('vista=registro&error=documento_duplicado');
+    }
+}
+
 $passwordEncriptada = password_hash($passwordPura, PASSWORD_BCRYPT);
 $rolHuesped = 6;
 
-$sql = 'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu, data_consent, consent_date, consent_ip) VALUES (?, ?, ?, ?, ?, NOW(), ?)';
+$sql = 'INSERT INTO usuario (nom_usu, tipo_doc_usu, doc_usu, tel_usu, corr_usu, psw_usu, cod_rol_usu, data_consent, consent_date, consent_ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)';
 $stmt = $conexion->prepare($sql);
 
 if (!$stmt) {
@@ -118,7 +170,7 @@ if (!$stmt) {
     redirectToUserLogin('vista=registro&error=bd_insercion');
 }
 
-$stmt->bind_param('sssiis', $nombre, $correo, $passwordEncriptada, $rolHuesped, $dataConsent, $consentIp);
+$stmt->bind_param('ssssssiis', $nombre, $tipoDocumento, $documento, $telefono, $correo, $passwordEncriptada, $rolHuesped, $dataConsent, $consentIp);
 
 if (!$stmt->execute()) {
     Logger::registrarLog('ERROR', 'Fallo al ejecutar inserción de nuevo usuario con consentimiento', [

@@ -20,7 +20,7 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
     <?php if (!empty($googleClientId)): ?>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=2">
+    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=3">
 </head>
 <body>
     <?php
@@ -35,6 +35,10 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
         'rol' => 'Esta cuenta no pertenece al panel de huéspedes.',
         'vacio' => 'Por favor, completa todos los campos.',
         'email' => 'Ingresa un correo válido.',
+        'tipo_doc' => 'Selecciona un tipo de documento válido.',
+        'documento' => 'Ingresa un número de documento válido (4 a 20 caracteres, solo letras y números; para cédulas y permisos, solo números).',
+        'telefono' => 'Ingresa un número de celular válido (entre 7 y 15 dígitos).',
+        'documento_duplicado' => 'Ya existe una cuenta registrada con ese documento.',
         'credenciales' => 'Correo o contraseña incorrectos.',
         'captcha' => 'Debes marcar la casilla: No soy un robot.',
         'consentimiento' => 'Debes aceptar el tratamiento de tus datos personales para continuar.',
@@ -125,6 +129,27 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <label for="nom_usu">Nombre completo</label>
                 <input id="nom_usu" type="text" name="nom_usu" autocomplete="name" required placeholder="Tu nombre">
+
+                <div class="field-row">
+                    <div class="field-col">
+                        <label for="tipo_doc_usu">Tipo de documento</label>
+                        <select id="tipo_doc_usu" name="tipo_doc_usu" required>
+                            <option value="" disabled selected>Selecciona</option>
+                            <option value="CC">Cédula de ciudadanía (CC)</option>
+                            <option value="CE">Cédula de extranjería (CE)</option>
+                            <option value="PAS">Pasaporte</option>
+                            <option value="PPT">Permiso por protección temporal (PPT)</option>
+                            <option value="PEP">Permiso especial de permanencia (PEP)</option>
+                        </select>
+                    </div>
+                    <div class="field-col">
+                        <label for="doc_usu">Número de documento</label>
+                        <input id="doc_usu" type="text" name="doc_usu" inputmode="text" autocomplete="off" required minlength="4" maxlength="20" pattern="[A-Za-z0-9]{4,20}" title="Entre 4 y 20 caracteres, solo letras y números, sin puntos ni espacios" placeholder="Sin puntos ni espacios">
+                    </div>
+                </div>
+
+                <label for="tel_usu">Número de celular</label>
+                <input id="tel_usu" type="tel" name="tel_usu" inputmode="tel" autocomplete="tel" required minlength="7" maxlength="20" pattern="\+?[0-9 ]{7,20}" title="Entre 7 y 15 dígitos. Puedes iniciar con + para el indicativo del país" placeholder="Ej: 3001234567">
 
                 <label for="corr_usu">Correo</label>
                 <input id="corr_usu" type="email" name="corr_usu" autocomplete="email" required placeholder="nombre@correo.com">

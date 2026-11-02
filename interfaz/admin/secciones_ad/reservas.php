@@ -35,8 +35,15 @@ if (!function_exists('separar_notas_reserva_admin')) {
         $notas = trim((string) $notas);
         $resultado = [
             'huespedes' => '',
+            'hospedaje' => '',
             'peticion' => $notas
         ];
+
+        if (preg_match('/(?:^|\R)Hospedaje a nombre de:\s*([^\r\n]+)/u', $notas, $coincidencias)) {
+            $resultado['hospedaje'] = trim($coincidencias[1]);
+            $notas = trim(preg_replace('/(?:^|\R)Hospedaje a nombre de:\s*[^\r\n]*/u', '', $notas) ?? $notas);
+            $resultado['peticion'] = $notas;
+        }
 
         if (preg_match('/^Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)\s*(.*)$/isu', $notas, $coincidencias)) {
             $adultos = (int) $coincidencias[1];
@@ -192,10 +199,15 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         $huespedes_tabla = !empty($notas_separadas['huespedes'])
                             ? '<p class="text-xs font-black text-slate-700">' . htmlspecialchars($notas_separadas['huespedes'], ENT_QUOTES, 'UTF-8') . '</p>'
                             : '';
+                        $hospedaje_tabla = !empty($notas_separadas['hospedaje'])
+                            ? '<p class="text-xs font-black text-slate-700">Hospedaje a nombre de: ' . htmlspecialchars($notas_separadas['hospedaje'], ENT_QUOTES, 'UTF-8') . '</p>'
+                            : '';
                         $peticion_tabla = !empty($notas_separadas['peticion'])
                             ? '<p class="text-xs italic text-slate-400 mt-1">' . htmlspecialchars($notas_separadas['peticion'], ENT_QUOTES, 'UTF-8') . '</p>'
                             : '';
-                        $notas_tabla = ($huespedes_tabla || $peticion_tabla) ? $huespedes_tabla . $peticion_tabla : '<span class="text-slate-300 italic">Ninguna</span>';
+                        $notas_tabla = ($huespedes_tabla || $hospedaje_tabla || $peticion_tabla)
+                            ? $huespedes_tabla . $hospedaje_tabla . $peticion_tabla
+                            : '<span class="text-slate-300 italic">Ninguna</span>';
 
                         $id_reserva = (int) ($reserva['cod_res'] ?? 0);
                         $notas_seguras = htmlspecialchars($notas_db, ENT_QUOTES, 'UTF-8');
@@ -325,6 +337,127 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         </div>
     </div>
 
+    <div id="modalReserva" class="modal-reserva-shell hidden fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div class="modal-reserva-card flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
+            <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-6 py-5">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Gestión de reservas</p>
+                    <h2 class="text-xl font-black text-heading">Nueva reserva</h2>
+                </div>
+                <button type="button" onclick="cerrarModalReserva()" aria-label="Cerrar" class="text-2xl font-black text-slate-400 hover:text-slate-700">&times;</button>
+            </div>
+            <form id="formCrearReserva" action="../../controladores/guardar_reserva.php" method="POST" class="flex-1 space-y-5 overflow-y-auto p-6">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfToken ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="tipo_huesped" id="tipo_huesped" value="">
+                <input type="hidden" name="nuevo_nombre" id="nuevo_nombre_hidden" value="">
+                <input type="hidden" name="nuevo_correo" id="nuevo_correo_hidden" value="">
+                <input type="hidden" name="nuevo_tipo_documento" id="nuevo_tipo_documento_hidden" value="">
+                <input type="hidden" name="nuevo_documento" id="nuevo_documento_hidden" value="">
+                <input type="hidden" name="nuevo_telefono" id="nuevo_telefono_hidden" value="">
+                <div>
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                        <label for="buscadorHuespedReserva" class="block text-xs font-black uppercase tracking-wider text-slate-500">Huésped</label>
+                        <button type="button" onclick="abrirSubModalNuevoHuesped()" class="text-xs font-bold text-primary underline">Crear huésped nuevo</button>
+                    </div>
+                    <div id="contenedorBuscadorHuespedReserva">
+                        <input id="buscadorHuespedReserva" type="search" autocomplete="off" oninput="filtrarHuespedesReservaPremium()" placeholder="Buscar por nombre o correo..." class="reserva-field w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                        <div id="listaHuespedesReserva" class="mt-2 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white"></div>
+                    </div>
+                    <div id="huespedSeleccionadoReserva" class="hidden items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        <div class="min-w-0">
+                            <p id="huespedSeleccionadoNombre" class="truncate text-sm font-bold text-slate-700"></p>
+                            <p id="huespedSeleccionadoCorreo" class="truncate text-xs text-slate-500"></p>
+                        </div>
+                        <button type="button" onclick="limpiarHuespedSeleccionado()" class="shrink-0 text-xs font-bold text-primary underline">Cambiar</button>
+                    </div>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Fecha de entrada
+                        <input type="date" name="fecha_in" required min="<?php echo htmlspecialchars((new DateTimeImmutable('today', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                    </label>
+                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Fecha de salida
+                        <input type="date" name="fecha_out" required min="<?php echo htmlspecialchars((new DateTimeImmutable('today', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                    </label>
+                </div>
+                <div>
+                    <label for="selectorHabitacionDisponible" class="block text-xs font-black uppercase tracking-wider text-slate-500">Habitación</label>
+                    <select id="selectorHabitacionDisponible" name="id_habitacion" required disabled class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                        <option value="">Selecciona primero las fechas</option>
+                    </select>
+                    <p id="mensajeDisponibilidadHabitacionesReserva" class="mt-2 text-xs text-slate-500" role="status" aria-live="polite">Selecciona entrada y salida para consultar las habitaciones disponibles.</p>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Adultos
+                        <input type="number" id="cantAdultosReserva" name="cant_adultos" min="1" max="4" value="1" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                    </label>
+                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Niños
+                        <input type="number" id="cantNinosReserva" name="cant_ninos" min="0" max="4" value="0" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                    </label>
+                </div>
+                <div id="edadesNinosReservaAdmin" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="text-xs font-black uppercase tracking-wider text-slate-500">Edad de cada niño</p>
+                    <div id="edadesNinosReservaAdminLista" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
+                    <p class="mt-2 text-xs text-slate-500">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años sin costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos.</p>
+                </div>
+                <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Peticiones especiales
+                    <textarea name="notas_reserva" rows="2" maxlength="500" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium normal-case" placeholder="Opcional"></textarea>
+                </label>
+                <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Método de pago (si cobras ahora)
+                    <select name="metodo_pago" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </label>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-xs font-black uppercase tracking-wider text-slate-500">Total estimado</p>
+                        <p id="totalReservaPreview" class="text-lg font-black text-primary">$0</p>
+                    </div>
+                    <p id="detalleTotalReservaPreview" class="mt-1 text-xs text-slate-400">Selecciona una habitación y las fechas para calcular tarifa, subtotal e IVA del 19%.</p>
+                </div>
+                <div class="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
+                    <button type="button" onclick="cerrarModalReserva()" class="ui-action flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" name="accion" value="guardar" class="ui-action flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-white hover:bg-heading">Guardar reserva</button>
+                    <button type="submit" name="accion" value="cobrar" class="ui-action flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700">Crear y cobrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="subModalNuevoHuesped" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
+        <div class="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 class="text-lg font-black text-heading">Nuevo huésped</h3>
+            <p class="text-xs text-slate-500">Todos los datos son opcionales.</p>
+            <label class="block text-xs font-bold text-slate-600">Nombre
+                <input id="nuevo_nombre" type="text" maxlength="100" autocomplete="name" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            </label>
+            <label class="block text-xs font-bold text-slate-600">Tipo de documento
+                <select id="nuevo_tipo_documento" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+                    <option value="">Sin especificar</option>
+                    <option value="CC">Cédula de ciudadanía (CC)</option>
+                    <option value="CE">Cédula de extranjería (CE)</option>
+                    <option value="PAS">Pasaporte</option>
+                    <option value="PPT">Permiso por protección temporal (PPT)</option>
+                    <option value="PEP">Permiso especial de permanencia (PEP)</option>
+                </select>
+            </label>
+            <label class="block text-xs font-bold text-slate-600">Número de documento
+                <input id="nuevo_documento" type="text" inputmode="numeric" maxlength="12" pattern="[0-9]{5,12}" title="Ingresa solo números, entre 5 y 12 dígitos." autocomplete="off" placeholder="Opcional · 5 a 12 números" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            </label>
+            <label class="block text-xs font-bold text-slate-600">Número de teléfono
+                <input id="nuevo_telefono" type="tel" maxlength="20" autocomplete="tel" placeholder="Opcional" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            </label>
+            <label class="block text-xs font-bold text-slate-600">Correo electrónico
+                <input id="nuevo_correo" type="email" maxlength="100" autocomplete="email" placeholder="Opcional" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            </label>
+            <div class="flex gap-3">
+                <button type="button" onclick="cerrarSubModalNuevoHuesped()" class="flex-1 rounded-lg border border-slate-200 py-3 text-sm font-bold text-slate-500">Cancelar</button>
+                <button type="button" onclick="confirmarNuevoHuespedEnModal()" class="flex-1 rounded-lg bg-primary py-3 text-sm font-bold text-white">Usar huésped</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE EDICIÓN Y COBRO UNIFICADO -->
     <div id="modalEditarReserva" class="modal-editar-reserva-shell hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="modal-editar-reserva-card bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
@@ -419,22 +552,97 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
     <!-- SCRIPT JAVASCRIPT -->
     <script>
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const POLITICA_TARIFA_RESERVA = {
+            ocupacionEstandar: <?php echo \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY; ?>,
+            suplementoNinoAdicional: <?php echo \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT; ?>,
+            edadMaximaSinCosto: <?php echo \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE; ?>,
+            edadMaximaNino: <?php echo \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE; ?>
+        };
         const huespedesAdminState = { adultos: 1, ninos: 0 };
+        const edadesNinosAdmin = [];
         const formatoMonedaReserva = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+        let solicitudDisponibilidadHabitacionesAdmin = 0;
+        async function actualizarHabitacionesDisponiblesAdmin() {
+                const form = document.getElementById('formCrearReserva');
+                const selector = document.getElementById('selectorHabitacionDisponible');
+                const mensaje = document.getElementById('mensajeDisponibilidadHabitacionesReserva');
+                const entrada = form?.elements.namedItem('fecha_in')?.value || '';
+                const salida = form?.elements.namedItem('fecha_out')?.value || '';
+                const adultos = Number(document.getElementById('cantAdultosReserva')?.value || 1);
+                const ninos = Number(document.getElementById('cantNinosReserva')?.value || 0);
+                const solicitud = ++solicitudDisponibilidadHabitacionesAdmin;
+                selector.replaceChildren(new Option('Selecciona primero las fechas', ''));
+                selector.disabled = true;
+                if (!entrada || !salida || salida <= entrada) {
+                    if (mensaje) mensaje.textContent = 'Selecciona entrada y una salida posterior para consultar disponibilidad.';
+                    actualizarTotalReservaPreview();
+                    return;
+                }
+                if (mensaje) mensaje.textContent = 'Consultando habitaciones disponibles...';
+                try {
+                    const parametros = new URLSearchParams({ checkin: entrada, checkout: salida, adultos: String(adultos), ninos: String(ninos) });
+                    const respuesta = await fetch(`../../controladores/disponibilidad_reserva_admin.php?${parametros}`, {
+                        headers: { Accept: 'application/json' },
+                        credentials: 'same-origin'
+                    });
+                    const datos = await respuesta.json();
+                    if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudo consultar la disponibilidad.');
+                    if (solicitud !== solicitudDisponibilidadHabitacionesAdmin) return;
+                    selector.replaceChildren(new Option('Selecciona una habitación', ''));
+                    datos.habitaciones.forEach(habitacion => {
+                        const capacidad = habitacion.capacidad;
+                        const opcion = new Option(
+                            `Hab. ${habitacion.numero} · ${habitacion.tipo} · ${new Intl.NumberFormat('es-CO').format(habitacion.precio)} COP/noche · máximo ${capacidad.personas} personas`,
+                            String(habitacion.id)
+                        );
+                        opcion.dataset.price = String(habitacion.precio);
+                        opcion.dataset.singlePersonPrice = habitacion.precio_una_persona === null ? '' : String(habitacion.precio_una_persona);
+                        opcion.dataset.roomType = habitacion.tipo;
+                        opcion.dataset.maxPeople = String(capacidad.personas);
+                        opcion.dataset.maxAdults = String(capacidad.adultos);
+                        opcion.dataset.maxChildren = String(capacidad.ninos);
+                        selector.add(opcion);
+                    });
+                    selector.disabled = datos.habitaciones.length === 0;
+                    if (mensaje) mensaje.textContent = datos.mensaje;
+                    if (datos.habitaciones.length > 0) actualizarLimitesHabitacionAdmin();
+                    actualizarTotalReservaPreview();
+                } catch (error) {
+                    if (solicitud !== solicitudDisponibilidadHabitacionesAdmin) return;
+                    selector.replaceChildren(new Option('No se pudo consultar disponibilidad', ''));
+                    if (mensaje) mensaje.textContent = error.message;
+                    actualizarTotalReservaPreview();
+                }
+            }
+
+        function actualizarLimitesHabitacionAdmin() {
+                const selector = document.getElementById('selectorHabitacionDisponible');
+                const opcion = selector?.selectedOptions[0];
+                const adultos = document.getElementById('cantAdultosReserva');
+                const ninos = document.getElementById('cantNinosReserva');
+                if (!opcion?.value || !adultos || !ninos) return;
+                adultos.max = opcion.dataset.maxAdults || '4';
+                ninos.max = opcion.dataset.maxChildren || '4';
+                if (Number(adultos.value) > Number(adultos.max)) adultos.value = adultos.max;
+                if (Number(ninos.value) > Number(ninos.max)) ninos.value = ninos.max;
+            }
 
         function actualizarTotalReservaPreview() {
             const form = document.getElementById('formCrearReserva');
             const habitacion = document.getElementById('selectorHabitacionDisponible');
             const entrada = form?.elements.namedItem('fecha_in')?.value;
             const salida = form?.elements.namedItem('fecha_out')?.value;
-            const precio = Number(habitacion?.selectedOptions[0]?.dataset.price || 0);
+            const precioBase = Number(habitacion?.selectedOptions[0]?.dataset.price || 0);
+            const adultos = Number(document.getElementById('cantAdultosReserva')?.value || 1);
+            const edades = Array.from(document.querySelectorAll('[data-edad-nino-admin]')).map(select => select.value);
             const totalElement = document.getElementById('totalReservaPreview');
             const detalleElement = document.getElementById('detalleTotalReservaPreview');
             if (!totalElement || !detalleElement) return;
 
-            if (!entrada || !salida || !habitacion?.value || !Number.isFinite(precio) || precio <= 0) {
+            if (!entrada || !salida || !habitacion?.value || !Number.isFinite(precioBase) || precioBase <= 0) {
                 totalElement.textContent = formatoMonedaReserva.format(0);
-                detalleElement.textContent = 'Selecciona una habitación y las fechas para calcular el total con IVA incluido.';
+                detalleElement.textContent = 'Selecciona una habitación y las fechas para calcular tarifa, subtotal e IVA del 19%.';
                 return;
             }
 
@@ -445,13 +653,76 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 return;
             }
 
-            const total = Math.round(precio * noches * 1.19 * 100) / 100;
+            const ninosIncluidos = Math.max(0, POLITICA_TARIFA_RESERVA.ocupacionEstandar - adultos);
+            const ninosAdicionalesConCosto = edades.slice(ninosIncluidos)
+                .filter(edad => Number(edad) > POLITICA_TARIFA_RESERVA.edadMaximaSinCosto).length;
+            const precioUnaPersona = Number(habitacion?.selectedOptions[0]?.dataset.singlePersonPrice || 0);
+            const tarifaNoche = adultos + edades.length === 1 && precioUnaPersona > 0
+                ? precioUnaPersona
+                : precioBase + ninosAdicionalesConCosto * POLITICA_TARIFA_RESERVA.suplementoNinoAdicional;
+            const subtotal = tarifaNoche * noches;
+            const iva = Math.round(subtotal * 0.19 * 100) / 100;
+            const total = subtotal + iva;
             totalElement.textContent = formatoMonedaReserva.format(total);
-            detalleElement.textContent = `${noches} noche(s) · tarifa por noche ${formatoMonedaReserva.format(precio)} · IVA incluido. El total definitivo lo calcula el servidor.`;
+            const faltanEdades = edades.some(edad => edad === '');
+            detalleElement.textContent = `${noches} noche(s) · tarifa ${formatoMonedaReserva.format(tarifaNoche)}/noche · subtotal ${formatoMonedaReserva.format(subtotal)} + IVA 19% ${formatoMonedaReserva.format(iva)}.${faltanEdades ? ' Completa las edades para precisar la tarifa.' : ''}`;
         }
 
-        document.getElementById('formCrearReserva')?.querySelectorAll('[name="fecha_in"], [name="fecha_out"], #selectorHabitacionDisponible')
-            .forEach(campo => campo.addEventListener('change', actualizarTotalReservaPreview));
+        function actualizarEdadesNinosAdmin() {
+            const box = document.getElementById('edadesNinosReservaAdmin');
+            const list = document.getElementById('edadesNinosReservaAdminLista');
+            const cantidad = Math.max(0, Number(document.getElementById('cantNinosReserva')?.value || 0));
+            if (!box || !list) return;
+            while (edadesNinosAdmin.length < cantidad) edadesNinosAdmin.push('');
+            edadesNinosAdmin.length = cantidad;
+            box.classList.toggle('hidden', cantidad === 0);
+            list.innerHTML = edadesNinosAdmin.map((edad, indice) => `
+                <label class="block text-xs font-bold text-slate-600">Edad del niño ${indice + 1}
+                    <select name="edades_ninos[]" data-edad-nino-admin required class="mt-1 w-full rounded-lg border-slate-200 bg-white p-3 text-sm">
+                        <option value="" ${edad === '' ? 'selected' : ''}>Selecciona edad</option>
+                        ${Array.from({ length: POLITICA_TARIFA_RESERVA.edadMaximaNino + 1 }, (_, edadOpcion) => `<option value="${edadOpcion}" ${edad !== '' && Number(edad) === edadOpcion ? 'selected' : ''}>${edadOpcion} ${edadOpcion === 1 ? 'año' : 'años'}</option>`).join('')}
+                    </select>
+                </label>`).join('');
+            actualizarTotalReservaPreview();
+        }
+
+        function sincronizarHuespedesAdmin() {
+            const adultos = document.getElementById('cantAdultosReserva');
+            const ninos = document.getElementById('cantNinosReserva');
+            huespedesAdminState.adultos = Math.max(1, Number(adultos?.value || 1));
+            huespedesAdminState.ninos = Math.max(0, Number(ninos?.value || 0));
+            if (adultos) adultos.value = huespedesAdminState.adultos;
+            if (ninos) ninos.value = huespedesAdminState.ninos;
+            const contadorAdultos = document.getElementById('contadorAdultosAdmin');
+            const contadorNinos = document.getElementById('contadorNinosAdmin');
+            const resumen = document.getElementById('resumenHuespedesAdmin');
+            if (contadorAdultos) contadorAdultos.innerText = huespedesAdminState.adultos;
+            if (contadorNinos) contadorNinos.innerText = huespedesAdminState.ninos;
+            if (resumen) resumen.innerText = `${huespedesAdminState.adultos} Adulto${huespedesAdminState.adultos === 1 ? '' : 's'}, ${huespedesAdminState.ninos} Niño${huespedesAdminState.ninos === 1 ? '' : 's'}`;
+            actualizarEdadesNinosAdmin();
+        }
+
+        document.getElementById('formCrearReserva')?.addEventListener('input', evento => {
+            if (evento.target.matches('#cantAdultosReserva, #cantNinosReserva')) {
+                sincronizarHuespedesAdmin();
+                actualizarHabitacionesDisponiblesAdmin();
+            } else {
+                actualizarTotalReservaPreview();
+            }
+        });
+        document.getElementById('formCrearReserva')?.addEventListener('change', evento => {
+            if (evento.target.matches('[name="fecha_in"], [name="fecha_out"]')) {
+                if (evento.target.name === 'fecha_in') {
+                    const checkout = document.querySelector('#formCrearReserva [name="fecha_out"]');
+                    if (checkout) checkout.min = evento.target.value || checkout.min;
+                    if (checkout?.value && checkout.value <= evento.target.value) checkout.value = '';
+                }
+                actualizarHabitacionesDisponiblesAdmin();
+                return;
+            }
+            if (evento.target.matches('#selectorHabitacionDisponible')) actualizarLimitesHabitacionAdmin();
+            actualizarTotalReservaPreview();
+        });
 
         function confirmarEliminacion(idReserva) {
             if (typeof confirmarEliminacionReservaPremium === 'function') {
@@ -514,6 +785,9 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             document.getElementById('tipo_huesped').value = '';
             document.getElementById('nuevo_nombre_hidden').value = '';
             document.getElementById('nuevo_correo_hidden').value = '';
+            document.getElementById('nuevo_tipo_documento_hidden').value = '';
+            document.getElementById('nuevo_documento_hidden').value = '';
+            document.getElementById('nuevo_telefono_hidden').value = '';
             document.getElementById('huespedSeleccionadoReserva').classList.add('hidden');
             document.getElementById('huespedSeleccionadoReserva').classList.remove('flex');
             document.getElementById('contenedorBuscadorHuespedReserva').style.display = '';
@@ -528,14 +802,22 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         function cambiarHuespedesAdmin(tipo, delta) {
             const minimo = tipo === 'adultos' ? 1 : 0;
             huespedesAdminState[tipo] = Math.max(minimo, huespedesAdminState[tipo] + delta);
-            document.getElementById('contadorAdultosAdmin').innerText = huespedesAdminState.adultos;
-            document.getElementById('contadorNinosAdmin').innerText = huespedesAdminState.ninos;
+            const contadorAdultos = document.getElementById('contadorAdultosAdmin');
+            const contadorNinos = document.getElementById('contadorNinosAdmin');
+            const resumen = document.getElementById('resumenHuespedesAdmin');
+            if (contadorAdultos) contadorAdultos.innerText = huespedesAdminState.adultos;
+            if (contadorNinos) contadorNinos.innerText = huespedesAdminState.ninos;
             document.getElementById('cantAdultosReserva').value = huespedesAdminState.adultos;
             document.getElementById('cantNinosReserva').value = huespedesAdminState.ninos;
-            document.getElementById('resumenHuespedesAdmin').innerText = `${huespedesAdminState.adultos} Adulto${huespedesAdminState.adultos === 1 ? '' : 's'}, ${huespedesAdminState.ninos} Niño${huespedesAdminState.ninos === 1 ? '' : 's'}`;
+            if (resumen) resumen.innerText = `${huespedesAdminState.adultos} Adulto${huespedesAdminState.adultos === 1 ? '' : 's'}, ${huespedesAdminState.ninos} Niño${huespedesAdminState.ninos === 1 ? '' : 's'}`;
+            actualizarEdadesNinosAdmin();
         }
 
         function abrirSubModalNuevoHuesped() {
+            ['nuevo_nombre', 'nuevo_tipo_documento', 'nuevo_documento', 'nuevo_telefono', 'nuevo_correo'].forEach(id => {
+                const field = document.getElementById(id);
+                if (field) field.value = '';
+            });
             document.getElementById('subModalNuevoHuesped').classList.remove('hidden');
         }
 
@@ -546,14 +828,28 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         function confirmarNuevoHuespedEnModal() {
             const nombre = document.getElementById('nuevo_nombre').value.trim();
             const correo = document.getElementById('nuevo_correo').value.trim();
-            if (!nombre || !correo) {
-                alert('Completa nombre y correo del huésped.');
+            const tipoDocumento = document.getElementById('nuevo_tipo_documento').value;
+            const documento = document.getElementById('nuevo_documento').value.trim();
+            const telefono = document.getElementById('nuevo_telefono').value.trim();
+            if (correo && !document.getElementById('nuevo_correo').checkValidity()) {
+                document.getElementById('nuevo_correo').reportValidity();
+                return;
+            }
+            if (documento && !/^[0-9]{5,12}$/.test(documento)) {
+                alert('El número de documento debe tener solo números y entre 5 y 12 dígitos.');
+                return;
+            }
+            if (telefono && !/^\+?[0-9 ]{7,20}$/.test(telefono)) {
+                alert('Ingresa un teléfono válido de 7 a 20 caracteres.');
                 return;
             }
             document.getElementById('tipo_huesped').value = 'nuevo';
             document.getElementById('nuevo_nombre_hidden').value = nombre;
             document.getElementById('nuevo_correo_hidden').value = correo;
-            seleccionarHuespedReserva('nuevo', nombre, correo);
+            document.getElementById('nuevo_tipo_documento_hidden').value = tipoDocumento;
+            document.getElementById('nuevo_documento_hidden').value = documento;
+            document.getElementById('nuevo_telefono_hidden').value = telefono;
+            seleccionarHuespedReserva('nuevo', nombre || 'Huésped de recepción', correo || 'Sin correo');
             cerrarSubModalNuevoHuesped();
         }
 
@@ -672,8 +968,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
                                 <input type="checkbox" data-cuenta-check="${escaparCuenta(clave)}" checked class="rounded border-slate-300"> Cobrar ahora
                             </label>
-                            ${l.tipo === 'alojamiento' ? `<input type="number" data-cuenta-monto="${escaparCuenta(clave)}" min="1" max="${l.pendiente}" step="any" value="${l.pendiente}"
-                                class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700" title="Monto a cobrar (puedes cobrar solo una parte)">` : ''}
+                            ${l.tipo === 'alojamiento' ? `<input type="text" inputmode="numeric" maxlength="13" data-cuenta-monto="${escaparCuenta(clave)}" value="${formatearMontoCuenta(l.pendiente)}"
+                                class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700" title="Monto a cobrar en pesos (puedes cobrar solo una parte)">` : ''}
                             <select data-cuenta-metodo="${escaparCuenta(clave)}" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">${metodos}</select>
                         </div>` : '';
                     cuerpo += `
@@ -703,6 +999,15 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
             const hayCobrables = cuenta.lineas.some(l => l.cobrable);
             document.getElementById('editCuentaCobro').classList.toggle('hidden', !hayCobrables);
+            document.querySelectorAll('#editCuentaLineas [data-cuenta-monto]').forEach(campo => {
+                campo.addEventListener('input', evento => {
+                    const entrada = evento.currentTarget;
+                    const posicionDesdeFinal = entrada.value.length - entrada.selectionStart;
+                    entrada.value = formatearMontoCuenta(entrada.value);
+                    const posicion = Math.max(0, entrada.value.length - posicionDesdeFinal);
+                    entrada.setSelectionRange(posicion, posicion);
+                });
+            });
             document.querySelectorAll('#editCuentaLineas [data-cuenta-check], #editCuentaLineas [data-cuenta-monto]').forEach(campo => {
                 campo.addEventListener('input', actualizarSeleccionCuenta);
                 campo.addEventListener('change', actualizarSeleccionCuenta);
@@ -711,10 +1016,20 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             actualizarSeleccionCuenta();
         }
 
+        function formatearMontoCuenta(valor) {
+            const digitos = (typeof valor === 'number'
+                ? String(Math.round(valor))
+                : String(valor ?? '').replace(/\D/g, '')
+            ).slice(0, 10);
+            return digitos ? new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(digitos)) : '';
+        }
+
         function montoLineaCuenta(linea) {
             const campo = document.querySelector(`#editCuentaLineas [data-cuenta-monto="${CSS.escape(linea.tipo + '|' + linea.id)}"]`);
             if (!campo) return linea.pendiente;
-            const valor = Number(campo.value);
+            const digitos = campo.value.replace(/\D/g, '');
+            const valor = digitos === '' ? 0 : Number(digitos);
+            if (valor === Math.round(linea.pendiente)) return linea.pendiente;
             return Number.isFinite(valor) ? Math.min(Math.max(valor, 0), linea.pendiente) : 0;
         }
 
@@ -747,7 +1062,12 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
         function cobrarTodoCuenta() {
             if (!cuentaReservaActual) return;
-            cobrarCuentaReserva(cuentaReservaActual.lineas.filter(l => l.cobrable).map(l => ({ tipo: l.tipo, id: l.id, metodo: '' })));
+            cobrarCuentaReserva(cuentaReservaActual.lineas.filter(l => l.cobrable).map(l => ({
+                tipo: l.tipo,
+                id: l.id,
+                metodo: '',
+                ...(l.tipo === 'alojamiento' ? { monto: l.pendiente } : {}),
+            })));
         }
 
         async function cobrarCuentaReserva(lineas) {
@@ -769,11 +1089,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
             // La ventana se abre dentro del clic para que el navegador no bloquee la factura.
             const ventana = window.open('', '_blank');
-            if (!ventana) {
-                error.textContent = 'Permite las ventanas emergentes para poder imprimir la factura.';
-                error.classList.remove('hidden');
-                return;
-            }
 
             const botones = [document.getElementById('btnCobrarSeleccion'), document.getElementById('btnCobrarTodo')];
             botones.forEach(b => { b.disabled = true; });
@@ -791,16 +1106,23 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 const datos = await leerRespuestaCuenta(respuesta);
                 if (datos.cuenta) pintarCuentaReserva(datos.cuenta);
                 if (!datos.facturas || !datos.facturas.length) {
-                    ventana.close();
+                    if (ventana && !ventana.closed) ventana.close();
                     throw new Error(datos.mensaje || 'No se pudo registrar el cobro');
                 }
-                if (datos.facturas.length === 1 && typeof imprimirFacturaReserva === 'function') {
-                    imprimirFacturaReserva(datos.facturas[0], ventana);
-                } else {
-                    imprimirComprobanteCuenta(datos.facturas, datos.cuenta, ventana);
+                if (ventana) {
+                    if (datos.facturas.length === 1 && typeof imprimirFacturaReserva === 'function') {
+                        imprimirFacturaReserva(datos.facturas[0], ventana);
+                    } else {
+                        imprimirComprobanteCuenta(datos.facturas, datos.cuenta, ventana);
+                    }
                 }
                 if (datos.status === 'parcial') {
                     error.textContent = datos.mensaje;
+                    error.classList.remove('text-rose-600');
+                    error.classList.add('text-amber-700');
+                    error.classList.remove('hidden');
+                } else if (!ventana) {
+                    error.textContent = 'Cobro registrado. Permite ventanas emergentes para imprimir la factura.';
                     error.classList.remove('text-rose-600');
                     error.classList.add('text-amber-700');
                     error.classList.remove('hidden');
@@ -809,7 +1131,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 if (typeof notificarCambioReservas === 'function') notificarCambioReservas();
                 window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
             } catch (e) {
-                if (!ventana.closed) ventana.close();
+                if (ventana && !ventana.closed) ventana.close();
                 error.textContent = e.message;
                 error.classList.remove('hidden');
             } finally {
