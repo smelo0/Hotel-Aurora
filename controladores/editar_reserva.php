@@ -37,7 +37,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $cod_res = filter_var($_POST['cod_res'] ?? null, FILTER_VALIDATE_INT);
         $habitacion = trim((string) ($_POST['habitacion'] ?? ''));
         $estadoSolicitado = trim((string) ($_POST['estado'] ?? ''));
-        $notas = trim((string) ($_POST['notas'] ?? ''));
+        $notas = '';
         $accion = trim((string) ($_POST['accion'] ?? 'guardar'));
         $metodoPago = trim((string) ($_POST['metodo_pago'] ?? ''));
 
@@ -61,7 +61,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $conexion->begin_transaction();
         $transaccionIniciada = true;
 
-        $sqlReserva = "SELECT r.est_res, r.fec_ent_res, r.fec_sal_res, u.nom_usu, u.corr_usu,
+        $sqlReserva = "SELECT r.est_res, r.fec_ent_res, r.fec_sal_res, r.not_res, u.nom_usu, u.corr_usu,
                               d.cod_hab_det, h.num_hab, h.tipo_hab,
                               COALESCE(NULLIF(h.pre_hab, 0), h.precio_hab, 0) AS precio_habitacion
                        FROM reservas r
@@ -80,6 +80,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if (!$reservaActual) {
             throw new RuntimeException('reserva_no_encontrada');
+        }
+        $notas = (string) ($reservaActual['not_res'] ?? '');
+
+        if (
+            $accion === 'guardar'
+            && $estadoSolicitado === 'Cancelada'
+            && $reservaActual['est_res'] !== 'Cancelada'
+        ) {
+            $stmtCobroExistente = $conexion->prepare(
+                "SELECT 1
+                 FROM pagos pg
+                 WHERE pg.cod_res_pago = ? AND pg.estado_pago = 'Aprobado'
+                 UNION ALL
+                 SELECT 1
+                 FROM agenda_actividad a
+                 INNER JOIN reservas r ON r.cod_res = ?
+                 WHERE a.estado_pago_experiencia = 'Pagada'
+                   AND (
+                       a.cod_res_agenda = r.cod_res
+                       OR (
+                           a.cod_res_agenda IS NULL
+                           AND a.id_usu_agenda = r.id_usu_res
+                           AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                       )
+                   )
+                 LIMIT 1"
+            );
+            $stmtCobroExistente->bind_param('ii', $cod_res, $cod_res);
+            $stmtCobroExistente->execute();
+            $stmtCobroExistente->store_result();
+            $tieneCobro = $stmtCobroExistente->num_rows > 0;
+            $stmtCobroExistente->close();
+            if ($tieneCobro) {
+                throw new RuntimeException('reserva_con_cobros');
+            }
         }
 
         // Se puede cobrar mientras la reserva no esté cancelada: así también se registra el saldo
@@ -310,6 +345,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $mensajes = [
             'datos_invalidos' => 'Los datos enviados para la reserva no son válidos.',
             'reserva_no_encontrada' => 'No se encontró la reserva seleccionada.',
+            'reserva_con_cobros' => 'No se puede cancelar una reserva que ya tiene cobros registrados.',
             'reserva_cancelada' => 'No se puede cobrar una reserva cancelada.',
             'metodo_pago_invalido' => 'Selecciona un método de pago válido.',
             'cobro_en_modal' => 'Los cobros se hacen desde el modal de la reserva (Reservas > Editar).',

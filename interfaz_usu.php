@@ -1253,7 +1253,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=19"></script>
+    <script src="assets/js/interfaz_usu.js?v=21"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

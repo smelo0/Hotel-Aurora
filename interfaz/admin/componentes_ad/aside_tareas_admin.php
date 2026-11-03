@@ -14,7 +14,7 @@
         </button>
     </div>
 
-    <div id="contenedorTareasAdmin" role="region" aria-label="Cola de tareas" tabindex="-1" class="space-y-4 flex-1 overflow-y-auto transition-all duration-300 opacity-0 pointer-events-none">
+    <div id="contenedorTareasAdmin" role="region" aria-label="Cola de tareas. Usa las flechas o Av Pág y Re Pág para desplazarte." tabindex="0" class="space-y-4 flex-1 overflow-y-auto transition-all duration-300 opacity-0 pointer-events-none">
         <!-- Tarjetas inyectadas por JS -->
     </div>
 </aside>

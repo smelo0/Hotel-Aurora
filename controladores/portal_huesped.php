@@ -35,13 +35,29 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
 
     try {
         $statement = $conexion->prepare(
-            "UPDATE reservas
+            "UPDATE reservas AS r
              SET est_res = 'Cancelada'
-             WHERE cod_res = ?
-               AND id_usu_res = ?
-               AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada')
-               AND fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-               AND fec_ent_res > NOW()"
+             WHERE r.cod_res = ?
+               AND r.id_usu_res = ?
+               AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada')
+               AND r.fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+               AND r.fec_ent_res > NOW()
+               AND NOT EXISTS (
+                   SELECT 1 FROM pagos pg
+                   WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Aprobado'
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM agenda_actividad a
+                   WHERE a.estado_pago_experiencia = 'Pagada'
+                     AND (
+                         a.cod_res_agenda = r.cod_res
+                         OR (
+                             a.cod_res_agenda IS NULL
+                             AND a.id_usu_agenda = r.id_usu_res
+                             AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                         )
+                     )
+               )"
         );
         $statement->bind_param('ii', $idReserva, $idUsuario);
         $statement->execute();
@@ -53,7 +69,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
     }
 
     if (!$cancelada) {
-        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros 10 minutos y antes del check-in.']);
+        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros 10 minutos, antes del check-in y si aún no registra cobros.']);
     }
     jsonResponse(200, ['status' => 'exito', 'mensaje' => 'La reserva fue cancelada correctamente.']);
 }
@@ -182,7 +198,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
             $rangoHorario = $horariosExperiencia[$indiceOpcion][$fecha] ?? null;
             $minutosInicio = is_array($rangoHorario) ? ((int) substr($rangoHorario['inicio'], 0, 2) * 60 + (int) substr($rangoHorario['inicio'], 3, 2)) : -1;
             $minutosFin = is_array($rangoHorario) ? ((int) substr($rangoHorario['fin'], 0, 2) * 60 + (int) substr($rangoHorario['fin'], 3, 2)) : -1;
-            if (!is_array($rangoHorario) || $minutosSeleccionados < $minutosInicio || $minutosSeleccionados > $minutosFin
+            if (!is_array($rangoHorario) || $minutosSeleccionados < $minutosInicio || $minutosSeleccionados >= $minutosFin
                 || ($minutosSeleccionados - $minutosInicio) % 30 !== 0) {
                 $horarioDisponible = false;
                 break;

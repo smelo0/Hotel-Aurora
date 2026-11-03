@@ -52,7 +52,19 @@ $clasesEstadoPago = [
                 </div>
             <?php endif; ?>
 
-            <h4 class="mb-4 mt-10 text-lg font-black text-slate-800">Movimientos de pago</h4>
+            <div class="mb-4 mt-10 flex flex-wrap items-center justify-between gap-3">
+                <h4 class="text-lg font-black text-slate-800">Movimientos de pago</h4>
+                <div class="flex items-center gap-2">
+                    <label id="buscarMovimientosFinancierosWrap" class="hidden">
+                        <span class="sr-only">Buscar movimientos de pago</span>
+                        <input id="buscarMovimientosFinancieros" type="search" maxlength="100" placeholder="Cliente, reserva, método..." class="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
+                    </label>
+                    <button id="btnBuscarMovimientosFinancieros" type="button" aria-expanded="false" aria-controls="buscarMovimientosFinancierosWrap" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:border-primary hover:text-primary">
+                        <span class="material-symbols-outlined text-base">search</span>
+                        Buscar
+                    </button>
+                </div>
+            </div>
             <div class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="w-full min-w-[1050px] text-left">
                     <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -65,13 +77,13 @@ $clasesEstadoPago = [
                             <th class="px-5 py-4 text-right">Monto</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-sm">
+                    <tbody id="tablaMovimientosFinancieros" class="divide-y divide-slate-100 text-sm">
                         <?php if ($pagosFinanzas === [] && $movimientosExperienciasFinanzas === [] && $movimientosRoomServiceFinanzas === []): ?>
                             <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No hay movimientos de pago.</td></tr>
                         <?php else: ?>
                             <?php foreach ($pagosFinanzas as $pago): ?>
                                 <?php $estadoPago = (string) ($pago['estado_pago'] ?? 'Pendiente'); ?>
-                                <tr class="hover:bg-slate-50/70">
+                                <tr data-movimiento-pago class="hover:bg-slate-50/70">
                                     <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $pago['fecha_pago']))); ?></td>
                                     <td class="px-5 py-4">
                                         <p class="font-bold text-slate-800"><?php echo $escaparFinanzas($pago['nom_usu'] ?? 'Huésped sin cuenta asociada'); ?></p>
@@ -96,7 +108,7 @@ $clasesEstadoPago = [
                                     ? $solicitud['fecha_pago_experiencia']
                                     : $solicitud['creado_en'];
                                 ?>
-                                <tr class="hover:bg-slate-50/70">
+                                <tr data-movimiento-pago class="hover:bg-slate-50/70">
                                     <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $fechaMovimientoExperiencia))); ?></td>
                                     <td class="px-5 py-4">
                                         <p class="font-bold text-slate-800"><?php echo $escaparFinanzas($solicitud['nombre_cliente']); ?></p>
@@ -166,7 +178,7 @@ $clasesEstadoPago = [
                                 $etiquetaPagoRoomService = $estadoPagoRoomService === 'Pagado' ? 'Pagada' : ($estadoPagoRoomService === 'Sin costo' ? 'Sin costo' : 'Pendiente');
                                 $fechaRoomService = $estadoPagoRoomService === 'Pagado' && !empty($pedidoRoomService['fecha_pago']) ? $pedidoRoomService['fecha_pago'] : $pedidoRoomService['creado_en'];
                                 ?>
-                                <tr class="hover:bg-slate-50/70">
+                                <tr data-movimiento-pago class="hover:bg-slate-50/70">
                                     <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $fechaRoomService))); ?></td>
                                     <td class="px-5 py-4">
                                         <p class="font-bold text-slate-800"><?php echo $escaparFinanzas($pedidoRoomService['nom_usu'] ?? 'Huésped sin cuenta asociada'); ?></p>
@@ -184,6 +196,9 @@ $clasesEstadoPago = [
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
+                        <tr id="sinResultadosMovimientosFinancieros" class="hidden">
+                            <td colspan="6" class="px-5 py-8 text-center text-slate-400">No se encontraron movimientos con esa búsqueda.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -191,6 +206,49 @@ $clasesEstadoPago = [
 
     </div>
 </section>
+<script>
+(() => {
+    const button = document.getElementById('btnBuscarMovimientosFinancieros');
+    const wrap = document.getElementById('buscarMovimientosFinancierosWrap');
+    const input = document.getElementById('buscarMovimientosFinancieros');
+    const table = document.getElementById('tablaMovimientosFinancieros');
+    const noResults = document.getElementById('sinResultadosMovimientosFinancieros');
+    if (!button || !wrap || !input || !table || !noResults) return;
+
+    const filterRows = () => {
+        const query = input.value.trim().toLocaleLowerCase('es-CO');
+        let visibleCount = 0;
+        const rows = table.querySelectorAll('[data-movimiento-pago]');
+        rows.forEach(row => {
+            const matches = row.textContent.toLocaleLowerCase('es-CO').includes(query);
+            row.classList.toggle('hidden', !matches);
+            if (matches) visibleCount++;
+        });
+        noResults.classList.toggle('hidden', query === '' || visibleCount > 0 || rows.length === 0);
+    };
+
+    button.addEventListener('click', () => {
+        const opening = wrap.classList.contains('hidden');
+        wrap.classList.toggle('hidden', !opening);
+        button.setAttribute('aria-expanded', String(opening));
+        if (opening) input.focus();
+        else {
+            input.value = '';
+            filterRows();
+        }
+    });
+    input.addEventListener('input', filterRows);
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            input.value = '';
+            filterRows();
+            wrap.classList.add('hidden');
+            button.setAttribute('aria-expanded', 'false');
+            button.focus();
+        }
+    });
+})();
+</script>
 <?php if ($puedeActualizarPagosExperiencia && $movimientosExperienciasFinanzas !== []): ?>
     <script>
         document.querySelectorAll('[data-estado-pago-experiencia]').forEach(select => {

@@ -1199,7 +1199,19 @@ function inicializarCancelacionHistorial() {
             const opciones = experienciaActual.opciones.map((op, idx) => {
                 const precio = experienciaActual.precios[idx];
                 const precioTexto = precio === null || precio === undefined ? 'Sin precio' : '$' + Number(precio).toLocaleString('es-CO');
-                return `<option value="${escapeGuestText(op)}">${escapeGuestText(op)} · ${precioTexto}</option>`;
+                const numeroOpcion = Number(experienciaActual.indices[idx] || idx + 1);
+                const horariosOpcion = experienciaActual.horarios?.[String(numeroOpcion)] || {};
+                const ahora = fechaActualBogota();
+                const rangosHorarios = Object.entries(horariosOpcion)
+                    .filter(([fecha, rango]) => fecha >= ahora.fecha
+                        && horarioTieneHoraDisponible(fecha, rango, ahora)
+                        && (experienciaActual.reservas || []).some(reserva => fecha >= reserva.inicio && fecha < reserva.fin))
+                    .map(([, rango]) => `${rango.inicio}–${rango.fin}`);
+                const rangosUnicos = [...new Set(rangosHorarios)];
+                const horarioTexto = rangosUnicos.length
+                    ? `Horario: ${rangosUnicos.join(', ')}`
+                    : 'Sin horario disponible en tu estancia';
+                return `<option value="${escapeGuestText(op)}">${escapeGuestText(op)} · ${precioTexto} · ${escapeGuestText(horarioTexto)}</option>`;
             }).join('');
             html += `
                 <div class="rounded-xl border border-white/15 bg-white/5 p-3">
@@ -1288,7 +1300,7 @@ function inicializarCancelacionHistorial() {
             horaInicio * 60 + minutoInicio,
             (Math.floor(ahora.minutos / 30) + 1) * 30
         );
-        return primerInicio <= horaFin * 60 + minutoFin;
+        return primerInicio < horaFin * 60 + minutoFin;
     }
 
     function fechasDentroEstancia(fechas, reservas) {
@@ -1501,7 +1513,7 @@ function inicializarCancelacionHistorial() {
         if (fecha === ahoraBogota.fecha) {
             inicioMinutos = Math.max(inicioMinutos, (Math.floor(ahoraBogota.minutos / 30) + 1) * 30);
         }
-        if (inicioMinutos > finMinutos) {
+        if (inicioMinutos >= finMinutos) {
             contenedor.textContent = 'El horario publicado para hoy ya pasó. Elige otra fecha disponible.';
             return;
         }

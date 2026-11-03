@@ -410,7 +410,23 @@ final class PortalRepository
             "SELECT r.cod_res, r.fec_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
                     (LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada')
                      AND r.fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-                     AND r.fec_ent_res > NOW()) AS puede_cancelar,
+                     AND r.fec_ent_res > NOW()
+                     AND NOT EXISTS (
+                         SELECT 1 FROM pagos pg
+                         WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Aprobado'
+                     )
+                     AND NOT EXISTS (
+                         SELECT 1 FROM agenda_actividad a
+                         WHERE a.estado_pago_experiencia = 'Pagada'
+                           AND (
+                               a.cod_res_agenda = r.cod_res
+                               OR (
+                                   a.cod_res_agenda IS NULL
+                                   AND a.id_usu_agenda = r.id_usu_res
+                                   AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                               )
+                           )
+                     )) AS puede_cancelar,
                     GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(r.fec_res, INTERVAL 10 MINUTE))) AS segundos_cancelacion,
                     GROUP_CONCAT(DISTINCT h.num_hab ORDER BY h.num_hab ASC SEPARATOR ', ') AS num_hab,
                     GROUP_CONCAT(DISTINCT h.tipo_hab ORDER BY h.tipo_hab ASC SEPARATOR ', ') AS tipo_hab

@@ -515,6 +515,33 @@ aside { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relat
   background: #ffffff;
   border-radius: 0.75rem;
   padding-top: 0.75rem;
+  padding-right: 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.empleado-task-panel #contenedorTareas::-webkit-scrollbar {
+  width: 8px;
+}
+
+.empleado-task-panel #contenedorTareas::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.empleado-task-panel #contenedorTareas::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border: 2px solid #f1f5f9;
+  border-radius: 999px;
+}
+
+.empleado-task-panel #contenedorTareas::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.empleado-task-panel #contenedorTareas:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .empleado-task-panel #botonColaTareas,

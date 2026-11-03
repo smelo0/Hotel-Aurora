@@ -1,11 +1,29 @@
 <?php
-// Indicar que la respuesta es de tipo JSON
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
-// Como este archivo está dentro de la carpeta CLI, el session.json está en la misma ruta
 $sessionFile = __DIR__ . '/../session.json';
+$sessionTimeout = 10;
+$sessionIsActive = false;
 
-// file_exists() devuelve true si existe o false si no, 
-// y json_encode lo convierte en el booleano que lee JavaScript
-echo json_encode(file_exists($sessionFile));
-?>
+$sessionJson = is_file($sessionFile) ? file_get_contents($sessionFile) : false;
+$sessionData = is_string($sessionJson) ? json_decode($sessionJson, true) : null;
+$userId = is_array($sessionData)
+    ? filter_var($sessionData['id_usu'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+    : false;
+$lastActivity = is_array($sessionData)
+    ? filter_var($sessionData['last_activity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+    : false;
+
+if (
+    $userId
+    && (string) ($sessionData['cod_rol_usu'] ?? '') === '1'
+    && $lastActivity
+    && time() >= $lastActivity
+    && time() - $lastActivity <= $sessionTimeout
+) {
+    $sessionIsActive = true;
+}
+
+echo json_encode($sessionIsActive);

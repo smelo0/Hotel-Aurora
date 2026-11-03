@@ -23,7 +23,10 @@
 
     <!-- Contenedor Dinámico para Inyección de Tareas Vía JS -->
     <div id="contenedorTareas" 
-         class="space-y-4 flex-1 overflow-y-auto no-scrollbar transition-all duration-300 opacity-0 pointer-events-none"
+         role="region"
+         tabindex="0"
+         aria-label="Cola de tareas. Usa las flechas o Av Pág y Re Pág para desplazarte."
+         class="space-y-4 flex-1 overflow-y-auto transition-all duration-300 opacity-0 pointer-events-none"
          aria-live="polite">
         <!-- Renderizado dinámico vía JavaScript -->
     </div>

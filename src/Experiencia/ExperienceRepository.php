@@ -16,6 +16,7 @@ final class ExperienceRepository
                            a.metodo_pago_experiencia, a.creado_en, a.monto_experiencia,
                            a.precios_personas_json, a.id_usu_agenda, a.cod_res_agenda,
                            (COALESCE(a.estado_agenda, 'Pendiente') <> 'Cancelada'
+                            AND COALESCE(a.estado_pago_experiencia, 'Pendiente') <> 'Pagada'
                             AND a.creado_en >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                             AND TIMESTAMP(a.fecha_agenda, a.hora_agenda) > NOW()) AS puede_cancelar,
                            GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(a.creado_en, INTERVAL 5 MINUTE))) AS segundos_cancelacion,

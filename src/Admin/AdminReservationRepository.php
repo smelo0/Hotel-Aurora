@@ -60,7 +60,25 @@ final class AdminReservationRepository
                             - COALESCE((SELECT SUM(pg2.monto) FROM pagos pg2 WHERE pg2.cod_res_pago = r.cod_res AND pg2.estado_pago = 'Aprobado'), 0),
                             0
                         )
-                    ) AS saldo_pendiente
+                    ) AS saldo_pendiente,
+                    (
+                        EXISTS (
+                            SELECT 1 FROM pagos pg
+                            WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Aprobado'
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM agenda_actividad a
+                            WHERE a.estado_pago_experiencia = 'Pagada'
+                              AND (
+                                  a.cod_res_agenda = r.cod_res
+                                  OR (
+                                      a.cod_res_agenda IS NULL
+                                      AND a.id_usu_agenda = r.id_usu_res
+                                      AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                                  )
+                              )
+                        )
+                    ) AS tiene_cobro
              FROM reservas r
              INNER JOIN usuario u ON r.id_usu_res = u.id_usu
              LEFT JOIN detalle d ON r.cod_res = d.cod_res_det

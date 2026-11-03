@@ -19,7 +19,15 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
     <div class="mt-8 rounded-xl border border-primary/10 bg-white p-8 shadow-sm">
         <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div><h3 class="text-2xl font-black text-primary tracking-tight">Historial de experiencias programadas</h3><p class="mt-1 text-xs text-slate-400">Solicitudes de los clientes, sus elecciones por persona y el horario reservado.</p></div>
-            <span id="totalHistorialExperiencias" class="rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-600">0 solicitudes</span>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <span id="totalHistorialExperiencias" class="rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-600">0 solicitudes</span>
+                <div class="flex items-center gap-2">
+                    <input id="buscarHistorialExperiencias" type="search" maxlength="100" placeholder="Buscar experiencia, cliente o estado" aria-label="Buscar solicitudes de experiencias" class="hidden w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                    <button id="btnBuscarHistorialExperiencias" type="button" aria-label="Buscar solicitudes" aria-expanded="false" title="Buscar solicitudes" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-primary hover:text-primary">
+                        <span class="material-symbols-outlined text-lg">search</span>
+                    </button>
+                </div>
+            </div>
         </div>
         <div class="mb-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-black" role="group" aria-label="Vista del historial">
             <button type="button" data-vista-historial="grupos" class="rounded-lg px-4 py-2">Por experiencia</button>
@@ -331,7 +339,7 @@ function agregarHorarioExperiencia() {
 function mostrarMensajeExperiencias(texto, error = false) { const mensaje = document.getElementById('mensajeExperiencias'); mensaje.textContent = texto; mensaje.className = `mb-5 rounded-lg px-4 py-3 text-sm font-bold ${error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`; mensaje.classList.remove('hidden'); }
 function mostrarErrorFormularioExperiencia(texto) { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = texto; mensaje.className = 'rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-600'; }
 function limpiarErrorFormularioExperiencia() { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = ''; mensaje.className = 'hidden rounded-lg px-4 py-3 text-sm font-bold'; }
-async function cargarExperiencias() { try { const respuesta = await fetch(`${ENDPOINT_EXPERIENCIAS}?accion=listar`, { headers: { Accept: 'application/json' } }); const datos = await respuesta.json(); if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las experiencias'); datosExperiencias = datos; document.getElementById('btnNuevaExperiencia').classList.toggle('hidden', !datos.puede_gestionar); const solicitudRecepcion = document.getElementById('btnSolicitudExperienciaRecepcion'); solicitudRecepcion.classList.toggle('hidden', !datos.puede_gestionar); solicitudRecepcion.disabled = !Array.isArray(datos.huespedes_recepcion) || datos.huespedes_recepcion.length === 0; solicitudRecepcion.title = solicitudRecepcion.disabled ? 'No hay huéspedes registrados' : ''; cargarSelectoresSolicitudRecepcion(); renderizarExperiencias(); renderizarHistorialExperiencias(); } catch (error) { mostrarMensajeExperiencias(error.message, true); } }
+async function cargarExperiencias() { try { const respuesta = await fetch(`${ENDPOINT_EXPERIENCIAS}?accion=listar`, { cache: 'no-store', headers: { Accept: 'application/json' } }); const datos = await respuesta.json(); if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las experiencias'); datosExperiencias = datos; document.getElementById('btnNuevaExperiencia').classList.toggle('hidden', !datos.puede_gestionar); const solicitudRecepcion = document.getElementById('btnSolicitudExperienciaRecepcion'); solicitudRecepcion.classList.toggle('hidden', !datos.puede_gestionar); solicitudRecepcion.disabled = !Array.isArray(datos.huespedes_recepcion) || datos.huespedes_recepcion.length === 0; solicitudRecepcion.title = solicitudRecepcion.disabled ? 'No hay huéspedes registrados' : ''; cargarSelectoresSolicitudRecepcion(); renderizarExperiencias(); renderizarHistorialExperiencias(); return true; } catch (error) { mostrarMensajeExperiencias(error.message, true); return false; } }
 
 function cargarSelectoresSolicitudRecepcion() {
     const guestSelect = document.getElementById('huespedSolicitudExperienciaRecepcion');
@@ -353,7 +361,8 @@ function mostrarMensajeSolicitudRecepcion(text, error = false) {
     message.classList.remove('hidden');
 }
 
-function abrirSolicitudExperienciaRecepcion() {
+async function abrirSolicitudExperienciaRecepcion() {
+    if (!await cargarExperiencias()) return;
     const form = document.getElementById('formSolicitudExperienciaRecepcion');
     form.reset();
     document.getElementById('mensajeSolicitudExperienciaRecepcion').className = 'hidden rounded-lg px-4 py-3 text-sm font-bold';
@@ -379,7 +388,21 @@ function actualizarEstanciasSolicitudRecepcion() {
     (guest?.estancias || []).forEach(stay => {
         staySelect.add(new Option(`${fechaExperienciaCorta(stay.inicio)} al ${fechaExperienciaCorta(stay.fin)} · reserva ${stay.reserva_id}`, String(stay.reserva_id)));
     });
-    actualizarFechasSolicitudRecepcion();
+    actualizarOpcionesSolicitudRecepcion();
+}
+
+function horarioPublicadoOpcionRecepcion(experience, number) {
+    const schedules = experience.horarios?.[String(number)] || {};
+    const today = fechaHoyExperiencias();
+    const guestId = document.getElementById('huespedSolicitudExperienciaRecepcion').value;
+    const stayId = Number(document.getElementById('estanciaSolicitudExperienciaRecepcion').value);
+    const guest = (datosExperiencias.huespedes_recepcion || []).find(item => String(item.id) === guestId);
+    const stay = (guest?.estancias || []).find(item => item.reserva_id === stayId);
+    const ranges = Object.entries(schedules)
+        .filter(([date]) => date >= today && (!stay || (date >= stay.inicio && date < stay.fin)))
+        .map(([, range]) => `${range.inicio}–${range.fin}`);
+    const uniqueRanges = [...new Set(ranges)];
+    return uniqueRanges.length ? `Horario: ${uniqueRanges.join(', ')}` : 'Sin horario disponible';
 }
 
 function actualizarOpcionesSolicitudRecepcion() {
@@ -397,7 +420,7 @@ function actualizarOpcionesSolicitudRecepcion() {
         const options = (experience.opciones || []).map((option, optionIndex) => {
             const number = experience.numeros_opciones?.[optionIndex] || optionIndex + 1;
             const price = experience.precios?.[optionIndex];
-            const label = `${option} · ${precioExperienciaLegible(price)}`;
+            const label = `${option} · ${precioExperienciaLegible(price)} · ${horarioPublicadoOpcionRecepcion(experience, number)}`;
             return `<option value="${escaparExperiencias(number)}" ${String(number) === selected ? 'selected' : ''}>${escaparExperiencias(label)}</option>`;
         }).join('');
         return `<label class="block text-xs font-bold text-slate-600">Opción de la persona ${index + 1}<select data-opcion-participante-recepcion class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">${options}</select></label>`;
@@ -427,7 +450,7 @@ function fechasYHorasDisponiblesSolicitudRecepcion() {
         const start = Math.max(...ranges.map(range => Number(range.inicio.slice(0, 2)) * 60 + Number(range.inicio.slice(3, 5))));
         const end = Math.min(...ranges.map(range => Number(range.fin.slice(0, 2)) * 60 + Number(range.fin.slice(3, 5))));
         const times = [];
-        for (let minute = start; minute <= end; minute += 30) {
+        for (let minute = start; minute < end; minute += 30) {
             const time = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
             if (date > today || time > new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date())) {
                 times.push(time);
@@ -449,7 +472,9 @@ function actualizarFechasSolicitudRecepcion() {
     dateContainer.innerHTML = Object.keys(available).length
         ? Object.keys(available).map(date => `<button type="button" data-fecha-recepcion="${escaparExperiencias(date)}" aria-pressed="false" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-primary hover:text-primary">${escaparExperiencias(fechaExperienciaLegible(date))}</button>`).join('')
         : '<span class="text-xs text-slate-400">No hay fechas publicadas para esta experiencia y estas opciones.</span>';
-    timeContainer.innerHTML = '<span class="text-xs text-slate-400">Selecciona primero una fecha.</span>';
+    timeContainer.innerHTML = '<span class="text-xs text-slate-400">No hay horas disponibles.</span>';
+    const primeraFecha = dateContainer.querySelector('[data-fecha-recepcion]');
+    if (primeraFecha) seleccionarFechaSolicitudRecepcion(primeraFecha);
 }
 
 function actualizarHorasSolicitudRecepcion() {
@@ -457,9 +482,23 @@ function actualizarHorasSolicitudRecepcion() {
     const times = fechasYHorasDisponiblesSolicitudRecepcion()[date] || [];
     const timeContainer = document.getElementById('horaSolicitudExperienciaRecepcion');
     document.getElementById('horaSolicitudExperienciaRecepcionValor').value = '';
+    const experience = datosExperiencias.experiencias.find(item => item.id === Number(document.getElementById('experienciaSolicitudExperienciaRecepcion').value));
+    const esGastronomia = (experience?.categoria || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .includes('gastronomia');
+    const indexes = [...new Set([
+        0,
+        Math.floor((times.length - 1) / 2),
+        ...(esGastronomia ? [times.length - 1] : [])
+    ])].sort((a, b) => a - b);
+    const timesToShow = times.length ? indexes.map(index => times[index]) : [];
     timeContainer.innerHTML = times.length
-        ? times.map(time => `<button type="button" data-hora-recepcion="${escaparExperiencias(time)}" aria-pressed="false" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-primary hover:text-primary">${escaparExperiencias(time)}</button>`).join('')
+        ? timesToShow.map(time => `<button type="button" data-hora-recepcion="${escaparExperiencias(time)}" aria-pressed="false" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-primary hover:text-primary">${escaparExperiencias(time)}</button>`).join('')
         : '<span class="text-xs text-slate-400">No hay horas publicadas para esta fecha.</span>';
+    const primeraHora = timeContainer.querySelector('[data-hora-recepcion]');
+    if (primeraHora) seleccionarHoraSolicitudRecepcion(primeraHora);
 }
 
 function seleccionarFechaSolicitudRecepcion(button) {
@@ -546,8 +585,25 @@ function renderizarExperiencias() {
     }).join('') || '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400 text-sm">Aún no hay experiencias registradas.</td></tr>';
 }
 function renderizarHistorialExperiencias() {
-    const historial = datosExperiencias.historial || [];
-    document.getElementById('totalHistorialExperiencias').textContent = `${historial.length} ${historial.length === 1 ? 'solicitud' : 'solicitudes'}`;
+    const historialCompleto = datosExperiencias.historial || [];
+    const termino = (document.getElementById('buscarHistorialExperiencias')?.value || '').trim().toLocaleLowerCase('es-CO');
+    const historial = termino
+        ? historialCompleto.filter(solicitud => [
+            solicitud.actividad,
+            solicitud.nombre_cliente,
+            solicitud.nombre_contacto,
+            solicitud.correo_cliente,
+            solicitud.correo_contacto,
+            solicitud.estado_agenda,
+            solicitud.fecha_agenda,
+            solicitud.hora_agenda,
+            ...(Array.isArray(solicitud.selecciones_personas) ? solicitud.selecciones_personas : [])
+        ].some(valor => String(valor ?? '').toLocaleLowerCase('es-CO').includes(termino)))
+        : historialCompleto;
+    const total = historialCompleto.length;
+    document.getElementById('totalHistorialExperiencias').textContent = termino
+        ? `${historial.length} de ${total} solicitudes`
+        : `${total} ${total === 1 ? 'solicitud' : 'solicitudes'}`;
     renderizarGruposHistorialExperiencias(historial);
     document.getElementById('tablaHistorialExperiencias').innerHTML = historial.map(solicitud => {
         const selecciones = Array.isArray(solicitud.selecciones_personas) ? solicitud.selecciones_personas : [];
@@ -567,7 +623,10 @@ function renderizarHistorialExperiencias() {
         const estado = solicitud.estado_agenda || 'Pendiente';
         const claseEstado = estado === 'Cancelada' ? 'bg-rose-100 text-rose-700' : estado === 'Confirmada' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
         const fechaHora = new Date(`${solicitud.fecha_agenda}T${String(solicitud.hora_agenda || '').slice(0, 8)}`);
-        const puedeCancelar = estado !== 'Cancelada' && Number.isFinite(fechaHora.getTime()) && fechaHora > new Date();
+        const puedeCancelar = estado !== 'Cancelada'
+            && solicitud.estado_pago_experiencia !== 'Pagada'
+            && Number.isFinite(fechaHora.getTime())
+            && fechaHora > new Date();
         const accion = puedeCancelar
             ? `<button type="button" data-cancelar-solicitud-admin="${Number(solicitud.id_agenda)}" class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50">Cancelar</button>`
             : '<span class="text-xs text-slate-400">—</span>';
@@ -638,7 +697,9 @@ function renderizarGruposHistorialExperiencias(historial) {
                     const estado = solicitud.estado_agenda || 'Pendiente';
                     const claseEstado = estado === 'Confirmada' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
                     const fechaHora = new Date(`${solicitud.fecha_agenda}T${String(solicitud.hora_agenda || '').slice(0, 8)}`);
-                    const puedeCancelar = Number.isFinite(fechaHora.getTime()) && fechaHora > ahora;
+                    const puedeCancelar = solicitud.estado_pago_experiencia !== 'Pagada'
+                        && Number.isFinite(fechaHora.getTime())
+                        && fechaHora > ahora;
                     const accion = puedeCancelar
                         ? `<button type="button" data-cancelar-solicitud-admin="${Number(solicitud.id_agenda)}" class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50">Cancelar solicitud</button>`
                         : '';
@@ -880,9 +941,31 @@ document.querySelectorAll('[data-vista-historial]').forEach(boton => boton.addEv
     vistaHistorialExperiencias = boton.dataset.vistaHistorial;
     aplicarVistaHistorialExperiencias();
 }));
+document.getElementById('btnBuscarHistorialExperiencias').addEventListener('click', () => {
+    const campo = document.getElementById('buscarHistorialExperiencias');
+    const abierto = !campo.classList.contains('hidden');
+    campo.classList.toggle('hidden', abierto);
+    document.getElementById('btnBuscarHistorialExperiencias').setAttribute('aria-expanded', String(!abierto));
+    if (abierto) {
+        campo.value = '';
+        renderizarHistorialExperiencias();
+    } else {
+        campo.focus();
+    }
+});
+document.getElementById('buscarHistorialExperiencias').addEventListener('input', renderizarHistorialExperiencias);
+document.getElementById('buscarHistorialExperiencias').addEventListener('keydown', evento => {
+    if (evento.key === 'Escape') {
+        evento.currentTarget.value = '';
+        renderizarHistorialExperiencias();
+        evento.currentTarget.classList.add('hidden');
+        document.getElementById('btnBuscarHistorialExperiencias').setAttribute('aria-expanded', 'false');
+        document.getElementById('btnBuscarHistorialExperiencias').focus();
+    }
+});
 document.getElementById('btnSolicitudExperienciaRecepcion').addEventListener('click', abrirSolicitudExperienciaRecepcion);
 document.getElementById('huespedSolicitudExperienciaRecepcion').addEventListener('change', actualizarEstanciasSolicitudRecepcion);
-document.getElementById('estanciaSolicitudExperienciaRecepcion').addEventListener('change', actualizarFechasSolicitudRecepcion);
+document.getElementById('estanciaSolicitudExperienciaRecepcion').addEventListener('change', actualizarOpcionesSolicitudRecepcion);
 document.getElementById('experienciaSolicitudExperienciaRecepcion').addEventListener('change', actualizarOpcionesSolicitudRecepcion);
 document.getElementById('cantidadSolicitudExperienciaRecepcion').addEventListener('input', actualizarOpcionesSolicitudRecepcion);
 document.getElementById('fechaSolicitudExperienciaRecepcion').addEventListener('click', evento => {

@@ -7,6 +7,8 @@ require_once __DIR__ . '/../src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/../src/Experiencia/ExperienceSchedule.php';
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 function responder_experiencias($status, $mensaje, $datos = []) {
     http_response_code($status);
@@ -35,6 +37,7 @@ if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
                     SET estado_agenda = 'Cancelada'
                     WHERE id_agenda = ?
                       AND COALESCE(estado_agenda, 'Pendiente') <> 'Cancelada'
+                      AND COALESCE(estado_pago_experiencia, 'Pendiente') <> 'Pagada'
                       AND TIMESTAMP(fecha_agenda, hora_agenda) > NOW()";
     if (!$esAdministrador) {
         $sqlCancelar .= ' AND id_usu_agenda = ? AND creado_en >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)';
@@ -51,8 +54,8 @@ if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
 
     if (!$cancelada) {
         $mensaje = $esAdministrador
-            ? 'No se encontró una solicitud futura que todavía pueda cancelarse'
-            : 'Solo puedes cancelar la experiencia durante los primeros 5 minutos después de programarla y antes de que comience';
+            ? 'No se encontró una solicitud futura que todavía pueda cancelarse o ya fue cobrada'
+            : 'Solo puedes cancelar la experiencia durante los primeros 5 minutos, antes de que comience y si aún no fue cobrada';
         responder_experiencias(404, $mensaje);
     }
     responder_experiencias(200, 'La experiencia fue cancelada correctamente');
@@ -429,7 +432,7 @@ if ($accion === 'solicitar_recepcion') {
             $range = $schedule[(string) $optionIndex][$date] ?? null;
             $start = is_array($range) ? (int) substr($range['inicio'], 0, 2) * 60 + (int) substr($range['inicio'], 3, 2) : -1;
             $end = is_array($range) ? (int) substr($range['fin'], 0, 2) * 60 + (int) substr($range['fin'], 3, 2) : -1;
-            if (!is_array($range) || $minute < $start || $minute > $end || ($minute - $start) % 30 !== 0) {
+            if (!is_array($range) || $minute < $start || $minute >= $end || ($minute - $start) % 30 !== 0) {
                 throw new RuntimeException('horario_no_disponible');
             }
         }
