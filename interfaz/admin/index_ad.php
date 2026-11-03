@@ -199,7 +199,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=8"></script>
+    <script src="../../assets/js/inactividad.js?v=10" onerror="this.onerror=null; this.src='/Hotel-Aurora/assets/js/inactividad.js?v=10';"></script>
 <?php endif; ?>
 </body>
 </html>

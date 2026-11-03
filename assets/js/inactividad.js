@@ -8,6 +8,7 @@
     const IDLE_LIMIT_MS = 150000;
     const COUNTDOWN_LIMIT_SECONDS = 60;
     const ACTIVITY_REPORT_INTERVAL_MS = 10000;
+    const IDLE_WATCHDOG_INTERVAL_MS = 5000;
     const modal = document.getElementById('inactivityModal');
 
     if (!modal) {
@@ -21,15 +22,18 @@
     const errorEl = document.getElementById('errorClave');
     const CIRCUMFERENCE = 326.7;
     let idleTimer;
+    let idleWatchdogTimer;
     let countdownTimer;
     let lockStateTimer;
     let countdownEndsAt = 0;
     let pausedUntil = 0;
     let pausedSecondsRemaining = 0;
     let lastActivityReport = 0;
+    let lastUserActivityAt = Date.now();
     let lockRequestPending = false;
     let unlockRequestPending = false;
     let pauseRequested = false;
+    let lastUnlockAt = 0;
 
     function redirectToPublicInterface() {
         window.location.href = '/Hotel-Aurora/interfaz_usu.php';
@@ -76,6 +80,7 @@
 
     // La sesión se desbloqueó por otro lado (otra pestaña): se cierra el aviso y se reanuda el control de inactividad.
     function handleAlreadyUnlocked() {
+        lastUnlockAt = Date.now();
         clearInterval(countdownTimer);
         clearInterval(lockStateTimer);
         modal.style.display = 'none';
@@ -157,6 +162,7 @@
             }
 
             if (result.data.status === 'active' && modal.style.display === 'flex') {
+                lastUnlockAt = Date.now();
                 clearInterval(lockStateTimer);
                 clearInterval(countdownTimer);
                 modal.style.display = 'none';
@@ -190,6 +196,9 @@
                 showInactivityModal(result.data);
             } else if (result.response.status === 409) {
                 idleTimer = window.setTimeout(registerLock, Number(result.data.reintentar_en || 1) * 1000);
+            } else if (result.response.status === 401) {
+                // La sesión ya no existe en el servidor: no hay nada que desbloquear.
+                redirectToPublicInterface();
             }
         } catch (error) {
             idleTimer = window.setTimeout(registerLock, 3000);
@@ -200,7 +209,14 @@
 
     function startIdleTimer() {
         clearTimeout(idleTimer);
+        lastUserActivityAt = Date.now();
         idleTimer = window.setTimeout(registerLock, IDLE_LIMIT_MS);
+    }
+
+    function checkIdleDeadline() {
+        if (modal.style.display !== 'flex' && Date.now() - lastUserActivityAt >= IDLE_LIMIT_MS) {
+            registerLock();
+        }
     }
 
     async function reportActivity() {
@@ -293,6 +309,7 @@
             } else if (result.data.status === 'active') {
                 handleAlreadyUnlocked();
             } else if (result.data.valido) {
+                lastUnlockAt = Date.now();
                 claveInput.value = '';
                 errorEl.style.display = 'none';
                 modal.style.display = 'none';
@@ -338,5 +355,31 @@
         }
     });
 
+    // Las consultas en segundo plano del panel (reservas, tareas, habitaciones...) siguen corriendo mientras el
+    // usuario está inactivo. Si el servidor ya bloqueó la sesión, responden 423: se muestra el aviso de inmediato
+    // en lugar de esperar al temporizador local (que puede ir hasta ~10 s por detrás del servidor).
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init) {
+        const startedAt = Date.now();
+        const response = await nativeFetch(input, init);
+
+        if (response.status === 423 || response.status === 440) {
+            const url = typeof input === 'string' ? input : ((input && input.url) || '');
+            if (!/actividad_sesion\.php|verificar_clave\.php/.test(url)) {
+                response.clone().json().then(data => {
+                    if (response.status === 440 || data.status === 'expired') {
+                        redirectToPublicInterface();
+                    } else if (data.bloqueada && startedAt >= lastUnlockAt) {
+                        showInactivityModal(data);
+                    }
+                }).catch(() => {});
+            }
+        }
+
+        return response;
+    };
+
     startIdleTimer();
+    idleWatchdogTimer = window.setInterval(checkIdleDeadline, IDLE_WATCHDOG_INTERVAL_MS);
+    checkSessionLockState();
 })();

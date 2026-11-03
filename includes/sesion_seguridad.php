@@ -136,7 +136,13 @@ if ($haySesionActiva) {
 
     if (!empty($_SESSION['sesion_bloqueada']) && !$esVerificacionDesbloqueo && !$esGestorActividad && !$esCierreSesion) {
         $esApi = preg_match('~/(controladores|includes)/~i', $scriptActual) === 1;
-        if ($esApi) {
+        // Peticiones en segundo plano (fetch/AJAX, p. ej. el refresco de reservas del admin cada 4 s):
+        // deben recibir 423 en JSON para que la página muestre el aviso de inactividad. Si se tratan como
+        // una carga normal de página, la sesión se destruye antes de que el aviso pueda aparecer.
+        $esSegundoPlano = (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest'
+            || strtolower((string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '')) === 'empty'
+            || isset($_GET['reservas_fragmento']);
+        if ($esApi || $esSegundoPlano) {
             responder_sesion_bloqueada();
         }
 
