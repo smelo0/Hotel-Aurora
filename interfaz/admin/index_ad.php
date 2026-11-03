@@ -194,7 +194,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=23" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=23';"></script>
+ <script src="js_ad/admin.js?v=24" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=24';"></script>
     <script src="js_ad/scroll_admin.js?v=1"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>

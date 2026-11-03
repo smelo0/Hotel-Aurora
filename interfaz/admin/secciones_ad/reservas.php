@@ -431,13 +431,13 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
     <div id="subModalNuevoHuesped" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
         <div class="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <h3 class="text-lg font-black text-heading">Nuevo huésped</h3>
-            <p class="text-xs text-slate-500">Todos los datos son opcionales.</p>
-            <label class="block text-xs font-bold text-slate-600">Nombre
-                <input id="nuevo_nombre" type="text" maxlength="100" autocomplete="name" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            <p class="text-xs text-slate-500">Nombre y documento son obligatorios. El teléfono y correo son opcionales.</p>
+            <label class="block text-xs font-bold text-slate-600">Nombre <span class="text-rose-500">*</span>
+                <input id="nuevo_nombre" type="text" maxlength="100" autocomplete="name" required class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
             </label>
-            <label class="block text-xs font-bold text-slate-600">Tipo de documento
-                <select id="nuevo_tipo_documento" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
-                    <option value="">Sin especificar</option>
+            <label class="block text-xs font-bold text-slate-600">Tipo de documento <span class="text-rose-500">*</span>
+                <select id="nuevo_tipo_documento" required class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+                    <option value="">Selecciona un tipo</option>
                     <option value="CC">Cédula de ciudadanía (CC)</option>
                     <option value="CE">Cédula de extranjería (CE)</option>
                     <option value="PAS">Pasaporte</option>
@@ -445,8 +445,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <option value="PEP">Permiso especial de permanencia (PEP)</option>
                 </select>
             </label>
-            <label class="block text-xs font-bold text-slate-600">Número de documento
-                <input id="nuevo_documento" type="text" inputmode="numeric" maxlength="12" pattern="[0-9]{5,12}" title="Ingresa solo números, entre 5 y 12 dígitos." autocomplete="off" placeholder="Opcional · 5 a 12 números" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
+            <label class="block text-xs font-bold text-slate-600">Número de documento <span class="text-rose-500">*</span>
+                <input id="nuevo_documento" type="text" inputmode="numeric" maxlength="12" pattern="[0-9]{3,12}" title="Ingresa solo números, entre 3 y 12 dígitos." autocomplete="off" placeholder="Obligatorio · 3 a 12 números" required class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
             </label>
             <label class="block text-xs font-bold text-slate-600">Número de teléfono
                 <input id="nuevo_telefono" type="tel" maxlength="20" autocomplete="tel" placeholder="Opcional" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm">
@@ -834,12 +834,27 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             const tipoDocumento = document.getElementById('nuevo_tipo_documento').value;
             const documento = document.getElementById('nuevo_documento').value.trim();
             const telefono = document.getElementById('nuevo_telefono').value.trim();
+            if (!nombre) {
+                alert('El nombre del huésped es obligatorio.');
+                document.getElementById('nuevo_nombre').focus();
+                return;
+            }
+            if (!tipoDocumento) {
+                alert('Debes seleccionar un tipo de documento.');
+                document.getElementById('nuevo_tipo_documento').focus();
+                return;
+            }
+            if (!documento) {
+                alert('El número de documento es obligatorio.');
+                document.getElementById('nuevo_documento').focus();
+                return;
+            }
             if (correo && !document.getElementById('nuevo_correo').checkValidity()) {
                 document.getElementById('nuevo_correo').reportValidity();
                 return;
             }
-            if (documento && !/^[0-9]{5,12}$/.test(documento)) {
-                alert('El número de documento debe tener solo números y entre 5 y 12 dígitos.');
+            if (!/^[0-9]{3,12}$/.test(documento)) {
+                alert('El número de documento debe tener solo números y entre 3 y 12 dígitos.');
                 return;
             }
             if (telefono && !/^\+?[0-9 ]{7,20}$/.test(telefono)) {

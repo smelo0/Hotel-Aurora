@@ -20,6 +20,44 @@ if (!function_exists('jsonResponse')) {
 }
 $httpMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
+    $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
+    $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
+    if ($idUsuario < 1 || $rolUsuario !== 6) {
+        jsonResponse(401, ['status' => 'error', 'mensaje' => 'Inicia sesión con tu cuenta de huésped para cancelar una reserva.']);
+    }
+    exigir_csrf();
+
+    $idReserva = filter_var($_POST['id_reserva'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$idReserva) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La reserva que quieres cancelar no es válida.']);
+    }
+
+    try {
+        $statement = $conexion->prepare(
+            "UPDATE reservas
+             SET est_res = 'Cancelada'
+             WHERE cod_res = ?
+               AND id_usu_res = ?
+               AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada')
+               AND fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+               AND fec_ent_res > NOW()"
+        );
+        $statement->bind_param('ii', $idReserva, $idUsuario);
+        $statement->execute();
+        $cancelada = $statement->affected_rows === 1;
+        $statement->close();
+    } catch (Throwable $error) {
+        error_log('Error al cancelar una reserva desde el portal del huésped: ' . $error->getMessage());
+        jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible cancelar la reserva. Intenta de nuevo.']);
+    }
+
+    if (!$cancelada) {
+        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros 10 minutos y antes del check-in.']);
+    }
+    jsonResponse(200, ['status' => 'exito', 'mensaje' => 'La reserva fue cancelada correctamente.']);
+}
+
 if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') {
     header('Content-Type: application/json; charset=utf-8');
 

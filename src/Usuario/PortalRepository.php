@@ -407,14 +407,18 @@ final class PortalRepository
     public function fetchReservationHistory(mysqli $connection, int $userId): array
     {
         $statement = $connection->prepare(
-            "SELECT r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
+            "SELECT r.cod_res, r.fec_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res,
+                    (LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada')
+                     AND r.fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                     AND r.fec_ent_res > NOW()) AS puede_cancelar,
+                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(r.fec_res, INTERVAL 10 MINUTE))) AS segundos_cancelacion,
                     GROUP_CONCAT(DISTINCT h.num_hab ORDER BY h.num_hab ASC SEPARATOR ', ') AS num_hab,
                     GROUP_CONCAT(DISTINCT h.tipo_hab ORDER BY h.tipo_hab ASC SEPARATOR ', ') AS tipo_hab
              FROM reservas r
              LEFT JOIN detalle d ON d.cod_res_det = r.cod_res
              LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
              WHERE r.id_usu_res = ?
-             GROUP BY r.cod_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res
+             GROUP BY r.cod_res, r.fec_res, r.fec_ent_res, r.fec_sal_res, r.est_res, r.not_res
              ORDER BY r.fec_ent_res DESC"
         );
         if (!$statement) {

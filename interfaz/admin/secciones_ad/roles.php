@@ -49,6 +49,28 @@ if (!usuario_tiene_permiso($conexion, 'roles.ver')) { return; }
         </form>
     </div>
 </div>
+<div id="modalDescripcionRol" class="modal-rol-backdrop z-[110] flex items-center justify-center modal-oculto transition-all duration-300">
+    <div class="bg-white p-8 rounded-xl w-full max-w-lg shadow-2xl">
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <h2 id="tituloDescripcionRol" class="text-xl font-black text-primary">Editar descripción</h2>
+                <p class="text-xs text-slate-400 mt-1">Máximo 200 caracteres.</p>
+            </div>
+            <button type="button" onclick="cerrarModalDescripcionRol()" class="text-slate-400 hover:text-primary" aria-label="Cerrar">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form id="formDescripcionRol" class="space-y-5">
+            <input type="hidden" id="codigoDescripcionRol">
+            <textarea id="textoDescripcionRol" maxlength="200" rows="4" class="w-full rounded-lg border border-slate-200 p-3 text-sm text-slate-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" aria-label="Descripción del rol"></textarea>
+            <p id="errorDescripcionRol" class="hidden text-sm font-bold text-red-600" role="alert"></p>
+            <div class="flex gap-4">
+                <button type="button" onclick="cerrarModalDescripcionRol()" class="flex-1 rounded-lg py-3 font-bold text-slate-400 hover:bg-slate-100">Cancelar</button>
+                <button id="guardarDescripcionRol" type="submit" class="flex-1 rounded-lg bg-primary py-3 font-bold text-white shadow-lg hover:brightness-110">Guardar descripción</button>
+            </div>
+        </form>
+    </div>
+</div>
 <script>
 const ENDPOINT_ROLES = '../../controladores/gestionar_roles.php';
 let datosRoles = { roles: [], permisos: [], puede_gestionar: false, puede_asignar: false };
@@ -82,13 +104,20 @@ async function cargarRoles() {
 function renderizarRoles() {
     document.getElementById('tablaRoles').innerHTML = datosRoles.roles.map(rol => {
         const codigo = Number(rol.cod_rol);
-        const acciones = datosRoles.puede_gestionar
+        const acciones = datosRoles.puede_gestionar && codigo !== 1
             ? `<button type="button" class="text-slate-400 hover:text-primary mx-1" title="Editar permisos" onclick="abrirEditarRol(${codigo})"><span class="material-symbols-outlined text-lg">tune</span></button>`
+            : codigo === 1
+                ? '<span class="text-slate-400 text-xs">Acceso total protegido</span>'
             : '<span class="text-slate-300">Solo lectura</span>';
         return `<tr class="hover:bg-slate-50/50">
             <td class="px-6 py-4 text-slate-400 font-mono text-xs">#${String(codigo).padStart(3, '0')}</td>
             <td class="px-6 py-4 font-black text-slate-800">${escaparRoles(rol.des_rol)}</td>
-            <td class="px-6 py-4 text-slate-500 text-xs">${escaparRoles(rol.detalle_rol || 'Sin descripción')}</td>
+            <td class="px-6 py-4 text-slate-500 text-xs">
+                <div class="flex items-center justify-between gap-3">
+                    <span>${escaparRoles(rol.detalle_rol || 'Sin descripción')}</span>
+                    ${datosRoles.puede_gestionar ? `<button type="button" class="shrink-0 rounded px-2 py-1 font-bold text-primary hover:bg-primary/10" title="Editar descripción" aria-label="Editar descripción de ${escaparRoles(rol.des_rol)}" onclick="abrirEditarDescripcionRol(${codigo})">Editar</button>` : ''}
+                </div>
+            </td>
             <td class="px-6 py-4 text-slate-500 text-xs">${codigo === 3 ? '2 cuentas' : '—'}</td>
             <td class="px-6 py-4 text-xs font-bold text-slate-500">${rol.permisos.length} permisos</td>
             <td class="px-6 py-4 text-right">${acciones}</td>
@@ -97,6 +126,7 @@ function renderizarRoles() {
 }
 
 function abrirEditarRol(codigo) {
+    if (codigo === 1) return;
     const rol = datosRoles.roles.find(item => Number(item.cod_rol) === codigo);
     if (!rol) return;
     document.getElementById('formRol').reset();
@@ -122,6 +152,54 @@ function cerrarModalRol() {
     modal.classList.add('modal-oculto');
     modal.classList.remove('modal-visible');
 }
+
+function abrirEditarDescripcionRol(codigo) {
+    const rol = datosRoles.roles.find(item => Number(item.cod_rol) === codigo);
+    if (!rol || !datosRoles.puede_gestionar) return;
+    document.getElementById('codigoDescripcionRol').value = String(codigo);
+    document.getElementById('tituloDescripcionRol').textContent = `Descripción: ${rol.des_rol}`;
+    document.getElementById('textoDescripcionRol').value = rol.detalle_rol || '';
+    document.getElementById('errorDescripcionRol').classList.add('hidden');
+    const modal = document.getElementById('modalDescripcionRol');
+    modal.classList.remove('modal-oculto');
+    modal.classList.add('modal-visible');
+}
+
+function cerrarModalDescripcionRol() {
+    const modal = document.getElementById('modalDescripcionRol');
+    modal.classList.add('modal-oculto');
+    modal.classList.remove('modal-visible');
+}
+
+document.getElementById('formDescripcionRol').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const boton = document.getElementById('guardarDescripcionRol');
+    const error = document.getElementById('errorDescripcionRol');
+    boton.disabled = true;
+    error.classList.add('hidden');
+    try {
+        const respuesta = await fetch(ENDPOINT_ROLES, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new URLSearchParams({
+                accion: 'guardar_descripcion',
+                cod_rol: document.getElementById('codigoDescripcionRol').value,
+                detalle_rol: document.getElementById('textoDescripcionRol').value.trim(),
+                csrf_token: CSRF_TOKEN
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudo guardar la descripción');
+        cerrarModalDescripcionRol();
+        mostrarMensajeRoles(datos.mensaje);
+        await cargarRoles();
+    } catch (errorPeticion) {
+        error.textContent = errorPeticion.message;
+        error.classList.remove('hidden');
+    } finally {
+        boton.disabled = false;
+    }
+});
 
 document.getElementById('formRol').addEventListener('submit', async evento => {
     evento.preventDefault();

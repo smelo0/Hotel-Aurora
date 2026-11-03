@@ -82,6 +82,49 @@ if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
     responder_roles(403, 'No tienes permiso para gestionar roles');
 }
 
+if ($accion === 'guardar_descripcion') {
+    $codigoEntrada = $_POST['cod_rol'] ?? '';
+    $descripcion = $_POST['detalle_rol'] ?? null;
+    if (!is_string($codigoEntrada) || !is_string($descripcion)) {
+        responder_roles(422, 'Los datos de la descripción no son válidos');
+    }
+
+    $codigo = filter_var($codigoEntrada, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $descripcion = trim($descripcion);
+    if (
+        !$codigo
+        || !in_array($codigo, [1, 3, 6], true)
+        || mb_strlen($descripcion, 'UTF-8') > 200
+    ) {
+        responder_roles(422, 'La descripción debe tener máximo 200 caracteres y corresponder a un rol válido');
+    }
+
+    $stmt = $conexion->prepare('UPDATE rol SET detalle_rol = ? WHERE cod_rol = ?');
+    if (!$stmt) {
+        Logger::registrarLog('ERROR', 'No se pudo preparar la actualización de la descripción de un rol', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo,
+            'error_db' => $conexion->error,
+        ]);
+        responder_roles(500, 'No se pudo guardar la descripción');
+    }
+    $stmt->bind_param('si', $descripcion, $codigo);
+    if (!$stmt->execute()) {
+        Logger::registrarLog('ERROR', 'No se pudo actualizar la descripción de un rol', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $codigo,
+            'error_db' => $stmt->error,
+        ]);
+        responder_roles(500, 'No se pudo guardar la descripción');
+    }
+    $stmt->close();
+    Logger::registrarLog('INFO', 'Descripción de rol actualizada', [
+        'id_usuario' => $idUsuarioLog,
+        'cod_rol' => $codigo,
+    ]);
+    responder_roles(200, 'Descripción guardada correctamente', ['cod_rol' => $codigo]);
+}
+
 if ($accion === 'guardar') {
     $codigoEntrada = $_POST['cod_rol'] ?? '';
     $permisos = $_POST['permisos'] ?? [];
@@ -102,6 +145,12 @@ if ($accion === 'guardar') {
         ]);
         responder_roles(422, 'Solo se pueden editar los permisos de Gerente General, Empleado y Cliente');
     }
+    if ($codigo === 1) {
+        Logger::registrarLog('WARN', 'Intento bloqueado de modificar los permisos del Gerente General', [
+            'id_usuario' => $idUsuarioLog,
+        ]);
+        responder_roles(403, 'Los permisos del Gerente General están protegidos y no se pueden modificar');
+    }
 
     $nombresRoles = [
         1 => 'Gerente General',
@@ -109,7 +158,6 @@ if ($accion === 'guardar') {
         6 => 'Cliente',
     ];
     $nombre = $nombresRoles[$codigo];
-    $detalle = $codigo === 3 ? 'Perfil del personal del hotel.' : '';
 
     if (!usuario_tiene_permiso($conexion, 'roles.asignar_permisos') && count($permisos) > 0) {
         Logger::registrarLog('WARN', 'Intento de asignar permisos sin autorización', [
@@ -120,8 +168,8 @@ if ($accion === 'guardar') {
 
     $conexion->begin_transaction();
     try {
-        $stmt = $conexion->prepare('UPDATE rol SET des_rol = ?, detalle_rol = ? WHERE cod_rol = ?');
-        $stmt->bind_param('ssi', $nombre, $detalle, $codigo);
+        $stmt = $conexion->prepare('UPDATE rol SET des_rol = ? WHERE cod_rol = ?');
+        $stmt->bind_param('si', $nombre, $codigo);
         $stmt->execute();
         if ($stmt->affected_rows < 0) {
             throw new RuntimeException('No se pudo actualizar el rol');

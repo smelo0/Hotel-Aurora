@@ -583,8 +583,10 @@ async function renderHousekeeping() {
                 : habitacion.ocupacion === 'reservada';
             let estado = habitacion.estado;
             if (estado !== 'Mantenimiento' && estado !== 'Sucia') {
-                if (estado === 'Ocupada' || habitacion.ocupacion === 'en_curso') {
+                if (habitacion.ocupacion === 'en_curso') {
                     estado = 'Ocupada';
+                } else if (estado === 'Ocupada') {
+                    estado = 'Disponible';
                 }
             }
 
@@ -636,8 +638,8 @@ function abrirModalMantenimiento(idHabitacion) {
     titulo.innerText = 'Habitación ' + datosHabitacion.numero;
     document.getElementById('estadoActualHousekeeping').innerText =
         `Estado actual: ${datosHabitacion.estadoVisible}${datosHabitacion.tieneReservaFutura ? ' · Tiene una reserva futura' : ''}`;
-    estado.value = ['Limpio', 'Disponible', 'Ocupada', 'Sucia', 'Mantenimiento'].includes(datosHabitacion.estado)
-        ? datosHabitacion.estado
+    estado.value = ['Limpio', 'Disponible', 'Ocupada', 'Sucia', 'Mantenimiento'].includes(datosHabitacion.estadoVisible)
+        ? datosHabitacion.estadoVisible
         : '';
     document.getElementById('prioridadHousekeeping').value = obtenerPrioridadMantenimiento(datosHabitacion.observacion);
     document.getElementById('motivoHousekeeping').value = obtenerMotivoMantenimiento(datosHabitacion.observacion);

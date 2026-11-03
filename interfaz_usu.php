@@ -881,6 +881,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <th class="px-4 py-2">Check-in</th>
                             <th class="px-4 py-2">Check-out</th>
                             <th class="px-4 py-2">Estado</th>
+                            <th class="px-4 py-2">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -900,6 +901,15 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] <?php echo reservationStatusBadge((string) ($reserva['est_res'] ?? 'Pendiente')); ?>">
                                         <?php echo e((string) ($reserva['est_res'] ?? 'Pendiente')); ?>
                                     </span>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <?php if ((int) ($reserva['puede_cancelar'] ?? 0) === 1): ?>
+                                        <button type="button" data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" data-segundos-cancelacion="<?php echo (int) ($reserva['segundos_cancelacion'] ?? 0); ?>" class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (10 min)</button>
+                                    <?php elseif (in_array(mb_strtolower((string) ($reserva['est_res'] ?? '')), ['pendiente', 'confirmada'], true)): ?>
+                                        <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido</span>
+                                    <?php else: ?>
+                                        <span class="text-xs text-white/50">No disponible</span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -1243,7 +1253,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=18"></script>
+    <script src="assets/js/interfaz_usu.js?v=19"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

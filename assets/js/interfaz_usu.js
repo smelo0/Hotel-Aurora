@@ -995,6 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCalendar();
     updateGuestSummary();
     attachLogoutFlow();
+    inicializarCancelacionHistorial();
     document.querySelectorAll('[data-collapse-target]').forEach(button => {
         button.addEventListener('click', () => {
             const content = document.getElementById(button.dataset.collapseTarget);
@@ -1021,6 +1022,94 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[Aurora] form activityForm existe?', !!document.getElementById('activityForm'));
     console.log('[Aurora] botones .experience-select-button:', document.querySelectorAll('.experience-select-button').length);
 });
+
+function inicializarCancelacionHistorial() {
+    const botones = document.querySelectorAll('[data-cancelar-reserva], [data-cancelar-experiencia]');
+    if (botones.length === 0) return;
+
+    const cargadoEn = Date.now();
+    const actualizarContadores = () => {
+        botones.forEach(boton => {
+            if (boton.disabled) return;
+            const segundosIniciales = Number(boton.dataset.segundosCancelacion);
+            const restantes = Math.max(0, segundosIniciales - Math.floor((Date.now() - cargadoEn) / 1000));
+            const tipo = boton.hasAttribute('data-cancelar-reserva') ? 'reserva' : 'experiencia';
+            const minutos = Math.floor(restantes / 60);
+            const segundos = String(restantes % 60).padStart(2, '0');
+            boton.textContent = restantes > 0
+                ? `Cancelar ${tipo} (${minutos}:${segundos})`
+                : 'Plazo vencido';
+            if (restantes === 0) {
+                boton.disabled = true;
+                boton.classList.add('cursor-not-allowed', 'opacity-50');
+            }
+        });
+    };
+    actualizarContadores();
+    window.setInterval(actualizarContadores, 1000);
+
+    document.addEventListener('click', async evento => {
+        const botonReserva = evento.target.closest('[data-cancelar-reserva]');
+        const botonExperiencia = evento.target.closest('[data-cancelar-experiencia]');
+        const boton = botonReserva || botonExperiencia;
+        if (!boton || boton.disabled) return;
+
+        const tipo = botonReserva ? 'reserva' : 'experiencia';
+        const confirmacion = await Swal.fire({
+            icon: 'warning',
+            title: `¿Cancelar ${tipo}?`,
+            text: `Esta acción cancelará la ${tipo}.`,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'Volver',
+            confirmButtonColor: '#e11d48',
+            cancelButtonColor: '#64748b'
+        });
+        if (!confirmacion.isConfirmed) return;
+
+        boton.disabled = true;
+        const cuerpo = new URLSearchParams({
+            accion: botonReserva ? 'cancelar_reserva' : 'cancelar_solicitud',
+            csrf_token: CSRF_TOKEN
+        });
+        if (botonReserva) {
+            cuerpo.set('id_reserva', boton.dataset.cancelarReserva);
+        } else {
+            cuerpo.set('id_agenda', boton.dataset.cancelarExperiencia);
+        }
+
+        try {
+            const endpoint = botonReserva
+                ? 'controladores/portal_huesped.php'
+                : 'controladores/gestionar_experiencias.php';
+            const respuesta = await fetch(endpoint, {
+                method: 'POST',
+                body: cuerpo,
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok || datos.status !== 'exito') {
+                throw new Error(datos.mensaje || `No se pudo cancelar la ${tipo}.`);
+            }
+            await Swal.fire({
+                icon: 'success',
+                title: 'Cancelada',
+                text: datos.mensaje,
+                confirmButtonColor: '#17354f'
+            });
+            window.location.reload();
+        } catch (error) {
+            boton.disabled = false;
+            await Swal.fire({
+                icon: 'error',
+                title: 'No se pudo cancelar',
+                text: error.message || `No se pudo cancelar la ${tipo}.`,
+                confirmButtonColor: '#17354f'
+            });
+        }
+    });
+}
 
 // ─────────────────────────────────────────────────────────
 // EXPERIENCIAS — handlers

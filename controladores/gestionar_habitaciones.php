@@ -6,6 +6,7 @@ require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Reserva/RoomRateSettings.php';
 
+use App\Admin\AdminDashboardRepository;
 use App\Logger;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -97,41 +98,52 @@ if ($metodo === 'GET' && $accion === 'listar') {
 
     // Reservas vigentes o futuras de cada habitación (se excluyen canceladas y finalizadas, igual que en el sitio público).
     // "En curso": el huésped está en casa o hoy cae entre la entrada y la salida. "Reservada": la reserva empieza más adelante.
+    $ahoraBogota = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s');
+    $condicionEstanciaEnCurso = AdminDashboardRepository::condicionEstanciaEnCurso('r');
     $sqlReservas = "SELECT d.cod_hab_det AS cod_hab, r.cod_res, r.est_res, r.fec_ent_res, r.fec_sal_res, u.nom_usu AS huesped,
-                           (LOWER(TRIM(r.est_res)) = 'en casa' OR (r.fec_ent_res <= NOW() AND r.fec_sal_res > NOW())) AS en_curso
+                           {$condicionEstanciaEnCurso} AS en_curso
                     FROM detalle d
                     INNER JOIN reservas r ON r.cod_res = d.cod_res_det
                     LEFT JOIN usuario u ON u.id_usu = r.id_usu_res
                     WHERE LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado', 'finalizada')
-                      AND (LOWER(TRIM(r.est_res)) = 'en casa' OR r.fec_sal_res > NOW())
+                      AND r.fec_sal_res > ?
                     ORDER BY d.cod_hab_det ASC, r.fec_ent_res ASC, r.cod_res ASC";
-    $resultadoReservas = $conexion->query($sqlReservas);
-    if (!$resultadoReservas) {
-        // Si falla esta consulta se siguen listando las habitaciones, solo sin el detalle de reservas.
-        error_log('Error al consultar reservas por habitación: ' . $conexion->error);
-    } else {
-        while ($reserva = $resultadoReservas->fetch_assoc()) {
-            $posicion = $posicionPorHabitacion[(int) $reserva['cod_hab']] ?? null;
-            if ($posicion === null) {
-                continue;
-            }
-            $enCurso = (int) $reserva['en_curso'] === 1;
-            $habitaciones[$posicion]['reservas'][] = [
-                'cod_res'  => (int) $reserva['cod_res'],
-                'estado'   => (string) $reserva['est_res'],
-                'entrada'  => (string) $reserva['fec_ent_res'],
-                'salida'   => (string) $reserva['fec_sal_res'],
-                'huesped'  => (string) ($reserva['huesped'] ?? ''),
-                'en_curso' => $enCurso,
-            ];
-            if ($enCurso) {
-                $habitaciones[$posicion]['ocupacion'] = 'en_curso';
-            } elseif ($habitaciones[$posicion]['ocupacion'] === 'libre') {
-                $habitaciones[$posicion]['ocupacion'] = 'reservada';
-            }
-        }
-        $resultadoReservas->free();
+    $stmtReservas = $conexion->prepare($sqlReservas);
+    if (!$stmtReservas) {
+        error_log('Error al preparar reservas por habitación: ' . $conexion->error);
+        responder_habitaciones(500, 'No se pudo determinar la ocupación de las habitaciones');
     }
+    if (!$stmtReservas->bind_param('sss', $ahoraBogota, $ahoraBogota, $ahoraBogota) || !$stmtReservas->execute()) {
+        error_log('Error al consultar reservas por habitación: ' . $stmtReservas->error);
+        responder_habitaciones(500, 'No se pudo determinar la ocupación de las habitaciones');
+    }
+    $resultadoReservas = $stmtReservas->get_result();
+    if (!$resultadoReservas) {
+        error_log('Error al obtener reservas por habitación: ' . $stmtReservas->error);
+        responder_habitaciones(500, 'No se pudo determinar la ocupación de las habitaciones');
+    }
+    while ($reserva = $resultadoReservas->fetch_assoc()) {
+        $posicion = $posicionPorHabitacion[(int) $reserva['cod_hab']] ?? null;
+        if ($posicion === null) {
+            continue;
+        }
+        $enCurso = (int) $reserva['en_curso'] === 1;
+        $habitaciones[$posicion]['reservas'][] = [
+            'cod_res'  => (int) $reserva['cod_res'],
+            'estado'   => (string) $reserva['est_res'],
+            'entrada'  => (string) $reserva['fec_ent_res'],
+            'salida'   => (string) $reserva['fec_sal_res'],
+            'huesped'  => (string) ($reserva['huesped'] ?? ''),
+            'en_curso' => $enCurso,
+        ];
+        if ($enCurso) {
+            $habitaciones[$posicion]['ocupacion'] = 'en_curso';
+        } elseif ($habitaciones[$posicion]['ocupacion'] === 'libre') {
+            $habitaciones[$posicion]['ocupacion'] = 'reservada';
+        }
+    }
+    $resultadoReservas->free();
+    $stmtReservas->close();
 
     try {
         $suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);

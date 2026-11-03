@@ -197,15 +197,17 @@ if ($esPersonal && $tipoHuesped === 'nuevo') {
     $telefonoNuevo = trim($telefonoNuevoRaw);
     $tiposDocumentoPermitidos = ['CC', 'CE', 'PAS', 'PPT', 'PEP'];
     if (
-        ($nombreNuevo !== '' && (preg_match('//u', $nombreNuevo) !== 1
+        ($nombreNuevo === ''
+            || preg_match('//u', $nombreNuevo) !== 1
             || preg_match('/[\x00-\x1F\x7F]/u', $nombreNuevo) === 1
-            || mb_strlen($nombreNuevo, 'UTF-8') > 100))
+            || mb_strlen($nombreNuevo, 'UTF-8') > 100)
         || ($correoNuevo !== '' && (!filter_var($correoNuevo, FILTER_VALIDATE_EMAIL) || strlen($correoNuevo) > 100))
-        || ($tipoDocumentoNuevo !== '' && !in_array($tipoDocumentoNuevo, $tiposDocumentoPermitidos, true))
-        || ($documentoNuevo !== '' && preg_match('/^[0-9]{5,12}$/', $documentoNuevo) !== 1)
+        || !in_array($tipoDocumentoNuevo, $tiposDocumentoPermitidos, true)
+        || $documentoNuevo === ''
+        || preg_match('/^[0-9]{3,12}$/', $documentoNuevo) !== 1
         || ($telefonoNuevo !== '' && preg_match('/^\+?[0-9 ]{7,20}$/', $telefonoNuevo) !== 1)
     ) {
-        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Revisa los datos ingresados. El documento debe tener solo números y entre 5 y 12 dígitos; el correo y teléfono también deben tener un formato válido si los ingresas.']);
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'El nombre, tipo y número de documento son obligatorios; el documento debe tener solo números, entre 3 y 12 dígitos. El correo y teléfono también deben tener un formato válido si los ingresas.']);
     }
 
     try {
@@ -216,10 +218,10 @@ if ($esPersonal && $tipoHuesped === 'nuevo') {
     }
 
     $datosNuevoHuesped = [
-        'nombre' => $nombreNuevo !== '' ? $nombreNuevo : 'Huésped de recepción',
+        'nombre' => $nombreNuevo,
         'correo' => $correoNuevo !== '' ? $correoNuevo : null,
-        'tipo_documento' => $tipoDocumentoNuevo !== '' ? $tipoDocumentoNuevo : null,
-        'documento' => $documentoNuevo !== '' ? $documentoNuevo : null,
+        'tipo_documento' => $tipoDocumentoNuevo,
+        'documento' => $documentoNuevo,
         'telefono' => $telefonoNuevo !== '' ? $telefonoNuevo : null,
     ];
 }
