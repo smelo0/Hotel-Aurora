@@ -12,7 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
-    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 3], true)
 ) {
     Logger::registrarLog('WARNING', 'Intento de guardar tarea sin sesión activa', []);
     http_response_code(401);
@@ -33,8 +33,9 @@ exigir_csrf();
 
 $tituloRaw = $_POST['titulo'] ?? null;
 $categoriaRaw = $_POST['categoria'] ?? null;
+$prioridadRaw = $_POST['prioridad'] ?? 'MODERADO';
 $descripcionRaw = $_POST['descripcion'] ?? null;
-if (!is_string($tituloRaw) || !is_string($categoriaRaw) || !is_string($descripcionRaw)) {
+if (!is_string($tituloRaw) || !is_string($categoriaRaw) || !is_string($prioridadRaw) || !is_string($descripcionRaw)) {
     http_response_code(422);
     echo json_encode(['status' => 'error', 'mensaje' => 'Datos inválidos para crear la tarea'], JSON_UNESCAPED_UNICODE);
     exit();
@@ -42,6 +43,7 @@ if (!is_string($tituloRaw) || !is_string($categoriaRaw) || !is_string($descripci
 
 $titulo = trim($tituloRaw);
 $categoria = trim($categoriaRaw);
+$prioridad = strtoupper(trim($prioridadRaw));
 $descripcion = trim($descripcionRaw);
 $id_sesion = (int) $_SESSION['emp_auth']['id_usuario'];
 $panelOrigen = $_POST['panel_origen'] ?? '';
@@ -51,7 +53,7 @@ $panelOrigen = is_string($panelOrigen) && in_array($panelOrigen, ['empleado', 'a
 $fecha = date('Y-m-d H:i:s');
 
 try {
-    EmpleadoService::validarDatosTarea($titulo, $categoria, $descripcion);
+    EmpleadoService::validarDatosTarea($titulo, $categoria, $descripcion, $prioridad);
 } catch (\InvalidArgumentException $error) {
     Logger::registrarLog('WARNING', 'Intento de guardar tarea con campos incompletos', ['usuario_id' => $id_sesion]);
     http_response_code(422);
@@ -81,7 +83,7 @@ try {
         $nombreCreador
     )) ?: 'Usuario';
 
-    $id_tarea = $repository->insertTarea($conexion, $titulo, $categoria, $descripcion, $fecha, $id_sesion);
+    $id_tarea = $repository->insertTarea($conexion, $titulo, $categoria, $prioridad, $descripcion, $fecha, $id_sesion);
     if (!$conexion->commit()) {
         throw new RuntimeException('No se pudo confirmar la creación de la tarea.');
     }
@@ -97,6 +99,7 @@ try {
             'id' => $id_tarea,
             'titulo' => $titulo,
             'categoria' => $categoria,
+            'prioridad' => $prioridad,
             'descripcion' => $descripcion,
             'estado' => 'Pendiente',
             'fecha' => $fecha,

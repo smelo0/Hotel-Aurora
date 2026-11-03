@@ -37,7 +37,7 @@ function rse_responder(int $status, string $mensaje, array $datos = []): never
 
 $idEmpleado = (int) ($_SESSION['emp_auth']['id_usuario'] ?? 0);
 $rolEmpleado = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
-if ($idEmpleado < 1 || !in_array($rolEmpleado, [1, 2, 3, 4, 5], true)) {
+if ($idEmpleado < 1 || !in_array($rolEmpleado, [1, 3], true)) {
     rse_responder(403, 'Tu sesión no tiene acceso al room service.');
 }
 if (!usuario_tiene_permiso($conexion, 'roomservice.estado') && !usuario_tiene_permiso($conexion, 'roomservice.gestionar')) {

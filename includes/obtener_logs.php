@@ -8,7 +8,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 // Medida de seguridad: Solo Administradores (rol 1 o 2) pueden ver los logs
 $rol = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
-if (!in_array($rol, [1, 2], true)) {
+if ($rol !== 1) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'mensaje' => 'No tienes permisos para ver los logs']);
     exit();

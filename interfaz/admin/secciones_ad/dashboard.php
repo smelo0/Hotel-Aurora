@@ -12,7 +12,17 @@ $eventosRecientesAdmin = $dashboardRepository->obtenerEventosRecientes();
 $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 ?>
 <section id="sec-dashboard" class="seccion-contenido">
-    
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-black text-primary">Panel de administración</h2>
+            <p class="mt-1 text-xs text-slate-400">Resumen y accesos rápidos del hotel.</p>
+        </div>
+        <button type="button" onclick="abrirModalEmpleado()" class="rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white shadow hover:brightness-110">
+            <span class="material-symbols-outlined mr-1 align-middle text-sm">person_add</span>
+            Crear empleado
+        </button>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         
         <div class="admin-card bg-white p-6 rounded-xl border-t-4 border-t-primary">
@@ -53,7 +63,89 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
             <?php endif; ?>
         </div>
     </div>
+    <div id="modalCrearEmpleado" class="modal-rol-backdrop z-[100] flex items-center justify-center p-4 modal-oculto transition-all duration-300" role="dialog" aria-modal="true" aria-labelledby="tituloModalEmpleado">
+        <div class="w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl">
+            <div class="mb-6 flex items-start justify-between gap-4">
+                <div>
+                    <h2 id="tituloModalEmpleado" class="text-2xl font-black text-primary">Crear cuenta de empleado</h2>
+                    <p class="mt-1 text-xs text-slate-400">La cuenta tendrá el perfil Empleado.</p>
+                </div>
+                <button type="button" onclick="cerrarModalEmpleado()" class="text-slate-400 hover:text-primary" aria-label="Cerrar">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div id="mensajeCrearEmpleado" class="mb-5 hidden rounded-lg px-4 py-3 text-sm font-bold" role="status" aria-live="polite"></div>
+            <form id="formCrearEmpleado" class="space-y-4">
+                <div>
+                    <label for="nombreNuevoEmpleado" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Nombre completo</label>
+                    <input type="text" id="nombreNuevoEmpleado" name="nombre" maxlength="100" autocomplete="name" required class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 outline-none focus:ring-1 focus:ring-primary">
+                </div>
+                <div>
+                    <label for="correoNuevoEmpleado" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Correo electrónico</label>
+                    <input type="email" id="correoNuevoEmpleado" name="correo" maxlength="100" autocomplete="email" required class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 outline-none focus:ring-1 focus:ring-primary">
+                </div>
+                <div>
+                    <label for="contrasenaNuevoEmpleado" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Contraseña inicial</label>
+                    <input type="password" id="contrasenaNuevoEmpleado" name="contrasena" minlength="12" maxlength="72" autocomplete="new-password" required class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 outline-none focus:ring-1 focus:ring-primary">
+                    <p class="mt-1 text-[11px] text-slate-400">Debe tener al menos 12 caracteres. Compártela con el empleado de forma segura.</p>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="cerrarModalEmpleado()" class="flex-1 rounded-lg py-3 font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+                    <button id="btnGuardarEmpleado" type="submit" class="flex-1 rounded-lg bg-primary py-3 font-bold text-white shadow hover:brightness-110">Crear cuenta</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <script>
+        const ENDPOINT_CREAR_EMPLEADO = '../../controladores/crear_empleado.php';
+
+        function abrirModalEmpleado() {
+            const modal = document.getElementById('modalCrearEmpleado');
+            modal.classList.remove('modal-oculto');
+            modal.classList.add('modal-visible');
+            document.getElementById('nombreNuevoEmpleado').focus();
+        }
+
+        function cerrarModalEmpleado() {
+            const modal = document.getElementById('modalCrearEmpleado');
+            modal.classList.add('modal-oculto');
+            modal.classList.remove('modal-visible');
+            document.getElementById('formCrearEmpleado').reset();
+            document.getElementById('mensajeCrearEmpleado').classList.add('hidden');
+        }
+
+        function mostrarMensajeCrearEmpleado(texto, error = false) {
+            const mensaje = document.getElementById('mensajeCrearEmpleado');
+            mensaje.textContent = texto;
+            mensaje.className = `mb-5 rounded-lg px-4 py-3 text-sm font-bold ${error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`;
+        }
+
+        document.getElementById('formCrearEmpleado').addEventListener('submit', async evento => {
+            evento.preventDefault();
+            const boton = document.getElementById('btnGuardarEmpleado');
+            const formulario = evento.currentTarget;
+            const datos = new FormData(formulario);
+            datos.set('csrf_token', CSRF_TOKEN);
+            boton.disabled = true;
+            boton.textContent = 'Creando...';
+            try {
+                const respuesta = await fetch(ENDPOINT_CREAR_EMPLEADO, {
+                    method: 'POST',
+                    headers: { Accept: 'application/json' },
+                    body: datos
+                });
+                const resultado = await respuesta.json();
+                if (!respuesta.ok) throw new Error(resultado.mensaje || 'No se pudo crear la cuenta.');
+                mostrarMensajeCrearEmpleado(resultado.mensaje);
+                formulario.reset();
+            } catch (error) {
+                mostrarMensajeCrearEmpleado(error.message, true);
+            } finally {
+                boton.disabled = false;
+                boton.textContent = 'Crear cuenta';
+            }
+        });
+
         function actualizarContadorTareas() {
             fetch('../../controladores/api_tareas_pendientes.php', { headers: { Accept: 'application/json' } })
                 .then(response => response.text())

@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../../includes/sesion_seguridad.php';
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
-    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 3], true)
 ) {
     header("Location: ../../login.php");
     exit();
@@ -10,6 +10,7 @@ if (
 require_once __DIR__ . '/../../configuracion/conexion.php';
 require_once __DIR__ . '/../../configuracion/permiso.php';
 $puedeEditarHabitaciones = usuario_tiene_permiso($conexion, 'operaciones.editar');
+$esEmpleado = (int) $_SESSION['emp_auth']['rol_usuario'] === 3;
 // Room service para el personal: ver los pedidos y cambiar su estado.
 $puedeRoomServiceEmpleado = usuario_tiene_permiso($conexion, 'roomservice.estado') || usuario_tiene_permiso($conexion, 'roomservice.gestionar');
 $conexion->close();
@@ -54,10 +55,11 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     <!-- Variables globales -->
     <script>
         const PUEDE_EDITAR_HABITACIONES = <?php echo $puedeEditarHabitaciones ? 'true' : 'false'; ?>;
+        const ES_EMPLEADO = <?php echo $esEmpleado ? 'true' : 'false'; ?>;
         const CSRF_TOKEN = <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 
-    <script src="js/panel.js?v=5"></script>
+    <script src="js/panel.js?v=6"></script>
     <?php if ($puedeRoomServiceEmpleado): ?>
     <script src="js/room_service.js?v=1"></script>
     <?php endif; ?>

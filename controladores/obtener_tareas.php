@@ -9,7 +9,7 @@ use App\Empleado\EmpleadoRepository;
 header('Content-Type: application/json; charset=utf-8');
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
-    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2, 3, 4, 5], true)
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 3], true)
 ) {
     http_response_code(401);
     echo json_encode(['status' => 'error', 'mensaje' => 'No estás autorizado'], JSON_UNESCAPED_UNICODE);

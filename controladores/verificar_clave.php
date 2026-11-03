@@ -4,15 +4,12 @@ header('Content-Type: application/json; charset=utf-8');
 
 define('ALLOW_SESSION_UNLOCK', true);
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
-require_once __DIR__ . '/../configuracion/conexion.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['status' => 'error', 'valido' => false]);
     exit;
 }
-
-exigir_csrf();
 
 // En un mismo navegador pueden coexistir una sesión de cliente (user_auth) y una de empleado/administrador
 // (emp_auth), y la cuenta de la sesión puede cambiar si se inicia sesión con otra en otra pestaña.
@@ -40,6 +37,36 @@ if ($uidPagina > 0) {
     // Sin dato de la página: se acepta la clave de cualquiera de las cuentas abiertas en esta sesión.
     $idsCandidatos = array_values(array_unique(array_filter([$idEmpleado, $idCliente])));
 }
+
+$tokenCsrf = (string) ($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+$tokenCsrfActual = (string) ($_SESSION['csrf_token'] ?? '');
+if ($tokenCsrfActual === '' || $tokenCsrf === '' || !hash_equals($tokenCsrfActual, $tokenCsrf)) {
+    $origen = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+    $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+    $urlOrigen = $origen !== '' ? $origen : $referer;
+    $partesOrigen = parse_url($urlOrigen);
+    $hostSolicitud = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $partesHostSolicitud = parse_url('//' . $hostSolicitud);
+    $esMismoOrigen = is_array($partesOrigen)
+        && is_array($partesHostSolicitud)
+        && strtolower((string) ($partesOrigen['host'] ?? '')) === strtolower((string) ($partesHostSolicitud['host'] ?? ''))
+        && (int) ($partesOrigen['port'] ?? 0) === (int) ($partesHostSolicitud['port'] ?? 0)
+        && strtolower((string) ($partesOrigen['scheme'] ?? '')) === (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off' ? 'https' : 'http')
+        && (string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest'
+        && $idsCandidatos !== [];
+
+    if ($esMismoOrigen) {
+        http_response_code(419);
+        echo json_encode([
+            'status' => 'csrf_refresh',
+            'csrf_token' => csrf_token(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    exigir_csrf();
+}
+
 $idUsuario = $idsCandidatos[0] ?? 0;
 if ($idUsuario === 0) {
     http_response_code(401);
@@ -81,6 +108,8 @@ if (($_POST['accion'] ?? '') === 'pausar') {
     ]);
     exit;
 }
+
+require_once __DIR__ . '/../configuracion/conexion.php';
 
 $clave = (string) ($_POST['clave'] ?? '');
 if ($clave === '') {

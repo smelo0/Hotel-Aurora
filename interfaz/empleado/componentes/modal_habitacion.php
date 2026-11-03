@@ -32,8 +32,10 @@
                             name="estado"
                             class="w-full p-4 rounded-xl border border-slate-200 text-slate-700 font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors cursor-pointer bg-slate-50">
                         <option value="Limpio">Limpio</option>
-                        <option value="Disponible">Disponible</option>
-                        <option value="Ocupada">Ocupada</option>
+                        <?php if (empty($esEmpleado)): ?>
+                            <option value="Disponible">Disponible</option>
+                            <option value="Ocupada">Ocupada</option>
+                        <?php endif; ?>
                         <option value="Sucia">Sucia</option>
                         <option value="Mantenimiento">Mantenimiento</option>
                     </select>

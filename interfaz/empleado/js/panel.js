@@ -299,10 +299,10 @@ async function cargarTareasEmpleado() {
 function insertarTareaEmpleadoDesdeServidor(tarea) {
     if (!tarea || !tarea.id || tareasEmpleadoIds.has(String(tarea.id))) return;
     tareasEmpleadoIds.add(String(tarea.id));
-    anadirTareaHTML(tarea.id, tarea.titulo, tarea.categoria || tarea.cat, tarea.descripcion || tarea.desc, tarea.creador_formateado);
+    anadirTareaHTML(tarea.id, tarea.titulo, tarea.categoria || tarea.cat, tarea.descripcion || tarea.desc, tarea.creador_formateado, tarea.prioridad);
 }
 
-function anadirTareaHTML(id, titulo, categoria, descripcion, creadorFormateado = '') {
+function anadirTareaHTML(id, titulo, categoria, descripcion, creadorFormateado = '', prioridad = 'MODERADO') {
     const contenedor = document.getElementById('contenedorTareas');
     const idTarea = Number(id);
     if (!contenedor || !Number.isSafeInteger(idTarea) || idTarea < 1) return;
@@ -310,7 +310,9 @@ function anadirTareaHTML(id, titulo, categoria, descripcion, creadorFormateado =
     const borde = categoriaNormalizada === 'URGENTE' ? 'border-red-400 bg-red-50/70' : categoriaNormalizada === 'LIMPIEZA' ? 'border-amber-400 bg-amber-50/70' : 'border-primary bg-[#fbfdfd]';
     const texto = categoriaNormalizada === 'URGENTE' ? 'text-red-500 bg-red-100' : categoriaNormalizada === 'LIMPIEZA' ? 'text-amber-700 bg-amber-100' : 'text-primary bg-accent';
     const icono = categoriaNormalizada === 'URGENTE' ? '▲' : categoriaNormalizada === 'LIMPIEZA' ? '◆' : '●';
-    contenedor.insertAdjacentHTML('afterbegin', `<div id="tarea-${idTarea}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${borde} shadow-md group relative transition-all duration-300 ease-out"><p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${texto}"><span>${icono}</span>${escaparHTML(categoriaNormalizada)}</p><h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4><p class="text-[10px] text-slate-400 mt-2">${escaparHTML(descripcion)}</p><p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p><button type="button" data-action="completar-tarea" data-task-id="${idTarea}" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button></div>`);
+    const prioridadNormalizada = String(prioridad || 'MODERADO').toUpperCase();
+    const prioridadClases = prioridadNormalizada === 'URGENTE' ? 'text-red-600 bg-red-100' : prioridadNormalizada === 'BAJO' ? 'text-slate-600 bg-slate-100' : 'text-amber-700 bg-amber-100';
+    contenedor.insertAdjacentHTML('afterbegin', `<div id="tarea-${idTarea}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${borde} shadow-md group relative transition-all duration-300 ease-out"><div class="mb-3 flex flex-wrap gap-1"><p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide ${texto}"><span>${icono}</span>${escaparHTML(categoriaNormalizada)}</p><p class="inline-flex items-center px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide ${prioridadClases}">${escaparHTML(prioridadNormalizada)}</p></div><h4 class="text-xs font-bold text-heading leading-tight">${escaparHTML(titulo)}</h4><p class="text-[10px] text-slate-400 mt-2">${escaparHTML(descripcion)}</p><p class="text-[9px] font-black uppercase tracking-tight text-primary bg-primary/5 px-2 py-1 rounded mt-3">${escaparHTML(creadorFormateado || 'Sistema - Hotel')}</p><button type="button" data-action="completar-tarea" data-task-id="${idTarea}" class="mt-4 text-[9px] font-bold text-primary underline uppercase opacity-0 group-hover:opacity-100 transition-all">Hecho</button></div>`);
     initDragAndDrop();
 }
 
@@ -412,7 +414,18 @@ function abrirGestionHabitacion(id, numero, estadoActual) {
     if (!idInput || !titulo || !estado || !prioridad || !descripcion) return;
     idInput.value = id;
     titulo.textContent = `Habitación ${numero}`;
-    estado.value = estadoActual;
+    estado.querySelector('[data-estado-actual]')?.remove();
+    if (ES_EMPLEADO && !Array.from(estado.options).some(opcion => opcion.value === estadoActual)) {
+        const estadoActualOption = document.createElement('option');
+        estadoActualOption.value = estadoActual;
+        estadoActualOption.textContent = `${estadoActual} (estado actual)`;
+        estadoActualOption.disabled = true;
+        estadoActualOption.selected = true;
+        estadoActualOption.dataset.estadoActual = 'true';
+        estado.append(estadoActualOption);
+    } else {
+        estado.value = estadoActual;
+    }
     prioridad.value = 'No urgente';
     descripcion.value = '';
     actualizarPrioridadMantenimiento();
@@ -507,6 +520,7 @@ function enlazarEventosEmpleado() {
         const textoOriginal = boton?.innerHTML || '';
         const datos = new FormData();
         datos.append('titulo', document.getElementById('tituloTarea').value.trim());
+        datos.append('prioridad', document.getElementById('prioridadTarea').value);
         datos.append('categoria', document.getElementById('categoriaTarea').value);
         datos.append('descripcion', document.getElementById('descTarea').value.trim());
         datos.append('csrf_token', CSRF_TOKEN);
@@ -516,7 +530,7 @@ function enlazarEventosEmpleado() {
             const respuesta = await fetch('../../controladores/guardar_tarea.php', { method: 'POST', body: datos, headers: { Accept: 'application/json' } });
             const resultado = await respuesta.json();
             if (!respuesta.ok || resultado.status !== 'exito') throw new Error(resultado.mensaje || 'No se pudo guardar la tarea');
-            anadirTareaHTML(resultado.id_tarea, datos.get('titulo'), datos.get('categoria'), datos.get('descripcion'), resultado.tarea?.creador_formateado);
+            anadirTareaHTML(resultado.id_tarea, datos.get('titulo'), datos.get('categoria'), datos.get('descripcion'), resultado.tarea?.creador_formateado, resultado.tarea?.prioridad);
             formTarea.reset();
             cerrarModal();
             actualizarContadorTareas();

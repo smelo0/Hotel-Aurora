@@ -27,6 +27,32 @@ final class EmpleadoService
         'GENERAL',
     ];
 
+    public const PRIORIDADES_TAREA = [
+        'URGENTE',
+        'MODERADO',
+        'BAJO',
+    ];
+
+    public static function prioridadTareaParaBaseDatos(string $prioridad): string
+    {
+        return match ($prioridad) {
+            'URGENTE' => 'Alta',
+            'MODERADO' => 'Media',
+            'BAJO' => 'Baja',
+            default => throw new InvalidArgumentException('La urgencia de la tarea no es válida.'),
+        };
+    }
+
+    public static function prioridadTareaParaInterfaz(string $prioridad): string
+    {
+        return match ($prioridad) {
+            'Alta' => 'URGENTE',
+            'Media' => 'MODERADO',
+            'Baja' => 'BAJO',
+            default => 'MODERADO',
+        };
+    }
+
     public static function crearObservacionHabitacion(
         string $estado,
         string $prioridad,
@@ -52,13 +78,16 @@ final class EmpleadoService
         return 'Prioridad: ' . $prioridad . "\n" . $descripcion;
     }
 
-    public static function validarDatosTarea(string $titulo, string $categoria, string $descripcion): void
+    public static function validarDatosTarea(string $titulo, string $categoria, string $descripcion, string $prioridad = 'MODERADO'): void
     {
         if ($titulo === '' || self::contarCaracteres($titulo) > 100) {
             throw new InvalidArgumentException('El título debe tener entre 1 y 100 caracteres.');
         }
         if (!in_array($categoria, self::CATEGORIAS_TAREA, true)) {
             throw new InvalidArgumentException('La categoría de tarea no es válida.');
+        }
+        if (!in_array($prioridad, self::PRIORIDADES_TAREA, true)) {
+            throw new InvalidArgumentException('La urgencia de la tarea no es válida.');
         }
         if ($descripcion === '' || self::contarCaracteres($descripcion) > 5000) {
             throw new InvalidArgumentException('La descripción de tarea no es válida.');

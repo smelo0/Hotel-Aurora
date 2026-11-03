@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTareasAdmin();
     iniciarSincronizacionTareasAdmin();
     renderHousekeeping();
+    inicializarHousekeeping();
     iniciarSincronizacionHousekeeping();
     iniciarSincronizacionReservas();
     inicializarCobroExperienciasReserva();
@@ -568,53 +569,52 @@ async function renderHousekeeping() {
         const datos = await respuesta.json();
         if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las habitaciones.');
 
-        const habitaciones = datos.habitaciones || [];
+        const habitaciones = Array.isArray(datos.habitaciones) ? datos.habitaciones : [];
         habitacionesHousekeeping = new Map();
+        if (habitaciones.length === 0) {
+            grid.innerHTML = '<p class="col-span-full py-8 text-center text-sm text-slate-400">No hay habitaciones registradas.</p>';
+            return;
+        }
         grid.innerHTML = '';
 
         habitaciones.forEach(habitacion => {
-            // Lógica para combinar el estado físico con el estado de las reservas
+            const tieneReservaFutura = Array.isArray(habitacion.reservas)
+                ? habitacion.reservas.some(reserva => !reserva.en_curso)
+                : habitacion.ocupacion === 'reservada';
             let estado = habitacion.estado;
             if (estado !== 'Mantenimiento' && estado !== 'Sucia') {
                 if (estado === 'Ocupada' || habitacion.ocupacion === 'en_curso') {
                     estado = 'Ocupada';
-                } else if (habitacion.ocupacion === 'reservada') {
-                    estado = 'Reservada';
                 }
             }
 
-            const esMantenimiento = estado === 'Mantenimiento';
-            const motivo = obtenerMotivoMantenimiento(habitacion.observacion);
-            const prioridad = obtenerPrioridadMantenimiento(habitacion.observacion);
-            const accionClick = esMantenimiento ? `onclick="abrirModalMantenimiento(${Number(habitacion.id)})"` : '';
-
-            // Usamos los colores de Tailwind que tienes en tu leyenda
             const clasesColor = {
                 'Disponible': 'bg-green-500 hover:bg-green-600',
+                'Limpio': 'bg-green-500 hover:bg-green-600',
                 'Ocupada': 'bg-orange-500 hover:bg-orange-600',
                 'Reservada': 'bg-sky-500 hover:bg-sky-600',
                 'Sucia': 'bg-stone-600 hover:bg-stone-700',
                 'Mantenimiento': 'bg-red-500 hover:bg-red-600'
             }[estado] || 'bg-slate-400 hover:bg-slate-500';
 
-            if (esMantenimiento) {
-                habitacionesHousekeeping.set(String(habitacion.id), {
-                    numero: habitacion.numero,
-                    motivo: motivo || 'Motivo no registrado.',
-                    prioridad
-                });
-            }
-
-            // Renderizamos como botones cuadrados con Tailwind
+            habitacionesHousekeeping.set(String(habitacion.id), {
+                ...habitacion,
+                estadoVisible: estado,
+                tieneReservaFutura,
+                observacion: habitacion.observacion || ''
+            });
             grid.insertAdjacentHTML('beforeend', `
-                <button type="button" ${accionClick} class="aspect-square rounded-lg ${clasesColor} text-white font-black text-sm shadow-sm transition-transform hover:scale-105 flex flex-col items-center justify-center relative cursor-pointer" title="Habitación ${Number(habitacion.numero)} · ${estado}">
+                <button type="button" onclick="abrirModalMantenimiento(${Number(habitacion.id)})" class="aspect-square rounded-lg ${clasesColor} text-white font-black text-sm shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30 flex flex-col items-center justify-center relative cursor-pointer" title="Habitación ${Number(habitacion.numero)} · ${escaparHTMLHousekeeping(estado)}${tieneReservaFutura ? ' · Tiene reserva futura' : ''}" aria-label="Habitación ${Number(habitacion.numero)}, estado ${escaparHTMLHousekeeping(estado)}${tieneReservaFutura ? ', con reserva futura' : ''}">
+                    ${tieneReservaFutura ? '<span class="absolute right-1 top-1 rounded bg-white px-1 text-[8px] font-black uppercase leading-4 text-sky-800">R</span>' : ''}
                     <span>${escaparHTMLHousekeeping(habitacion.numero)}</span>
                 </button>
             `);
         });
+        const mensaje = document.getElementById('mensajeHousekeeping');
+        if (mensaje) mensaje.classList.add('hidden');
     } catch (error) {
         console.error('Error al sincronizar Housekeeping:', error);
-        grid.innerHTML = `<p class="col-span-full text-xs text-red-500 text-center">Error al cargar habitaciones: ${error.message}</p>`;
+        grid.innerHTML = `<p class="col-span-full py-8 text-center text-sm text-red-500">Error al cargar habitaciones: ${escaparHTMLHousekeeping(error.message)}</p>`;
     }
 }
 
@@ -624,16 +624,90 @@ function abrirModalMantenimiento(idHabitacion) {
 
     const modal = document.getElementById('modalMantenimientoHousekeeping');
     const titulo = document.getElementById('tituloMantenimientoHousekeeping');
-    const motivo = document.getElementById('motivoMantenimientoHousekeeping');
-    const prioridad = document.getElementById('prioridadMantenimientoHousekeeping');
-    if (!modal || !titulo || !motivo || !prioridad) return;
+    const form = document.getElementById('formHousekeeping');
+    const estado = document.getElementById('estadoHousekeeping');
+    const reserva = document.getElementById('reservaHabitacionHousekeeping');
+    const editar = typeof PERMISOS_USUARIO !== 'undefined'
+        && (PERMISOS_USUARIO.includes('operaciones.editar') || Number(ROL_USUARIO) === 1);
+    if (!modal || !titulo || !form || !estado || !reserva) return;
 
-    const prioridadUI = obtenerUIPrioridad(datosHabitacion.prioridad);
-    titulo.innerText = 'Habitacion ' + datosHabitacion.numero;
-    motivo.innerText = datosHabitacion.motivo;
-    prioridad.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest mb-5 ' + prioridadUI.clases;
-    prioridad.innerHTML = `<span class="text-[9px] leading-none">${prioridadUI.icono}</span><span>${prioridadUI.texto}</span>`;
+    form.reset();
+    document.getElementById('idHabitacionHousekeeping').value = String(datosHabitacion.id);
+    titulo.innerText = 'Habitación ' + datosHabitacion.numero;
+    document.getElementById('estadoActualHousekeeping').innerText =
+        `Estado actual: ${datosHabitacion.estadoVisible}${datosHabitacion.tieneReservaFutura ? ' · Tiene una reserva futura' : ''}`;
+    estado.value = ['Limpio', 'Disponible', 'Ocupada', 'Sucia', 'Mantenimiento'].includes(datosHabitacion.estado)
+        ? datosHabitacion.estado
+        : '';
+    document.getElementById('prioridadHousekeeping').value = obtenerPrioridadMantenimiento(datosHabitacion.observacion);
+    document.getElementById('motivoHousekeeping').value = obtenerMotivoMantenimiento(datosHabitacion.observacion);
+    document.getElementById('guardarHousekeeping').classList.toggle('hidden', !editar);
+    estado.disabled = !editar;
+    document.querySelectorAll('#camposMantenimientoHousekeeping select, #camposMantenimientoHousekeeping textarea')
+        .forEach(campo => { campo.disabled = !editar; });
+    reserva.classList.toggle('hidden', !Array.isArray(datosHabitacion.reservas) || datosHabitacion.reservas.length === 0);
+    if (!reserva.classList.contains('hidden')) {
+        const reservaActual = datosHabitacion.reservas.find(item => item.en_curso) || datosHabitacion.reservas[0];
+        reserva.textContent = `${reservaActual.en_curso ? 'Estancia en curso' : 'Próxima reserva'}${reservaActual.huesped ? ` · ${reservaActual.huesped}` : ''} · ${reservaActual.entrada} a ${reservaActual.salida}`;
+    }
+    mostrarCamposMantenimientoHousekeeping();
+    mostrarErrorHousekeeping('');
     modal.classList.add('modal-visible');
+}
+
+function inicializarHousekeeping() {
+    const form = document.getElementById('formHousekeeping');
+    const estado = document.getElementById('estadoHousekeeping');
+    if (!form || !estado) return;
+    estado.addEventListener('change', mostrarCamposMantenimientoHousekeeping);
+    form.addEventListener('submit', guardarEstadoHousekeeping);
+}
+
+function mostrarCamposMantenimientoHousekeeping() {
+    const campos = document.getElementById('camposMantenimientoHousekeeping');
+    const motivo = document.getElementById('motivoHousekeeping');
+    const requiereMantenimiento = document.getElementById('estadoHousekeeping')?.value === 'Mantenimiento';
+    if (campos) campos.classList.toggle('hidden', !requiereMantenimiento);
+    if (motivo) motivo.required = requiereMantenimiento;
+}
+
+function mostrarErrorHousekeeping(mensaje) {
+    const elemento = document.getElementById('errorHousekeeping');
+    if (!elemento) return;
+    elemento.textContent = mensaje;
+    elemento.classList.toggle('hidden', !mensaje);
+}
+
+async function guardarEstadoHousekeeping(event) {
+    event.preventDefault();
+    const boton = document.getElementById('guardarHousekeeping');
+    const form = event.currentTarget;
+    const datos = new FormData(form);
+    datos.set('id_hab', document.getElementById('idHabitacionHousekeeping').value);
+    datos.set('csrf_token', CSRF_TOKEN);
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    mostrarErrorHousekeeping('');
+    try {
+        const respuesta = await fetch('../../controladores/actualizar_estado_habitacion.php', {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new URLSearchParams(datos),
+            cache: 'no-store'
+        });
+        const resultado = await respuesta.json();
+        if (!respuesta.ok || resultado.status !== 'exito') {
+            throw new Error(resultado.mensaje || 'No se pudo guardar el estado.');
+        }
+        cerrarModalMantenimiento();
+        localStorage.setItem('habitaciones_actualizadas', String(Date.now()));
+        await renderHousekeeping();
+    } catch (error) {
+        mostrarErrorHousekeeping(error.message || 'No se pudo guardar el estado.');
+    } finally {
+        boton.disabled = false;
+        boton.textContent = 'Guardar estado';
+    }
 }
 
 function iniciarSincronizacionHousekeeping() {
@@ -686,7 +760,7 @@ function escaparHTMLAdmin(valor) {
 }
 
 function obtenerNombreRolAdmin(rol) {
-    const roles = { 1: 'Admin', 2: 'Gestor', 3: 'Recepcionista', 4: 'Conserje', 5: 'Limpieza' };
+    const roles = { 1: 'Gerente General', 3: 'Empleado' };
     return roles[Number(rol)] || 'Personal';
 }
 
@@ -746,14 +820,23 @@ function obtenerEstilosTareaAdmin(categoria) {
 function crearTareaAdminHTML(tarea) {
     const categoria = String(tarea.categoria || tarea.cat || 'GENERAL').toUpperCase();
     const estilos = obtenerEstilosTareaAdmin(categoria);
+    const prioridad = String(tarea.prioridad || 'MODERADO').toUpperCase();
+    const estilosPrioridad = prioridad === 'URGENTE'
+        ? 'text-red-600 bg-red-100'
+        : prioridad === 'BAJO'
+            ? 'text-slate-600 bg-slate-100'
+            : 'text-amber-700 bg-amber-100';
     const creador = formatearCreadorAdmin(tarea);
     const fecha = tarea.fecha ? obtenerHoraTareaAdmin(tarea.fecha) : '';
 
     return `
         <div id="tarea-admin-${escaparHTMLAdmin(tarea.id)}" draggable="true" class="task-item p-6 rounded-lg border border-primary/10 border-l-4 ${estilos.tarjeta} shadow-md group relative transition-all duration-300 ease-out">
-            <p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide mb-3 ${estilos.etiqueta}">
-                <span class="material-symbols-outlined text-[12px]">${estilos.icono}</span>${escaparHTMLAdmin(categoria)}
-            </p>
+            <div class="mb-3 flex flex-wrap gap-1">
+                <p class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide ${estilos.etiqueta}">
+                    <span class="material-symbols-outlined text-[12px]">${estilos.icono}</span>${escaparHTMLAdmin(categoria)}
+                </p>
+                <p class="inline-flex items-center px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wide ${estilosPrioridad}">${escaparHTMLAdmin(prioridad)}</p>
+            </div>
             <h4 class="text-xs font-bold text-heading leading-tight">${escaparHTMLAdmin(tarea.titulo)}</h4>
             <p class="text-[10px] text-slate-400 mt-2">${escaparHTMLAdmin(tarea.descripcion || tarea.desc || '')}</p>
             <div class="flex items-center gap-3 mt-3">
@@ -1029,11 +1112,13 @@ if (formTarea) {
         const botonSubmit = this.querySelector('button[type="submit"]');
         const textoOriginal = botonSubmit ? botonSubmit.innerHTML : '';
         const titulo = document.getElementById('tituloTarea').value.trim();
+        const prioridad = document.getElementById('prioridadTarea').value;
         const categoria = document.getElementById('categoriaTarea').value;
         const descripcion = document.getElementById('descTarea').value.trim();
 
         const formData = new FormData();
         formData.append('titulo', titulo);
+        formData.append('prioridad', prioridad);
         formData.append('categoria', categoria);
         formData.append('descripcion', descripcion);
         formData.append('csrf_token', CSRF_TOKEN);

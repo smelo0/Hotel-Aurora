@@ -6,11 +6,12 @@ if (
     require_once __DIR__ . '/../../../includes/sesion_seguridad.php';
     require_once __DIR__ . '/../../../configuracion/conexion.php';
     require_once __DIR__ . '/../../../configuracion/permiso.php';
+    require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
 
     $rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
     if (
         !isset($_SESSION['emp_auth']['id_usuario'])
-        || !in_array($rolUsuario, [1, 2], true)
+        || $rolUsuario !== 1
     ) {
         header('Location: /Hotel-Aurora/interfaz_usu.php');
         exit();
@@ -22,6 +23,8 @@ if (
 if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
     return;
 }
+require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
+$suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
 
 if (!function_exists('formatear_fecha_reserva_admin')) {
     function formatear_fecha_reserva_admin($fecha) {
@@ -397,7 +400,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 <div id="edadesNinosReservaAdmin" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs font-black uppercase tracking-wider text-slate-500">Edad de cada niño</p>
                     <div id="edadesNinosReservaAdminLista" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
-                    <p class="mt-2 text-xs text-slate-500">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años sin costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos.</p>
+                    <p id="descripcionCargoNinoAdmin" class="mt-2 text-xs text-slate-500">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos.</p>
                 </div>
                 <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Peticiones especiales
                     <textarea name="notas_reserva" rows="2" maxlength="500" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium normal-case" placeholder="Opcional"></textarea>
@@ -554,7 +557,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const POLITICA_TARIFA_RESERVA = {
             ocupacionEstandar: <?php echo \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY; ?>,
-            suplementoNinoAdicional: <?php echo \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT; ?>,
+            suplementoNinoAdicional: <?php echo $suplementoNinoAdicional; ?>,
             edadMaximaSinCosto: <?php echo \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE; ?>,
             edadMaximaNino: <?php echo \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE; ?>
         };

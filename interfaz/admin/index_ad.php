@@ -6,7 +6,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario']) ||
-    !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 2], true)
+    (int) $_SESSION['emp_auth']['rol_usuario'] !== 1
 ) {
     header('Location: /Hotel-Aurora/interfaz_usu.php');
     exit();
@@ -29,21 +29,49 @@ require_once '../../src/RoomService/RoomServiceSchemaMigrator.php';
 require_once 'componentes_ad/head.php';
 
 $permisos_usuario = [];
-$stmt_permisos = $conexion->prepare('SELECT rp.cod_permiso FROM rol_permiso rp WHERE rp.cod_rol = ?');
 $rol_sesion = (int) $_SESSION['emp_auth']['rol_usuario'];
+$sincronizarPermisosAdmin = $conexion->query(
+    'INSERT IGNORE INTO rol_permiso (cod_rol, cod_permiso) SELECT 1, cod_permiso FROM permiso'
+);
+if (!$sincronizarPermisosAdmin) {
+    \App\Logger::registrarLog('ERROR', 'No se pudieron sincronizar todos los permisos del gerente general', [
+        'id_usuario' => (int) $_SESSION['emp_auth']['id_usuario'],
+        'error_db' => $conexion->error,
+    ]);
+}
+
+$consultaPermisos = $rol_sesion === 1
+    ? 'SELECT cod_permiso FROM permiso'
+    : 'SELECT rp.cod_permiso FROM rol_permiso rp WHERE rp.cod_rol = ?';
+$stmt_permisos = $conexion->prepare($consultaPermisos);
 if ($stmt_permisos) {
-    $stmt_permisos->bind_param('i', $rol_sesion);
-    $stmt_permisos->execute();
-    $resultado_permisos = $stmt_permisos->get_result();
-    while ($permiso = $resultado_permisos->fetch_assoc()) {
-        $permisos_usuario[] = $permiso['cod_permiso'];
+    if ($rol_sesion !== 1) {
+        $stmt_permisos->bind_param('i', $rol_sesion);
     }
+    if ($stmt_permisos->execute()) {
+        $resultado_permisos = $stmt_permisos->get_result();
+    } else {
+        $resultado_permisos = false;
+        \App\Logger::registrarLog('ERROR', 'No se pudieron cargar los permisos del usuario administrador', [
+            'id_usuario' => (int) $_SESSION['emp_auth']['id_usuario'],
+            'error_db' => $stmt_permisos->error,
+        ]);
+    }
+    if ($resultado_permisos instanceof mysqli_result) {
+        while ($permiso = $resultado_permisos->fetch_assoc()) {
+            $permisos_usuario[] = $permiso['cod_permiso'];
+        }
+    }
+    $stmt_permisos->close();
+} else {
+    \App\Logger::registrarLog('ERROR', 'No se pudo preparar la carga de permisos del panel administrador', [
+        'id_usuario' => (int) $_SESSION['emp_auth']['id_usuario'],
+        'error_db' => $conexion->error,
+    ]);
 }
 
 if ($permisos_usuario === []) {
-    $permisos_usuario = $rol_sesion === 1
-        ? ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar', 'roomservice.ver', 'roomservice.gestionar']
-        : ['dashboard.ver', 'reservas.ver', 'operaciones.ver', 'finanzas.ver', 'experiencias.ver', 'experiencias.gestionar', 'roomservice.ver', 'roomservice.gestionar'];
+    $permisos_usuario = ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar', 'roomservice.ver', 'roomservice.gestionar'];
 }
 
 if (($_GET['reservas_fragmento'] ?? '') === '1') {
@@ -110,18 +138,46 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         <div id="cardMantenimientoHousekeeping" onclick="event.stopPropagation()" class="maintenance-modal-card bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl border border-slate-100">
             <div class="flex justify-between items-start gap-4 mb-6">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-red-400 mb-2">Mantenimiento</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary mb-2">Housekeeping</p>
                     <h3 id="tituloMantenimientoHousekeeping" class="text-xl font-black text-heading">Habitación</h3>
                 </div>
                 <button onclick="cerrarModalMantenimiento()" class="text-slate-400 hover:text-red-500 font-black text-xl transition-colors" type="button">&times;</button>
             </div>
 
-            <div id="prioridadMantenimientoHousekeeping" class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest mb-5"></div>
-
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Motivo registrado</p>
-                <p id="motivoMantenimientoHousekeeping" class="text-sm font-bold text-slate-600 leading-relaxed whitespace-pre-line"></p>
-            </div>
+            <form id="formHousekeeping" class="space-y-4">
+                <input type="hidden" id="idHabitacionHousekeeping">
+                <div id="reservaHabitacionHousekeeping" class="hidden rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800"></div>
+                <div>
+                    <p id="estadoActualHousekeeping" class="mb-1 text-xs font-bold text-slate-500"></p>
+                    <label for="estadoHousekeeping" class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">Estado de la habitación</label>
+                    <select id="estadoHousekeeping" name="estado" required class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 focus:ring-1 focus:ring-primary">
+                        <option value="Limpio">Limpio</option>
+                        <option value="Disponible">Disponible</option>
+                        <option value="Ocupada">Ocupada</option>
+                        <option value="Sucia">Sucia</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                    </select>
+                </div>
+                <div id="camposMantenimientoHousekeeping" class="hidden space-y-4">
+                    <div>
+                        <label for="prioridadHousekeeping" class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">Prioridad</label>
+                        <select id="prioridadHousekeeping" name="prioridad_mantenimiento" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 focus:ring-1 focus:ring-primary">
+                            <option value="Urgente">Urgente</option>
+                            <option value="Importante">Importante</option>
+                            <option value="No urgente">No urgente</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="motivoHousekeeping" class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">Motivo del mantenimiento</label>
+                        <textarea id="motivoHousekeeping" name="descripcion_mantenimiento" rows="3" maxlength="255" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 focus:ring-1 focus:ring-primary" placeholder="Describe qué requiere atención"></textarea>
+                    </div>
+                </div>
+                <p id="errorHousekeeping" class="hidden text-sm font-bold text-red-600" role="alert"></p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="cerrarModalMantenimiento()" class="flex-1 rounded-lg py-3 font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+                    <button id="guardarHousekeeping" type="submit" class="flex-1 rounded-lg bg-primary py-3 font-bold text-white shadow hover:brightness-110">Guardar estado</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -138,12 +194,12 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=21" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=21';"></script>
+ <script src="js_ad/admin.js?v=23" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=23';"></script>
     <script src="js_ad/scroll_admin.js?v=1"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>
     <?php require_once __DIR__ . '/../../includes/timeOut.php'; ?>
-    <script src="../../assets/js/inactividad.js?v=7"></script>
+    <script src="../../assets/js/inactividad.js?v=8"></script>
 <?php endif; ?>
 </body>
 </html>

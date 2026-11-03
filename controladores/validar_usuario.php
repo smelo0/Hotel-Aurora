@@ -91,6 +91,7 @@ if (
 }
 
 $rolActual = (int) $rolUsuario;
+$rolActual = in_array($rolActual, [2, 4, 5], true) ? 3 : $rolActual;
 $stmt->close();
 $conexion->close();
 
@@ -99,7 +100,6 @@ unset($_SESSION['emp_auth'], $_SESSION['user_auth']);
 
 switch ($rolActual) {
     case 1:
-    case 2:
         $_SESSION['emp_auth'] = [
             'id_usuario' => (int) $idUsuario,
             'nombre_usuario' => (string) $nombreUsuario,
@@ -113,8 +113,6 @@ switch ($rolActual) {
         exit();
 
     case 3:
-    case 4:
-    case 5:
         $_SESSION['emp_auth'] = [
             'id_usuario' => (int) $idUsuario,
             'nombre_usuario' => (string) $nombreUsuario,

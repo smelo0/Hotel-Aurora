@@ -4,6 +4,9 @@ function usuario_tiene_permiso(mysqli $conexion, string $codigo_permiso, ?int $c
     if ($codigo_rol < 1) {
         return false;
     }
+    if ($codigo_rol === 1) {
+        return true;
+    }
 
     $stmt = $conexion->prepare(
         'SELECT 1 FROM rol_permiso rp INNER JOIN permiso p ON p.cod_permiso = rp.cod_permiso WHERE rp.cod_rol = ? AND p.cod_permiso = ? LIMIT 1'

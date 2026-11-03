@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSettings.php';
 
 use App\Logger;
 
@@ -61,7 +62,7 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? 'listar';
 
 // ---------------------------------------------------------------- LISTAR
 if ($metodo === 'GET' && $accion === 'listar') {
-    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab,
+    $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab, h.des_hab, h.img_hab, h.car_hab,
                    (SELECT COUNT(*) FROM detalle d WHERE d.cod_hab_det = h.cod_hab) AS total_reservas
             FROM habitacion h
             ORDER BY h.num_hab ASC";
@@ -82,6 +83,7 @@ if ($metodo === 'GET' && $accion === 'listar') {
             'tipo'           => (string) $fila['tipo_hab'],
             'precio'         => $precio,
             'estado'         => (string) $fila['est_hab'],
+            'observacion'    => (string) ($fila['obs_hab'] ?? ''),
             'descripcion'    => (string) ($fila['des_hab'] ?? ''),
             'imagen'         => $fila['img_hab'] !== null && $fila['img_hab'] !== '' ? (string) $fila['img_hab'] : null,
             'comodidades'    => comodidades_desde_json($fila['car_hab']),
@@ -131,8 +133,16 @@ if ($metodo === 'GET' && $accion === 'listar') {
         $resultadoReservas->free();
     }
 
+    try {
+        $suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
+    } catch (RuntimeException $error) {
+        error_log('No se pudo cargar la tarifa adicional de niños: ' . $error->getMessage());
+        responder_habitaciones(500, 'No se pudo cargar la configuración de tarifas');
+    }
+
     responder_habitaciones(200, 'Habitaciones cargadas', [
         'habitaciones'    => $habitaciones,
+        'suplemento_nino_adicional' => $suplementoNinoAdicional,
         'puede_gestionar' => usuario_tiene_permiso($conexion, 'habitaciones.gestionar'),
     ]);
 }
@@ -145,6 +155,26 @@ exigir_csrf();
 
 if (!usuario_tiene_permiso($conexion, 'habitaciones.gestionar')) {
     responder_habitaciones(403, 'No tienes permiso para gestionar las habitaciones');
+}
+
+if ($accion === 'guardar_tarifa_nino') {
+    $precioTexto = $_POST['precio_nino_adicional'] ?? null;
+    if (!is_string($precioTexto) || !preg_match('/^\d{1,8}$/', $precioTexto)) {
+        responder_habitaciones(422, 'El precio adicional debe ser un monto entero entre 0 y 99.999.999 pesos');
+    }
+    try {
+        \App\Reserva\RoomRateSettings::setAdditionalChildSupplement($conexion, (float) $precioTexto);
+    } catch (RuntimeException $error) {
+        error_log('No se pudo guardar la tarifa adicional de niños: ' . $error->getMessage());
+        responder_habitaciones(500, 'No se pudo guardar la tarifa adicional de niños');
+    }
+    Logger::registrarLog('INFO', 'Tarifa adicional de niños actualizada desde el panel admin', [
+        'usuario_id' => actor_habitaciones(),
+        'precio_nino_adicional' => (int) $precioTexto,
+    ]);
+    responder_habitaciones(200, 'Tarifa adicional de niños actualizada', [
+        'suplemento_nino_adicional' => (float) $precioTexto,
+    ]);
 }
 
 // ---------------------------------------------------------------- GUARDAR (crear / editar)

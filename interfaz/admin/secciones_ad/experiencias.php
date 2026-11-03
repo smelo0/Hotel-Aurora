@@ -128,8 +128,8 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                     <div class="border-t border-slate-100 pt-4">
                         <p class="mb-3 text-xs font-bold text-slate-600">Horario diario</p>
                         <div class="grid gap-3 sm:grid-cols-2">
-                            <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
-                            <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="1800" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                            <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="60" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
+                            <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="60" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                         </div>
                         <button id="agregarHorarioExperiencia" type="button" class="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir rango de fechas</button>
                         <button id="cancelarEdicionHorarioExperiencia" type="button" class="mt-2 hidden w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">Cancelar edición</button>
@@ -285,8 +285,8 @@ function agregarHorarioExperiencia() {
         mostrarMensajeExperiencias('Selecciona un rango de fechas válido, desde hoy en adelante.', true);
         return;
     }
-    if (!/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(inicio) || !/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(fin)) {
-        mostrarMensajeExperiencias('El inicio y el fin deben estar en intervalos de 30 minutos.', true);
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(inicio) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(fin)) {
+        mostrarMensajeExperiencias('Ingresa una hora válida entre 00:00 y 23:59.', true);
         return;
     }
     if (fin < inicio) {

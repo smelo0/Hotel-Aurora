@@ -31,13 +31,16 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? 'listar';
 if ($metodo === 'GET' && $accion === 'listar') {
     $roles = [];
     $resultado_roles = $conexion->query(
-        "SELECT r.cod_rol, r.des_rol, r.detalle_rol, COUNT(u.id_usu) AS usuarios
-         FROM rol r LEFT JOIN usuario u ON u.cod_rol_usu = r.cod_rol
+        "SELECT r.cod_rol, r.des_rol, r.detalle_rol
+         FROM rol r
+         WHERE r.cod_rol IN (1, 3, 6)
          GROUP BY r.cod_rol, r.des_rol, r.detalle_rol ORDER BY r.cod_rol"
     );
     while ($rol = $resultado_roles->fetch_assoc()) {
         $rol['cod_rol'] = (int) $rol['cod_rol'];
-        $rol['usuarios'] = (int) $rol['usuarios'];
+        if ($rol['cod_rol'] === 3) {
+            $rol['des_rol'] = 'Empleado';
+        }
         $rol['permisos'] = [];
         $roles[$rol['cod_rol']] = $rol;
     }
@@ -55,6 +58,9 @@ if ($metodo === 'GET' && $accion === 'listar') {
             $roles[$codigo_rol]['permisos'][] = $asignacion['cod_permiso'];
         }
     }
+    if (isset($roles[1])) {
+        $roles[1]['permisos'] = array_column($permisos, 'cod_permiso');
+    }
 
     responder_roles(200, 'Roles cargados', ['roles' => array_values($roles), 'permisos' => $permisos, 'puede_gestionar' => usuario_tiene_permiso($conexion, 'roles.gestionar'), 'puede_asignar' => usuario_tiene_permiso($conexion, 'roles.asignar_permisos')]);
 }
@@ -70,7 +76,7 @@ if ($metodo !== 'POST') {
 exigir_csrf();
 
 if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
-    Logger::registrarLog('WARN', 'Intento no autorizado de gestionar roles (crear/editar/eliminar)', [
+    Logger::registrarLog('WARN', 'Intento no autorizado de editar permisos de roles', [
         'id_usuario' => $idUsuarioLog
     ]);
     responder_roles(403, 'No tienes permiso para gestionar roles');
@@ -78,39 +84,32 @@ if (!usuario_tiene_permiso($conexion, 'roles.gestionar')) {
 
 if ($accion === 'guardar') {
     $codigoEntrada = $_POST['cod_rol'] ?? '';
-    $nombreEntrada = $_POST['des_rol'] ?? null;
-    $detalleEntrada = $_POST['detalle_rol'] ?? '';
     $permisos = $_POST['permisos'] ?? [];
 
     if (!is_string($codigoEntrada)) {
         responder_roles(422, 'El identificador del rol no es válido');
     }
-    $codigo = null;
-    if ($codigoEntrada !== '') {
-        $codigo = filter_var($codigoEntrada, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    }
+    $codigo = filter_var($codigoEntrada, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (
-        ($codigoEntrada !== '' && !$codigo)
-        || !is_string($nombreEntrada)
-        || !is_string($detalleEntrada)
+        !$codigo
+        || !in_array($codigo, [1, 3, 6], true)
         || !is_array($permisos)
         || array_filter($permisos, static fn($permiso): bool => !is_string($permiso) || mb_strlen($permiso) > 60) !== []
     ) {
         Logger::registrarLog('WARN', 'Intento de guardar rol con formato de datos inválido', [
-            'id_usuario' => $idUsuarioLog
-        ]);
-        responder_roles(422, 'Los datos enviados para el rol no son válidos');
-    }
-
-    $nombre = trim($nombreEntrada);
-    $detalle = trim($detalleEntrada);
-    if ($nombre === '' || mb_strlen($nombre) > 200 || mb_strlen($detalle) > 200) {
-        Logger::registrarLog('WARN', 'Intento de guardar rol con datos inválidos o vacíos', [
             'id_usuario' => $idUsuarioLog,
             'cod_rol' => $codigo
         ]);
-        responder_roles(422, 'Completa un nombre válido y una descripción de máximo 200 caracteres');
+        responder_roles(422, 'Solo se pueden editar los permisos de Gerente General, Empleado y Cliente');
     }
+
+    $nombresRoles = [
+        1 => 'Gerente General',
+        3 => 'Empleado',
+        6 => 'Cliente',
+    ];
+    $nombre = $nombresRoles[$codigo];
+    $detalle = $codigo === 3 ? 'Perfil del personal del hotel.' : '';
 
     if (!usuario_tiene_permiso($conexion, 'roles.asignar_permisos') && count($permisos) > 0) {
         Logger::registrarLog('WARN', 'Intento de asignar permisos sin autorización', [
@@ -121,20 +120,11 @@ if ($accion === 'guardar') {
 
     $conexion->begin_transaction();
     try {
-        $esNuevoRol = !$codigo;
-
-        if ($codigo) {
-            $stmt = $conexion->prepare('UPDATE rol SET des_rol = ?, detalle_rol = ? WHERE cod_rol = ?');
-            $stmt->bind_param('ssi', $nombre, $detalle, $codigo);
-            $stmt->execute();
-            if ($stmt->affected_rows < 0) {
-                throw new RuntimeException('No se pudo actualizar el rol');
-            }
-        } else {
-            $stmt = $conexion->prepare('INSERT INTO rol (des_rol, detalle_rol) VALUES (?, ?)');
-            $stmt->bind_param('ss', $nombre, $detalle);
-            $stmt->execute();
-            $codigo = $stmt->insert_id;
+        $stmt = $conexion->prepare('UPDATE rol SET des_rol = ?, detalle_rol = ? WHERE cod_rol = ?');
+        $stmt->bind_param('ssi', $nombre, $detalle, $codigo);
+        $stmt->execute();
+        if ($stmt->affected_rows < 0) {
+            throw new RuntimeException('No se pudo actualizar el rol');
         }
 
         if (usuario_tiene_permiso($conexion, 'roles.asignar_permisos')) {
@@ -154,8 +144,8 @@ if ($accion === 'guardar') {
 
         $conexion->commit();
 
-        // LOG DE ÉXITO: Creación o actualización de rol/permisos
-        Logger::registrarLog('INFO', $esNuevoRol ? 'Nuevo rol creado en el sistema' : 'Rol y permisos actualizados con éxito', [
+        // LOG DE ÉXITO: Actualización de permisos de un perfil del sistema
+        Logger::registrarLog('INFO', 'Rol y permisos actualizados con éxito', [
             'id_usuario' => $idUsuarioLog,
             'cod_rol' => (int) $codigo,
             'nombre_rol' => $nombre,
@@ -179,50 +169,11 @@ if ($accion === 'guardar') {
 
 if ($accion === 'eliminar') {
     $codigo = filter_var($_POST['cod_rol'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    if (!$codigo || $codigo <= 6) {
-        Logger::registrarLog('WARN', 'Intento bloqueado de eliminar un rol protegido del sistema', [
-            'id_usuario' => $idUsuarioLog,
-            'cod_rol' => $codigo
-        ]);
-        responder_roles(422, 'Los roles del sistema no se pueden eliminar');
-    }
-
-    $usuarios = 0;
-    $stmt_usuarios = $conexion->prepare('SELECT COUNT(*) FROM usuario WHERE cod_rol_usu = ?');
-    $stmt_usuarios->bind_param('i', $codigo);
-    $stmt_usuarios->execute();
-    $stmt_usuarios->bind_result($usuarios);
-    $stmt_usuarios->fetch();
-    $stmt_usuarios->close();
-
-    if ($usuarios > 0) {
-        Logger::registrarLog('WARN', 'Intento de eliminar rol que todavía tiene usuarios asignados', [
-            'id_usuario' => $idUsuarioLog,
-            'cod_rol' => $codigo,
-            'usuarios_afectados' => $usuarios
-        ]);
-        responder_roles(409, 'No se puede eliminar un rol que tiene usuarios asignados');
-    }
-
-    $stmt = $conexion->prepare('DELETE FROM rol WHERE cod_rol = ?');
-    $stmt->bind_param('i', $codigo);
-    $stmt->execute();
-    
-    $eliminadoExitoso = ($stmt->affected_rows === 1);
-
-    if ($eliminadoExitoso) {
-        Logger::registrarLog('INFO', 'Rol eliminado permanentemente del sistema', [
-            'id_usuario' => $idUsuarioLog,
-            'cod_rol_eliminado' => $codigo
-        ]);
-    } else {
-        Logger::registrarLog('WARN', 'Intento de eliminar rol inexistente', [
-            'id_usuario' => $idUsuarioLog,
-            'cod_rol' => $codigo
-        ]);
-    }
-
-    responder_roles($eliminadoExitoso ? 200 : 404, $eliminadoExitoso ? 'Rol eliminado correctamente' : 'Rol no encontrado');
+    Logger::registrarLog('WARN', 'Intento bloqueado de eliminar un rol del sistema', [
+        'id_usuario' => $idUsuarioLog,
+        'cod_rol' => $codigo
+    ]);
+    responder_roles(422, 'Los perfiles del sistema no se pueden eliminar');
 }
 
 Logger::registrarLog('WARN', 'Intento de ejecutar acción desconocida en el gestor de roles', [

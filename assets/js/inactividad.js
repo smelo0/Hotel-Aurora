@@ -14,7 +14,7 @@
         return;
     }
 
-    const csrfToken = modal.dataset.csrf;
+    let csrfToken = modal.dataset.csrf;
     const pageUid = modal.dataset.uid || '';
     const countdownEl = document.getElementById('countdownSecs');
     const clockProgress = document.getElementById('clockProgress');
@@ -35,7 +35,7 @@
         window.location.href = '/Hotel-Aurora/interfaz_usu.php';
     }
 
-    async function postSessionAction(url, values) {
+    async function postSessionAction(url, values, retriedCsrf = false) {
         const body = new URLSearchParams(Object.assign({}, values, { uid: pageUid }));
         const response = await fetch(url, {
             method: 'POST',
@@ -49,6 +49,11 @@
         });
 
         const data = await response.json();
+        if (response.status === 419 && data.status === 'csrf_refresh' && data.csrf_token && !retriedCsrf) {
+            csrfToken = data.csrf_token;
+            modal.dataset.csrf = csrfToken;
+            return postSessionAction(url, values, true);
+        }
         if (response.status === 440 || data.status === 'expired') {
             redirectToPublicInterface();
             return null;

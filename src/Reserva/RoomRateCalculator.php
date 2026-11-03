@@ -23,8 +23,13 @@ final class RoomRateCalculator
     }
 
     /** @param list<int> $childAges */
-    public static function nightlyRate(string $roomType, float $configuredPrice, int $adults, array $childAges): float
-    {
+    public static function nightlyRate(
+        string $roomType,
+        float $configuredPrice,
+        int $adults,
+        array $childAges,
+        float $additionalChildSupplement = self::ADDITIONAL_CHILD_SUPPLEMENT
+    ): float {
         if ($adults < 1) {
             throw new InvalidArgumentException('La habitación necesita al menos un adulto.');
         }
@@ -40,13 +45,16 @@ final class RoomRateCalculator
         if ($isSingleRoom && $configuredPrice === 50000.0 && $adults + count($childAges) === 1) {
             return 50000.0;
         }
+        if (!is_finite($additionalChildSupplement) || $additionalChildSupplement < 0) {
+            throw new InvalidArgumentException('El suplemento de niño adicional no es válido.');
+        }
 
         $standardRate = self::standardNightlyRate($roomType, $configuredPrice);
         $includedChildCount = max(0, self::STANDARD_OCCUPANCY - $adults);
         $supplement = 0.0;
         foreach (array_slice($childAges, $includedChildCount) as $age) {
             if ($age > self::FREE_CHILD_MAX_AGE) {
-                $supplement += self::ADDITIONAL_CHILD_SUPPLEMENT;
+                $supplement += $additionalChildSupplement;
             }
         }
 

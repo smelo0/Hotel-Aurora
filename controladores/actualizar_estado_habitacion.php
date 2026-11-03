@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 exigir_csrf();
 
+$esEmpleado = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0) === 3;
 $idHabitacion = filter_input(
     INPUT_POST,
     'id_hab',
@@ -40,6 +41,16 @@ if (
 ) {
     http_response_code(422);
     echo json_encode(['status' => 'error', 'mensaje' => 'Datos inválidos para actualizar la habitación'], JSON_UNESCAPED_UNICODE);
+    $conexion->close();
+    exit;
+}
+
+if ($esEmpleado && in_array($estado, ['Disponible', 'Ocupada'], true)) {
+    http_response_code(403);
+    echo json_encode([
+        'status' => 'error',
+        'mensaje' => 'El empleado no puede cambiar una habitación a Disponible u Ocupada.',
+    ], JSON_UNESCAPED_UNICODE);
     $conexion->close();
     exit;
 }

@@ -62,7 +62,7 @@ final class ExperienceSchedule
                     $hours = array_values(array_filter(
                         $range,
                         static fn($hour): bool => is_string($hour)
-                            && preg_match('/^(?:[01]\d|2[0-3]):(?:00|30)$/', $hour) === 1
+                            && preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hour) === 1
                     ));
                     sort($hours, SORT_STRING);
                     if ($hours === []) {
@@ -79,8 +79,8 @@ final class ExperienceSchedule
                 if (
                     !is_string($start)
                     || !is_string($end)
-                    || !preg_match('/^(?:[01]\d|2[0-3]):(?:00|30)$/', $start)
-                    || !preg_match('/^(?:[01]\d|2[0-3]):(?:00|30)$/', $end)
+                    || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $start)
+                    || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $end)
                     || $end < $start
                 ) {
                     continue;

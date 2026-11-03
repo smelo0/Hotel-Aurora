@@ -10,9 +10,11 @@ require_once __DIR__ . '/configuracion/wompi.php';
 require_once __DIR__ . '/configuracion/capacidad_habitaciones.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
+require_once __DIR__ . '/src/Reserva/RoomRateSettings.php';
 
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+$suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
 $portalRepository = new \App\Usuario\PortalRepository();
 
 function e(string $value): string
@@ -278,7 +280,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             )),
             'roomPricing' => [
                 'standardOccupancy' => \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY,
-                'additionalChildSupplement' => \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT,
+                'additionalChildSupplement' => $suplementoNinoAdicional,
                 'freeChildMaxAge' => \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE,
                 'maxChildAge' => \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE,
             ],
@@ -1108,7 +1110,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <div id="modalSingleRoomChildAges" class="mt-6 hidden rounded-[28px] border border-white/10 bg-white/6 p-5">
                             <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Edad de los niños</p>
                             <div id="modalSingleRoomChildAgesList" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
-                            <p class="mt-3 text-xs leading-5 text-white/60">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años no tiene costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos. El IVA del 19% se suma al total.</p>
+                            <p class="mt-3 text-xs leading-5 text-white/60">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos. El IVA del 19% se suma al total.</p>
                         </div>
 
                         <fieldset class="mt-6 rounded-[28px] border border-white/10 bg-white/6 p-5">
@@ -1131,7 +1133,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         </fieldset>
 
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
-                            <p class="text-xs leading-5 text-white/55">La tarifa estándar cubre hasta 4 huéspedes. Cada habitación admite un niño más que su capacidad habitual: de 0 a 2 años sin costo y de 3 a 12 años suma $<?php echo number_format(\App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT, 0, ',', '.'); ?> por noche cuando supera los 4 huéspedes incluidos. Se adiciona IVA del 19%.</p>
+                            <p class="text-xs leading-5 text-white/55">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos. Se adiciona IVA del 19%.</p>
                             <div class="flex justify-between text-sm text-white/70">
                                 <span>Tarifa según ocupación/noche:</span>
                                 <span id="modalNightlyRate">$0</span>

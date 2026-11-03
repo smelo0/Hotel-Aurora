@@ -10,6 +10,7 @@ require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 require_once __DIR__ . '/../src/Database/ReceptionGuestSchemaMigrator.php';
 require_once __DIR__ . '/../configuracion/capacidad_habitaciones.php';
 require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSettings.php';
 /**@var mysqli $conexion */
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
@@ -626,6 +627,7 @@ try {
         $cantidadNinos,
         count($habitacionesSeleccionadas) > 1 ? $distribucionHuespedes : null
     );
+    $suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
     foreach ($habitacionesSeleccionadas as &$habitacionTarificada) {
         $ocupacionHabitacion = $distribucionValidada[$habitacionTarificada['cod_hab']] ?? [
             'adultos' => $cantidadAdultos,
@@ -639,7 +641,8 @@ try {
             (string) $habitacionTarificada['tipo_hab'],
             (float) $habitacionTarificada['precio'],
             (int) $ocupacionHabitacion['adultos'],
-            $ocupacionHabitacion['edades_ninos']
+            $ocupacionHabitacion['edades_ninos'],
+            $suplementoNinoAdicional
         );
     }
     unset($habitacionTarificada);

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../configuracion/conexion.php';
 require_once __DIR__ . '/../../../configuracion/permiso.php';
+require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
 /** @var mysqli $conexion */
 if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
 ?>
@@ -74,10 +75,20 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
                 </div>
             </div>
             <div>
-                <label for="precioHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Tarifa estándar por habitación para hasta 4 huéspedes/noche (COP)</label>
+                <label id="etiquetaPrecioHabitacion" for="precioHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Tarifa estándar por habitación/noche (COP)</label>
                 <input type="text" id="precioHabitacion" list="preciosHabitacionSugeridos" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" required placeholder="Ej. 80000" class="w-full border-slate-200 bg-slate-50 rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
                 <datalist id="preciosHabitacionSugeridos"></datalist>
-                <p id="ayudaPrecioHabitacion" class="mt-1 text-[11px] text-slate-400">Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.</p>
+            </div>
+            <div id="configuracionTarifaNino" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="min-w-[200px] flex-1">
+                        <label for="precioNinoAdicional" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo por niño adicional de 3 a 12 años (COP/noche)</label>
+                        <input type="text" id="precioNinoAdicional" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" class="w-full border-slate-200 bg-white rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
+                    </div>
+                    <button id="guardarTarifaNino" type="button" class="bg-primary text-white px-5 py-3 rounded-lg font-bold text-sm shadow hover:brightness-110">Guardar cargo</button>
+                    <p class="basis-full text-[11px] text-slate-400">Este cargo se aplica a todas las habitaciones y se guarda independientemente de los datos de esta habitación.</p>
+                    <p id="mensajeTarifaNino" class="hidden basis-full text-sm font-bold" role="status" aria-live="polite"></p>
+                </div>
             </div>
             <div>
                 <label for="imagenHabitacion" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Foto (JPG, PNG o WebP; máximo 5 MB)</label>
@@ -109,7 +120,6 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
 
 <script>
 const ENDPOINT_HABITACIONES = '../../controladores/gestionar_habitaciones.php';
-const SUPLEMENTO_NINO_ADICIONAL = <?php echo \App\Reserva\RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT; ?>;
 let datosHabitaciones = { habitaciones: [], puede_gestionar: false };
 
 function escaparHabitaciones(valor) {
@@ -184,6 +194,7 @@ async function cargarHabitaciones() {
         if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las habitaciones');
         datosHabitaciones = datos;
         document.getElementById('btnNuevaHabitacion').classList.toggle('hidden', !datos.puede_gestionar);
+        document.getElementById('precioNinoAdicional').value = String(Math.round(Number(datos.suplemento_nino_adicional) || 0));
         renderizarHabitaciones();
     } catch (error) {
         mostrarMensajeHabitaciones(error.message, true);
@@ -245,21 +256,18 @@ function actualizarSugerenciasPrecioHabitacion() {
         .map(valor => `<option value="${valor}" label="${precioHabitacionLegible(valor)}"></option>`).join('');
 }
 
-function actualizarAyudaPrecioHabitacion() {
-    const ayuda = document.getElementById('ayudaPrecioHabitacion');
-    const valor = Number(document.getElementById('precioHabitacion').value);
-    if (!Number.isFinite(valor) || valor < 1) {
-        ayuda.textContent = 'Escribe el valor en pesos o elige una sugerencia según el tipo de habitación.';
-        return;
-    }
-    ayuda.textContent = `${precioHabitacionLegible(valor)} por noche para hasta 4 huéspedes · 1 niño adicional de 0 a 2 años sin costo o de 3 a 12 años por ${precioHabitacionLegible(SUPLEMENTO_NINO_ADICIONAL)}/noche · el IVA (19 %) se agrega al total.`;
+function actualizarEtiquetaPrecioHabitacion() {
+    const tipo = document.getElementById('tipoHabitacion').value.toLowerCase();
+    const esSencilla = tipo.includes('sencilla') || tipo.includes('simple') || tipo.includes('individual');
+    document.getElementById('etiquetaPrecioHabitacion').textContent =
+        `Tarifa estándar por habitación para hasta ${esSencilla ? 3 : 5} huéspedes/noche (COP)`;
 }
 
 document.getElementById('tipoHabitacion').addEventListener('input', actualizarSugerenciasPrecioHabitacion);
+document.getElementById('tipoHabitacion').addEventListener('input', actualizarEtiquetaPrecioHabitacion);
 document.getElementById('precioHabitacion').addEventListener('input', evento => {
     // Solo dígitos: el precio es un monto entero en pesos (sin puntos, comas ni signos).
     evento.target.value = evento.target.value.replace(/\D/g, '').slice(0, 8);
-    actualizarAyudaPrecioHabitacion();
 });
 
 function abrirModalNuevaHabitacion() { abrirModalHabitacion(null); }
@@ -273,7 +281,12 @@ function abrirModalHabitacion(habitacion) {
     document.getElementById('tipoHabitacion').value = habitacion?.tipo || '';
     document.getElementById('precioHabitacion').value = habitacion ? Math.round(habitacion.precio) : '';
     actualizarSugerenciasPrecioHabitacion();
-    actualizarAyudaPrecioHabitacion();
+    actualizarEtiquetaPrecioHabitacion();
+    document.getElementById('configuracionTarifaNino').classList.toggle('hidden', !habitacion || !datosHabitaciones.puede_gestionar);
+    document.getElementById('precioNinoAdicional').value = String(Math.round(Number(datosHabitaciones.suplemento_nino_adicional) || 0));
+    const mensajeTarifaNino = document.getElementById('mensajeTarifaNino');
+    mensajeTarifaNino.textContent = '';
+    mensajeTarifaNino.className = 'hidden basis-full text-sm font-bold';
     document.getElementById('descripcionHabitacion').value = habitacion?.descripcion || '';
     document.getElementById('contadorDescripcionHabitacion').textContent = (habitacion?.descripcion || '').length;
     document.getElementById('comodidadesHabitacion').value = (habitacion?.comodidades || []).join('\n');
@@ -380,6 +393,53 @@ document.getElementById('formHabitacion').addEventListener('submit', async event
         refrescarHousekeepingTrasCambio();
     } catch (error) {
         mostrarErrorFormularioHabitacion(error.message);
+    } finally {
+        boton.disabled = false;
+    }
+});
+
+document.getElementById('precioNinoAdicional').addEventListener('input', evento => {
+    evento.target.value = evento.target.value.replace(/\D/g, '').slice(0, 8);
+});
+document.getElementById('guardarTarifaNino').addEventListener('click', async evento => {
+    const precio = document.getElementById('precioNinoAdicional').value.trim();
+    const mensaje = document.getElementById('mensajeTarifaNino');
+    const boton = document.getElementById('guardarTarifaNino');
+    mensaje.className = 'hidden basis-full text-sm font-bold';
+    if (!/^\d{1,8}$/.test(precio)) {
+        mensaje.textContent = 'Ingresa un monto entero entre 0 y 99.999.999 pesos.';
+        mensaje.className = 'basis-full text-sm font-bold text-red-600';
+        return;
+    }
+
+    boton.disabled = true;
+    try {
+        const respuesta = await fetch(ENDPOINT_HABITACIONES, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new URLSearchParams({
+                accion: 'guardar_tarifa_nino',
+                precio_nino_adicional: precio,
+                csrf_token: CSRF_TOKEN,
+            }),
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudo guardar el cargo');
+        datosHabitaciones.suplemento_nino_adicional = datos.suplemento_nino_adicional;
+        if (typeof POLITICA_TARIFA_RESERVA !== 'undefined') {
+            POLITICA_TARIFA_RESERVA.suplementoNinoAdicional = Number(datos.suplemento_nino_adicional);
+            if (typeof actualizarTotalReservaPreview === 'function') actualizarTotalReservaPreview();
+        }
+        const descripcionCargo = document.getElementById('descripcionCargoNinoAdmin');
+        if (descripcionCargo) {
+            const monto = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(datos.suplemento_nino_adicional));
+            descripcionCargo.textContent = `La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $${monto} por noche al superar los 4 huéspedes incluidos.`;
+        }
+        mensaje.textContent = datos.mensaje;
+        mensaje.className = 'basis-full text-sm font-bold text-emerald-700';
+    } catch (error) {
+        mensaje.textContent = error.message || 'No se pudo guardar el cargo';
+        mensaje.className = 'basis-full text-sm font-bold text-red-600';
     } finally {
         boton.disabled = false;
     }

@@ -605,7 +605,7 @@ if ($accion === 'guardar') {
             $normalizados = \App\Experiencia\ExperienceSchedule::normalizar([(string) $numeroOpcion => [$fecha => $franjas]]);
             $rango = $normalizados[(string) $numeroOpcion][$fecha] ?? null;
             if ($rango === null) {
-                responder_experiencias(422, 'Define una hora de inicio y una de fin válidas, en intervalos de 30 minutos');
+                responder_experiencias(422, 'Define una hora de inicio y una de fin válidas entre 00:00 y 23:59');
             }
             $horariosValidados[(string) $numeroOpcion][$fecha] = $rango;
         }

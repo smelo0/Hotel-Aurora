@@ -12,7 +12,7 @@ $idUsuario = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['id_usuario'] ?? n
 $rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? $_SESSION['rol_usuario'] ?? 0);
 
 // Si no hay sesión válida de admin/gestor, responde 0 sin arrojar error 403 de servidor
-if (!$idUsuario || !in_array($rolUsuario, [1, 2], true)) {
+if (!$idUsuario || $rolUsuario !== 1) {
     echo json_encode(['total' => 0, 'status' => 'unauthorized']);
     exit();
 }

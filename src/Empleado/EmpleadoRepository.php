@@ -131,20 +131,22 @@ final class EmpleadoRepository
         mysqli $conexion,
         string $titulo,
         string $categoria,
+        string $prioridad,
         string $descripcion,
         string $fecha,
         int $idCreador
     ): int {
         $estado = 'Pendiente';
+        $prioridadBaseDatos = EmpleadoService::prioridadTareaParaBaseDatos($prioridad);
         $statement = $conexion->prepare(
-            'INSERT INTO tarea (tit_tar, cat_tar, des_tar, est_tar, fec_tar, cod_usu_tar)
-             VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO tarea (tit_tar, cat_tar, prioridad_tar, des_tar, est_tar, fec_tar, cod_usu_tar)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         if (!$statement) {
             throw new RuntimeException('No se pudo preparar la creación de la tarea.');
         }
 
-        $statement->bind_param('sssssi', $titulo, $categoria, $descripcion, $estado, $fecha, $idCreador);
+        $statement->bind_param('ssssssi', $titulo, $categoria, $prioridadBaseDatos, $descripcion, $estado, $fecha, $idCreador);
         if (!$statement->execute()) {
             $statement->close();
             throw new RuntimeException('No se pudo guardar la tarea.');
@@ -180,7 +182,7 @@ final class EmpleadoRepository
                 'titulo' => $fila['tit_tar'],
                 'categoria' => $fila['cat_tar'],
                 'descripcion' => $fila['des_tar'],
-                'prioridad' => $fila['prioridad_tar'],
+                'prioridad' => EmpleadoService::prioridadTareaParaInterfaz((string) $fila['prioridad_tar']),
                 'fecha' => $fila['fec_tar'],
                 'creador' => $creador,
                 'creador_formateado' => $creador . ' - ' . $rolNombre,
