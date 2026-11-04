@@ -946,7 +946,7 @@ $puedeCancelar24h = ($faltanSegundos >= $limite24Horas);
     <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido (menos de 24h)</span>
 <?php else: ?>
     <!-- Mensaje para otros estados -->
-    <span class="text-xs text-white/50">No disponible</span>
+    <span class="text-xs text-white/50">Plazo vencido (menos de 24h)</span>
 <?php endif; ?>
                                 </td>
                             </tr>
@@ -1020,13 +1020,40 @@ $puedeCancelar24h = ($faltanSegundos >= $limite24Horas);
                                         <?php echo e((string) ($solicitudExperiencia['estado_agenda'] ?? 'Pendiente')); ?>
                                     </span>
                                 </td>
-                                <td class="px-4 py-4">
-                                    <?php if ($puedeCancelarExperiencia): ?>
-                                        <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (5 min)</button>
-                                    <?php else: ?>
-                                        <span class="text-xs text-white/50"><?php echo ($solicitudExperiencia['estado_agenda'] ?? '') === 'Cancelada' ? 'Cancelada' : 'No disponible'; ?></span>
-                                    <?php endif; ?>
-                                </td>
+                                <?php 
+// 1. Calculamos el tiempo restante combinando fecha y hora de la experiencia
+// (Asegúrate de que 'fecha_agenda' y 'hora_agenda' sean los nombres correctos de tus columnas en la BD)
+$fechaHoraExpString = ($solicitudExperiencia['fecha_agenda'] ?? 'now') . ' ' . ($solicitudExperiencia['hora_agenda'] ?? '00:00:00');
+$fechaHoraExperiencia = strtotime($fechaHoraExpString); 
+$ahora = time();
+$faltanSegundosExp = $fechaHoraExperiencia - $ahora;
+$limite24Horas = 86400; // 24 horas
+
+// 2. Validamos que el estado permita cancelación
+$estadoExperiencia = mb_strtolower((string) ($solicitudExperiencia['estado_agenda'] ?? ''));
+$esEstadoValidoExp = in_array($estadoExperiencia, ['pendiente', 'confirmada'], true);
+
+// 3. Verificamos las 24 horas
+$puedeCancelarExp24h = ($faltanSegundosExp >= $limite24Horas);
+?>
+
+<td class="px-4 py-4">
+    <?php if ($esEstadoValidoExp && $puedeCancelarExp24h): ?>
+        <!-- Botón activo (sin data-segundos-cancelacion para que el JS no lo bloquee) -->
+        <button type="button" 
+                data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" 
+                class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">
+            Cancelar experiencia
+        </button>
+    <?php elseif ($esEstadoValidoExp && !$puedeCancelarExp24h): ?>
+        <!-- Quedan menos de 24 horas -->
+        <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido (menos de 24h)</span>
+    <?php elseif ($estadoExperiencia === 'cancelada'): ?>
+        <span class="text-xs text-white/50">Cancelada</span>
+    <?php else: ?>
+        <span class="text-xs text-white/50">No disponible</span>
+    <?php endif; ?>
+</td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
