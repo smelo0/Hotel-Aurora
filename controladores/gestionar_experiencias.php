@@ -422,17 +422,23 @@ if ($accion === 'solicitar_recepcion') {
                 $total += (float) $price;
             }
         }
-
         $scheduleSource = json_decode((string) ($experience['horarios_json'] ?? ''), true);
         $schedule = is_array($scheduleSource)
             ? \App\Experiencia\ExperienceSchedule::normalizar($scheduleSource, array_values($options))
             : [];
         $minute = (int) substr($time, 0, 2) * 60 + (int) substr($time, 3, 2);
         foreach (array_unique($optionIndexes) as $optionIndex) {
-            $range = $schedule[(string) $optionIndex][$date] ?? null;
-            $start = is_array($range) ? (int) substr($range['inicio'], 0, 2) * 60 + (int) substr($range['inicio'], 3, 2) : -1;
-            $end = is_array($range) ? (int) substr($range['fin'], 0, 2) * 60 + (int) substr($range['fin'], 3, 2) : -1;
-            if (!is_array($range) || $minute < $start || $minute >= $end || ($minute - $start) % 30 !== 0) {
+            $ranges = $schedule[(string) $optionIndex][$date] ?? [];
+            $available = false;
+            foreach ($ranges as $range) {
+                $start = (int) substr($range['inicio'], 0, 2) * 60 + (int) substr($range['inicio'], 3, 2);
+                $end = (int) substr($range['fin'], 0, 2) * 60 + (int) substr($range['fin'], 3, 2);
+                if ($minute >= $start && $minute < $end && ($minute - $start) % 30 === 0) {
+                    $available = true;
+                    break;
+                }
+            }
+            if (!$available) {
                 throw new RuntimeException('horario_no_disponible');
             }
         }
@@ -606,11 +612,31 @@ if ($accion === 'guardar') {
                 responder_experiencias(422, 'Selecciona fechas válidas, desde hoy en adelante');
             }
             $normalizados = \App\Experiencia\ExperienceSchedule::normalizar([(string) $numeroOpcion => [$fecha => $franjas]]);
-            $rango = $normalizados[(string) $numeroOpcion][$fecha] ?? null;
-            if ($rango === null) {
+            $rangos = $normalizados[(string) $numeroOpcion][$fecha] ?? [];
+            $formatoValido = is_array($franjas) && (
+                isset($franjas['inicio'], $franjas['fin'])
+                || (array_is_list($franjas) && $franjas !== [] && (
+                    count(array_filter($franjas, 'is_array')) === count($franjas)
+                    || count(array_filter($franjas, 'is_string')) === count($franjas)
+                ))
+            );
+            $cantidadFranjasRecibidas = is_array($franjas) && array_is_list($franjas) && isset($franjas[0]) && is_array($franjas[0])
+                ? count($franjas)
+                : 1;
+            if (!$formatoValido || $rangos === [] || count($rangos) !== $cantidadFranjasRecibidas) {
                 responder_experiencias(422, 'Define una hora de inicio y una de fin válidas entre 00:00 y 23:59');
             }
-            $horariosValidados[(string) $numeroOpcion][$fecha] = $rango;
+            if (count($rangos) > 20) {
+                responder_experiencias(422, 'Cada día admite hasta 20 horarios');
+            }
+            $finAnterior = null;
+            foreach ($rangos as $rango) {
+                if ($rango['fin'] <= $rango['inicio'] || ($finAnterior !== null && $rango['inicio'] < $finAnterior)) {
+                    responder_experiencias(422, 'Los horarios del mismo día no pueden superponerse y deben tener una duración válida');
+                }
+                $finAnterior = $rango['fin'];
+            }
+            $horariosValidados[(string) $numeroOpcion][$fecha] = $rangos;
         }
     }
     $exclusionesValidadas = [];

@@ -124,7 +124,7 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
             </fieldset>
             <fieldset>
                 <legend class="mb-1 text-[10px] font-black uppercase text-slate-500">Fechas y horarios disponibles</legend>
-                <p class="mb-3 text-xs text-slate-400">Opcionalmente, programa una o varias fechas consecutivas. Se aplicará el mismo horario a cada día del rango.</p>
+                <p class="mb-3 text-xs text-slate-400">Programa una o varias fechas consecutivas. Puedes añadir varios horarios por día; cada rango se aplicará a todas las fechas seleccionadas.</p>
                 <label for="opcionHorarioExperiencia" class="mb-3 block text-xs font-bold text-slate-600">Opción a programar
                     <select id="opcionHorarioExperiencia" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></select>
                 </label>
@@ -134,12 +134,12 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                         <label class="text-xs font-bold text-slate-600" for="fechaFinHorarioExperiencia">Fecha de fin<input id="fechaFinHorarioExperiencia" type="date" min="<?php echo htmlspecialchars((new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                     </div>
                     <div class="border-t border-slate-100 pt-4">
-                        <p class="mb-3 text-xs font-bold text-slate-600">Horario diario</p>
+                        <p class="mb-3 text-xs font-bold text-slate-600">Nuevo horario diario</p>
                         <div class="grid gap-3 sm:grid-cols-2">
                             <label class="text-xs font-bold text-slate-600" for="horaInicioExperiencia">Hora de inicio<input id="horaInicioExperiencia" type="time" step="60" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                             <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="60" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                         </div>
-                        <button id="agregarHorarioExperiencia" type="button" class="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir rango de fechas</button>
+                        <button id="agregarHorarioExperiencia" type="button" class="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir horario a las fechas</button>
                         <button id="cancelarEdicionHorarioExperiencia" type="button" class="mt-2 hidden w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">Cancelar edición</button>
                     </div>
                 </div>
@@ -159,6 +159,10 @@ let fechaActualExperiencias = '';
 function escaparExperiencias(valor) { return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter])); }
 function fechaExperienciaLegible(fecha) { const [anio, mes, dia] = fecha.split('-').map(Number); return new Date(anio, mes - 1, dia).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }); }
 function fechaExperienciaCorta(fecha) { return fecha.split('-').reverse().join('/'); }
+function franjasDiaExperiencia(valor) {
+    if (Array.isArray(valor)) return valor.filter(franja => franja && typeof franja === 'object' && franja.inicio && franja.fin);
+    return valor && typeof valor === 'object' && valor.inicio && valor.fin ? [valor] : [];
+}
 function formatearPrecioExperiencia(valor) {
     const digitos = String(valor ?? '').replace(/\D/g, '').slice(0, 10);
     return digitos ? new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(digitos)) : '';
@@ -208,15 +212,16 @@ function purgarFechasExpiradasExperiencias() {
 function agruparFechasHorarioExperiencia(fechas) {
     const grupos = [];
     Object.keys(fechas).sort().forEach(fecha => {
-        const rango = fechas[fecha];
-        const anterior = grupos[grupos.length - 1];
-        const siguienteAlAnterior = anterior
-            && new Date(`${anterior.fin}T00:00:00Z`).getTime() + 86400000 === new Date(`${fecha}T00:00:00Z`).getTime();
-        if (siguienteAlAnterior && anterior.horaInicio === rango.inicio && anterior.horaFin === rango.fin) {
-            anterior.fin = fecha;
-            return;
-        }
-        grupos.push({ inicio: fecha, fin: fecha, horaInicio: rango.inicio, horaFin: rango.fin });
+        franjasDiaExperiencia(fechas[fecha]).forEach(rango => {
+            const anterior = grupos[grupos.length - 1];
+            const siguienteAlAnterior = anterior
+                && new Date(`${anterior.fin}T00:00:00Z`).getTime() + 86400000 === new Date(`${fecha}T00:00:00Z`).getTime();
+            if (siguienteAlAnterior && anterior.horaInicio === rango.inicio && anterior.horaFin === rango.fin) {
+                anterior.fin = fecha;
+                return;
+            }
+            grupos.push({ inicio: fecha, fin: fecha, horaInicio: rango.inicio, horaFin: rango.fin });
+        });
     });
     return grupos;
 }
@@ -252,22 +257,28 @@ function renderizarHorariosExperiencia() {
     const nombre = document.getElementById(`opcionExperiencia${opcionSeleccionada}`).value.trim();
     const fechas = Object.keys(horariosExperienciaBorrador[opcionSeleccionada] || {}).sort();
     const filas = fechas.map(fecha => {
-        const rango = horariosExperienciaBorrador[opcionSeleccionada][fecha];
-        const seleccionada = edicionHorarioExperiencia?.opcion === opcionSeleccionada
-            && edicionHorarioExperiencia.fecha === fecha;
-        return `<div class="flex items-center justify-between gap-3 rounded-lg border ${seleccionada ? 'border-primary bg-primary/5' : 'border-slate-200'} p-3">
-            <button type="button" data-editar-horario="${escaparExperiencias(fecha)}" aria-pressed="${seleccionada}" class="min-w-0 flex-1 text-left">
-                <strong class="text-sm text-slate-700">${escaparExperiencias(fechaExperienciaLegible(fecha))}</strong>
-                <p class="mt-1 text-xs text-slate-500">${escaparExperiencias(rango.inicio)} – ${escaparExperiencias(rango.fin)}</p>
-            </button>
-            <button type="button" data-eliminar-opcion="${opcionSeleccionada}" data-eliminar-fecha="${escaparExperiencias(fecha)}" class="shrink-0 text-xs font-bold text-red-600 hover:text-red-800">Quitar fecha</button>
+        const rangos = franjasDiaExperiencia(horariosExperienciaBorrador[opcionSeleccionada][fecha]);
+        const detalles = rangos.map((rango, indice) => {
+            const seleccionada = edicionHorarioExperiencia?.opcion === opcionSeleccionada
+                && edicionHorarioExperiencia.fecha === fecha
+                && edicionHorarioExperiencia.indice === indice;
+            return `<div class="flex items-center gap-2 rounded-md border ${seleccionada ? 'border-primary bg-primary/5' : 'border-slate-200'} px-2 py-2">
+                <span class="flex-1 text-xs text-slate-600">${escaparExperiencias(rango.inicio)} – ${escaparExperiencias(rango.fin)}</span>
+                <button type="button" data-editar-horario="${escaparExperiencias(fecha)}" data-editar-indice="${indice}" aria-pressed="${seleccionada}" class="text-xs font-bold text-primary">Editar</button>
+                <button type="button" data-quitar-franja="${escaparExperiencias(fecha)}" data-quitar-indice="${indice}" class="text-xs font-bold text-red-600">Quitar</button>
+            </div>`;
+        }).join('');
+        return `<div class="rounded-lg border border-slate-200 p-3">
+            <strong class="text-sm text-slate-700">${escaparExperiencias(fechaExperienciaLegible(fecha))}</strong>
+            <div class="mt-2 space-y-2">${detalles}</div>
+            <button type="button" data-agregar-horario-fecha="${escaparExperiencias(fecha)}" class="mt-2 w-full rounded-md border border-primary/20 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/5">Añadir otro horario a este día</button>
         </div>`;
     }).join('') || '<p class="text-xs text-slate-400">Sin fechas configuradas para esta opción.</p>';
-    lista.innerHTML = `<section class="rounded-lg bg-slate-50 p-3"><h4 class="mb-2 text-xs font-black uppercase text-primary">${escaparExperiencias(nombre)}</h4><p class="mb-2 text-[11px] text-slate-500">Selecciona una fecha para editar su horario.</p><div class="space-y-2">${filas}</div></section>`;
+    lista.innerHTML = `<section class="rounded-lg bg-slate-50 p-3"><h4 class="mb-2 text-xs font-black uppercase text-primary">${escaparExperiencias(nombre)}</h4><p class="mb-2 text-[11px] text-slate-500">Agrega otra franja a un día o edita una franja existente por separado.</p><div class="space-y-2">${filas}</div></section>`;
 }
 function limpiarEdicionHorarioExperiencia(limpiarCampos = false) {
     edicionHorarioExperiencia = null;
-    document.getElementById('agregarHorarioExperiencia').textContent = 'Añadir rango de fechas';
+    document.getElementById('agregarHorarioExperiencia').textContent = 'Añadir horario a las fechas';
     document.getElementById('cancelarEdicionHorarioExperiencia').classList.add('hidden');
     if (limpiarCampos) {
         ['fechaInicioHorarioExperiencia', 'fechaFinHorarioExperiencia', 'horaInicioExperiencia', 'horaFinExperiencia']
@@ -297,8 +308,8 @@ function agregarHorarioExperiencia() {
         mostrarMensajeExperiencias('Ingresa una hora válida entre 00:00 y 23:59.', true);
         return;
     }
-    if (fin < inicio) {
-        mostrarMensajeExperiencias('La hora de fin no puede ser anterior a la hora de inicio.', true);
+    if (fin <= inicio) {
+        mostrarMensajeExperiencias('La hora de fin debe ser posterior a la hora de inicio.', true);
         return;
     }
     const milisegundosPorDia = 24 * 60 * 60 * 1000;
@@ -315,18 +326,44 @@ function agregarHorarioExperiencia() {
         new Date(primerDia + indice * milisegundosPorDia).toISOString().slice(0, 10)
     );
     const horariosOpcion = horariosExperienciaBorrador[opcion];
-    const fechaOriginal = edicionHorarioExperiencia?.opcion === opcion
-        ? edicionHorarioExperiencia.fecha
-        : null;
-    const fechasConservadas = Object.keys(horariosOpcion).filter(fecha => fecha !== fechaOriginal);
-    const fechasNuevas = fechasRango.filter(fecha => !fechasConservadas.includes(fecha));
-    if (fechasConservadas.length + fechasNuevas.length > 100) {
+    const fechasNuevas = fechasRango.filter(fecha => !Object.prototype.hasOwnProperty.call(horariosOpcion, fecha));
+    if (Object.keys(horariosOpcion).length + fechasNuevas.length > 100) {
         mostrarMensajeExperiencias('Cada opción admite hasta 100 fechas programadas.', true);
         return;
     }
-    if (fechaOriginal) delete horariosOpcion[fechaOriginal];
-    fechasRango.forEach(fecha => {
-        horariosOpcion[fecha] = { inicio, fin };
+    const actualizaciones = {};
+    if (edicionHorarioExperiencia?.opcion === opcion) {
+        const rangosOriginales = franjasDiaExperiencia(horariosOpcion[edicionHorarioExperiencia.fecha]).map(rango => ({ ...rango }));
+        rangosOriginales.splice(edicionHorarioExperiencia.indice, 1);
+        actualizaciones[edicionHorarioExperiencia.fecha] = rangosOriginales;
+    }
+    for (const fecha of fechasRango) {
+        const rangos = (actualizaciones[fecha] || franjasDiaExperiencia(horariosOpcion[fecha])).map(rango => ({ ...rango }));
+        const inicioMinutos = Number(inicio.slice(0, 2)) * 60 + Number(inicio.slice(3, 5));
+        const finMinutos = Number(fin.slice(0, 2)) * 60 + Number(fin.slice(3, 5));
+        const seSuperpone = rangos.some(rango => {
+            const existenteInicio = Number(rango.inicio.slice(0, 2)) * 60 + Number(rango.inicio.slice(3, 5));
+            const existenteFin = Number(rango.fin.slice(0, 2)) * 60 + Number(rango.fin.slice(3, 5));
+            return inicioMinutos < existenteFin && finMinutos > existenteInicio;
+        });
+        if (seSuperpone) {
+            mostrarMensajeExperiencias(`El horario se superpone con otro horario del ${fechaExperienciaCorta(fecha)}.`, true);
+            return;
+        }
+        if (rangos.length >= 20) {
+            mostrarMensajeExperiencias('Cada día admite hasta 20 horarios.', true);
+            return;
+        }
+        rangos.push({ inicio, fin });
+        rangos.sort((a, b) => a.inicio.localeCompare(b.inicio));
+        actualizaciones[fecha] = rangos;
+    }
+    Object.entries(actualizaciones).forEach(([fecha, rangos]) => {
+        if (rangos.length) {
+            horariosOpcion[fecha] = rangos;
+        } else {
+            delete horariosOpcion[fecha];
+        }
     });
     exclusionesHorariosExperiencia[opcion] = (exclusionesHorariosExperiencia[opcion] || [])
         .filter(fecha => !fechasRango.includes(fecha));
@@ -400,7 +437,7 @@ function horarioPublicadoOpcionRecepcion(experience, number) {
     const stay = (guest?.estancias || []).find(item => item.reserva_id === stayId);
     const ranges = Object.entries(schedules)
         .filter(([date]) => date >= today && (!stay || (date >= stay.inicio && date < stay.fin)))
-        .map(([, range]) => `${range.inicio}–${range.fin}`);
+        .flatMap(([, value]) => franjasDiaExperiencia(value).map(range => `${range.inicio}–${range.fin}`));
     const uniqueRanges = [...new Set(ranges)];
     return uniqueRanges.length ? `Horario: ${uniqueRanges.join(', ')}` : 'Sin horario disponible';
 }
@@ -446,16 +483,22 @@ function fechasYHorasDisponiblesSolicitudRecepcion() {
     ).sort();
     const result = {};
     dates.forEach(date => {
-        const ranges = options.map(number => experience.horarios[number][date]);
-        const start = Math.max(...ranges.map(range => Number(range.inicio.slice(0, 2)) * 60 + Number(range.inicio.slice(3, 5))));
-        const end = Math.min(...ranges.map(range => Number(range.fin.slice(0, 2)) * 60 + Number(range.fin.slice(3, 5))));
+        const rangesByOption = options.map(number => franjasDiaExperiencia(experience.horarios[number][date]));
         const times = [];
-        for (let minute = start; minute < end; minute += 30) {
-            const time = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
-            if (date > today || time > new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date())) {
-                times.push(time);
+        const now = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+        rangesByOption[0].forEach(firstRange => {
+            const start = Number(firstRange.inicio.slice(0, 2)) * 60 + Number(firstRange.inicio.slice(3, 5));
+            const end = Number(firstRange.fin.slice(0, 2)) * 60 + Number(firstRange.fin.slice(3, 5));
+            for (let minute = start; minute < end; minute += 30) {
+                const time = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+                const availableForAll = rangesByOption.every(ranges => ranges.some(range => {
+                    const rangeStart = Number(range.inicio.slice(0, 2)) * 60 + Number(range.inicio.slice(3, 5));
+                    const rangeEnd = Number(range.fin.slice(0, 2)) * 60 + Number(range.fin.slice(3, 5));
+                    return minute >= rangeStart && minute < rangeEnd && (minute - rangeStart) % 30 === 0;
+                }));
+                if (availableForAll && (date > today || time > now) && !times.includes(time)) times.push(time);
             }
-        }
+        });
         if (times.length) result[date] = times;
     });
     return result;
@@ -788,8 +831,9 @@ function abrirModalExperiencia(experiencia) {
     horariosExperienciaBorrador = Object.fromEntries([1, 2, 3].map(numero => [
         String(numero),
         Object.fromEntries(Object.entries(experiencia?.horarios?.[String(numero)] || {})
-            .filter(([fecha, rango]) => /^\d{4}-\d{2}-\d{2}$/.test(fecha) && rango && typeof rango === 'object')
-            .map(([fecha, rango]) => [fecha, { inicio: rango.inicio, fin: rango.fin }]))
+            .filter(([fecha]) => /^\d{4}-\d{2}-\d{2}$/.test(fecha))
+            .map(([fecha, rangos]) => [fecha, franjasDiaExperiencia(rangos).map(rango => ({ inicio: rango.inicio, fin: rango.fin }))])
+            .filter(([, rangos]) => rangos.length > 0))
     ]));
     exclusionesHorariosExperiencia = Object.fromEntries([1, 2, 3].map(numero => [
         String(numero),
@@ -905,13 +949,24 @@ document.getElementById('cancelarEdicionHorarioExperiencia').addEventListener('c
     renderizarHorariosExperiencia();
 });
 document.getElementById('listaHorariosExperiencia').addEventListener('click', evento => {
+    const agregarAlDia = evento.target.closest('[data-agregar-horario-fecha]');
+    if (agregarAlDia) {
+        const fecha = agregarAlDia.dataset.agregarHorarioFecha;
+        limpiarEdicionHorarioExperiencia(true);
+        document.getElementById('fechaInicioHorarioExperiencia').value = fecha;
+        document.getElementById('fechaFinHorarioExperiencia').value = fecha;
+        document.getElementById('agregarHorarioExperiencia').textContent = 'Añadir otro horario a este día';
+        document.getElementById('horaInicioExperiencia').focus();
+        return;
+    }
     const editarFecha = evento.target.closest('[data-editar-horario]');
     if (editarFecha) {
         const opcion = document.getElementById('opcionHorarioExperiencia').value;
         const fecha = editarFecha.dataset.editarHorario;
-        const rango = horariosExperienciaBorrador[opcion]?.[fecha];
+        const indice = Number(editarFecha.dataset.editarIndice);
+        const rango = franjasDiaExperiencia(horariosExperienciaBorrador[opcion]?.[fecha])[indice];
         if (!rango) return;
-        edicionHorarioExperiencia = { opcion, fecha };
+        edicionHorarioExperiencia = { opcion, fecha, indice };
         document.getElementById('fechaInicioHorarioExperiencia').value = fecha;
         document.getElementById('fechaFinHorarioExperiencia').value = fecha;
         document.getElementById('horaInicioExperiencia').value = rango.inicio;
@@ -921,15 +976,25 @@ document.getElementById('listaHorariosExperiencia').addEventListener('click', ev
         renderizarHorariosExperiencia();
         return;
     }
-    const quitarFecha = evento.target.closest('[data-eliminar-fecha]');
-    if (quitarFecha) {
-        if (edicionHorarioExperiencia?.opcion === quitarFecha.dataset.eliminarOpcion
-            && edicionHorarioExperiencia.fecha === quitarFecha.dataset.eliminarFecha) {
+    const quitarFranja = evento.target.closest('[data-quitar-franja]');
+    if (quitarFranja) {
+        const opcion = document.getElementById('opcionHorarioExperiencia').value;
+        const fecha = quitarFranja.dataset.quitarFranja;
+        const indice = Number(quitarFranja.dataset.quitarIndice);
+        const rangos = franjasDiaExperiencia(horariosExperienciaBorrador[opcion]?.[fecha]);
+        if (edicionHorarioExperiencia?.opcion === opcion
+            && edicionHorarioExperiencia.fecha === fecha
+            && edicionHorarioExperiencia.indice === indice) {
             limpiarEdicionHorarioExperiencia(true);
         }
-        exclusionesHorariosExperiencia[quitarFecha.dataset.eliminarOpcion] ||= [];
-        exclusionesHorariosExperiencia[quitarFecha.dataset.eliminarOpcion].push(quitarFecha.dataset.eliminarFecha);
-        delete horariosExperienciaBorrador[quitarFecha.dataset.eliminarOpcion][quitarFecha.dataset.eliminarFecha];
+        rangos.splice(indice, 1);
+        if (rangos.length) {
+            horariosExperienciaBorrador[opcion][fecha] = rangos;
+        } else {
+            delete horariosExperienciaBorrador[opcion][fecha];
+            exclusionesHorariosExperiencia[opcion] ||= [];
+            exclusionesHorariosExperiencia[opcion].push(fecha);
+        }
         renderizarHorariosExperiencia();
     }
 });

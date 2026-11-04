@@ -1151,11 +1151,24 @@ function inicializarCancelacionHistorial() {
             resumen.textContent = `Experiencia seleccionada: ${experienciaActual.nombre}`;
         }
         if ($('experienciaIdActividad')) $('experienciaIdActividad').value = String(experienciaActual.id);
-        if ($('cantidadPersonasActividad')) {
-            $('cantidadPersonasActividad').disabled = false;
-            $('cantidadPersonasActividad').value = '1';
+        const reservationSelect = $('reservaExperienciaActividad');
+        if (reservationSelect) {
+            reservationSelect.replaceChildren(new Option('Selecciona la reserva de las personas que asistirán', ''));
+            experienciaActual.reservas.forEach(reservation => {
+                const countLabel = reservation.limite_estimado
+                    ? `hasta ${reservation.limite_personas} personas por capacidad`
+                    : `${reservation.personas} ${reservation.personas === 1 ? 'persona' : 'personas'}`;
+                const roomTypes = Array.isArray(reservation.tipos_habitacion) ? reservation.tipos_habitacion.join(', ') : '';
+                const roomLabel = roomTypes ? ` · ${roomTypes}` : '';
+                const label = `Reserva #${reservation.id}${roomLabel} · ${fechaLegible(reservation.inicio)} al ${fechaLegible(reservation.fin)} · ${countLabel}`;
+                reservationSelect.add(new Option(label, String(reservation.id)));
+            });
+            reservationSelect.disabled = experienciaActual.reservas.length === 0;
+            reservationSelect.value = experienciaActual.reservas.length === 1
+                ? String(experienciaActual.reservas[0].id)
+                : '';
         }
-
+        actualizarReservaExperiencia();
         generarOpcionesPorPersona(1);
         pintarFechasDisponibles();
         actualizarResumenPrecio();
@@ -1179,12 +1192,48 @@ function inicializarCancelacionHistorial() {
     const inputPersonas = $('cantidadPersonasActividad');
     if (inputPersonas) {
         inputPersonas.addEventListener('input', () => {
-            const cantidad = Math.max(1, Math.min(20, Number(inputPersonas.value) || 1));
+            const maximo = Number(inputPersonas.max || 1);
+            const cantidad = Math.max(1, Math.min(maximo, Number(inputPersonas.value) || 1));
+            inputPersonas.value = String(cantidad);
             generarOpcionesPorPersona(cantidad);
             actualizarResumenPrecio();
             pintarFechasDisponibles();
         });
     }
+
+    function reservaSeleccionada() {
+        const id = Number($('reservaExperienciaActividad')?.value || 0);
+        const reservations = experienciaActual?.reservas || [];
+        return reservations.find(reservation => Number(reservation.id) === id) || null;
+    }
+
+    function actualizarReservaExperiencia() {
+        const reservation = reservaSeleccionada();
+        const input = $('cantidadPersonasActividad');
+        const summary = $('resumenReservaExperiencia');
+        if (input) {
+            const maximum = reservation ? Math.max(1, Number(reservation.limite_personas) || 1) : 1;
+            input.max = String(maximum);
+            input.disabled = !reservation;
+            input.value = String(Math.min(Math.max(1, Number(input.value) || 1), maximum));
+        }
+        if (summary) {
+            if (!reservation) {
+                summary.textContent = 'Selecciona la reserva de las personas que asistirán; la cantidad se limitará a esa reserva.';
+            } else if (reservation.limite_estimado) {
+                summary.textContent = `Esta reserva no registra el número de huéspedes. El máximo se calcula según la capacidad de sus habitaciones: ${reservation.limite_personas}.`;
+            } else {
+                summary.textContent = `Asociada a la reserva #${reservation.id}: ${reservation.personas} ${reservation.personas === 1 ? 'persona registrada' : 'personas registradas'}. Puedes seleccionar hasta ${reservation.limite_personas}.`;
+            }
+        }
+        if (input) generarOpcionesPorPersona(Number(input.value));
+    }
+
+    $('reservaExperienciaActividad')?.addEventListener('change', () => {
+        actualizarReservaExperiencia();
+        actualizarResumenPrecio();
+        pintarFechasDisponibles();
+    });
 
     function generarOpcionesPorPersona(cantidad) {
         const contenedor = $('opcionesPorPersona');
@@ -1205,8 +1254,9 @@ function inicializarCancelacionHistorial() {
                 const rangosHorarios = Object.entries(horariosOpcion)
                     .filter(([fecha, rango]) => fecha >= ahora.fecha
                         && horarioTieneHoraDisponible(fecha, rango, ahora)
-                        && (experienciaActual.reservas || []).some(reserva => fecha >= reserva.inicio && fecha < reserva.fin))
-                    .map(([, rango]) => `${rango.inicio}–${rango.fin}`);
+                        && reservaSeleccionada()
+                        && fecha >= reservaSeleccionada().inicio && fecha < reservaSeleccionada().fin)
+                    .flatMap(([, rango]) => franjasHorarioDia(rango).map(franja => `${franja.inicio}–${franja.fin}`));
                 const rangosUnicos = [...new Set(rangosHorarios)];
                 const horarioTexto = rangosUnicos.length
                     ? `Horario: ${rangosUnicos.join(', ')}`
@@ -1265,14 +1315,25 @@ function inicializarCancelacionHistorial() {
             .filter((index, position, all) => all.indexOf(index) === position);
     }
 
+    function franjasHorarioDia(valor) {
+        if (Array.isArray(valor)) return valor.filter(franja => franja && typeof franja === 'object' && franja.inicio && franja.fin);
+        return valor && typeof valor === 'object' && valor.inicio && valor.fin ? [valor] : [];
+    }
+
     function horarioCompartido(fecha) {
         const indices = optionIndexesSelected();
         if (!indices.length) return null;
-        const rangos = indices.map(index => experienciaActual.horarios?.[String(index)]?.[fecha]);
-        if (rangos.some(rango => !rango)) return null;
-        const inicio = rangos.reduce((maximo, rango) => rango.inicio > maximo ? rango.inicio : maximo, '00:00');
-        const fin = rangos.reduce((minimo, rango) => rango.fin < minimo ? rango.fin : minimo, '23:59');
-        return inicio <= fin ? { inicio, fin } : null;
+        const rangosPorOpcion = indices.map(index => franjasHorarioDia(experienciaActual.horarios?.[String(index)]?.[fecha]));
+        if (rangosPorOpcion.some(rangos => rangos.length === 0)) return null;
+        let compartidos = rangosPorOpcion[0].map(rango => ({ inicio: rango.inicio, fin: rango.fin, bases: [rango] }));
+        rangosPorOpcion.slice(1).forEach(rangos => {
+            compartidos = compartidos.flatMap(compartido => rangos.flatMap(rango => {
+                const inicio = compartido.inicio > rango.inicio ? compartido.inicio : rango.inicio;
+                const fin = compartido.fin < rango.fin ? compartido.fin : rango.fin;
+                return inicio < fin ? [{ inicio, fin, bases: [...compartido.bases, rango] }] : [];
+            }));
+        });
+        return compartidos.length ? compartidos : null;
     }
 
     function fechaActualBogota() {
@@ -1293,21 +1354,44 @@ function inicializarCancelacionHistorial() {
     }
 
     function horarioTieneHoraDisponible(fecha, rango, ahora) {
-        if (fecha !== ahora.fecha) return true;
-        const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
-        const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
-        const primerInicio = Math.max(
-            horaInicio * 60 + minutoInicio,
-            (Math.floor(ahora.minutos / 30) + 1) * 30
-        );
-        return primerInicio < horaFin * 60 + minutoFin;
+        return franjasHorarioDia(rango).some(franja => {
+            if (fecha !== ahora.fecha) return true;
+            const [horaInicio, minutoInicio] = franja.inicio.split(':').map(Number);
+            const [horaFin, minutoFin] = franja.fin.split(':').map(Number);
+            const inicio = horaInicio * 60 + minutoInicio;
+            const fin = horaFin * 60 + minutoFin;
+            const primerInicio = inicio + Math.max(0, Math.floor((ahora.minutos - inicio) / 30) + 1) * 30;
+            return primerInicio < fin;
+        });
+    }
+
+    function horasDeRangosCompartidos(fecha, rangos, ahora) {
+        const horas = new Set();
+        rangos.forEach(rango => {
+            const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
+            const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
+            const inicio = horaInicio * 60 + minutoInicio;
+            const fin = horaFin * 60 + minutoFin;
+            const [horaBase, minutoBase] = rango.bases[0].inicio.split(':').map(Number);
+            const inicioBase = horaBase * 60 + minutoBase;
+            let primerMinuto = inicioBase;
+            while (primerMinuto < inicio) primerMinuto += 30;
+            for (let minuto = primerMinuto; minuto < fin; minuto += 30) {
+                if (fecha === ahora.fecha && minuto <= ahora.minutos) continue;
+                if (rango.bases.every(base => {
+                    const [baseHora, baseMinuto] = base.inicio.split(':').map(Number);
+                    return (minuto - (baseHora * 60 + baseMinuto)) % 30 === 0;
+                })) {
+                    horas.add(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`);
+                }
+            }
+        });
+        return [...horas].sort();
     }
 
     function fechasDentroEstancia(fechas, reservas) {
-        if (reservas.length === 0) return [];
-        return fechas.filter(fecha =>
-            reservas.some(reserva => fecha >= reserva.inicio && fecha < reserva.fin)
-        );
+        if (!reservas) return [];
+        return fechas.filter(fecha => fecha >= reservas.inicio && fecha < reservas.fin);
     }
 
     function siguienteFecha(fecha, dias) {
@@ -1327,10 +1411,11 @@ function inicializarCancelacionHistorial() {
     function resumirHorariosOpcion(fechas, horarios, fechasExcluidas = []) {
         const grupos = new Map();
         fechas.forEach(fecha => {
-            const rango = horarios[fecha];
-            const clave = `${rango.inicio}|${rango.fin}`;
-            if (!grupos.has(clave)) grupos.set(clave, []);
-            grupos.get(clave).push(fecha);
+            franjasHorarioDia(horarios[fecha]).forEach(rango => {
+                const clave = `${rango.inicio}|${rango.fin}`;
+                if (!grupos.has(clave)) grupos.set(clave, []);
+                grupos.get(clave).push(fecha);
+            });
         });
         return [...grupos.entries()].map(([clave, fechasGrupo]) => {
             const [inicio, fin] = clave.split('|');
@@ -1365,15 +1450,15 @@ function inicializarCancelacionHistorial() {
     function fechasDisponibles() {
         const indices = optionIndexesSelected();
         if (!indices.length) return [];
-        const reservas = experienciaActual.reservas || [];
-        if (reservas.length === 0) return [];
+        const reserva = reservaSeleccionada();
+        if (!reserva) return [];
         const ahora = fechaActualBogota();
         const hoyIso = ahora.fecha;
         const candidatas = Object.keys(experienciaActual.horarios?.[String(indices[0])] || {}).sort();
         return candidatas.filter(fecha => {
-            const rango = horarioCompartido(fecha);
-            if (fecha < hoyIso || !rango || !horarioTieneHoraDisponible(fecha, rango, ahora)) return false;
-            return reservas.length === 0 || reservas.some(reserva => fecha >= reserva.inicio && fecha < reserva.fin);
+            const rangos = horarioCompartido(fecha);
+            if (fecha < hoyIso || !rangos || horasDeRangosCompartidos(fecha, rangos, ahora).length === 0) return false;
+            return fecha >= reserva.inicio && fecha < reserva.fin;
         });
     }
 
@@ -1383,9 +1468,9 @@ function inicializarCancelacionHistorial() {
 
         const ahora = fechaActualBogota();
         const hoy = ahora.fecha;
-        const reservas = experienciaActual.reservas || [];
-        if (reservas.length === 0) {
-            return 'Necesitas una reserva vigente para ver fechas disponibles.';
+        const reserva = reservaSeleccionada();
+        if (!reserva) {
+            return 'Selecciona la reserva de las personas que asistirán para ver sus fechas disponibles.';
         }
         const opciones = indices.map(indice => {
             const nombre = experienciaActual.opciones[
@@ -1395,19 +1480,20 @@ function inicializarCancelacionHistorial() {
             const fechasFuturas = Object.keys(horariosOpcion)
                 .filter(fecha => fecha >= hoy)
                 .sort();
-            const fechasConHoraFutura = fechasFuturas.filter(fecha =>
-                horarioTieneHoraDisponible(fecha, horariosOpcion[fecha], ahora)
-            );
-            const fechasEnEstancia = fechasDentroEstancia(fechasConHoraFutura, reservas);
+            const fechasConHoraFutura = fechasFuturas.filter(fecha => {
+                const rangos = franjasHorarioDia(horariosOpcion[fecha]);
+                return rangos.some(rango => horarioTieneHoraDisponible(fecha, rango, ahora));
+            });
+            const fechasEnEstancia = fechasDentroEstancia(fechasConHoraFutura, reserva);
             const fechasExcluidas = experienciaActual.exclusiones?.[String(indice)] || [];
             const horarios = resumirHorariosOpcion(fechasEnEstancia, horariosOpcion, fechasExcluidas);
             let detalle = horarios.join('; ');
             if (!detalle) {
                 const horarioDeHoyFinalizado = fechasFuturas.includes(hoy)
-                    && !horarioTieneHoraDisponible(hoy, horariosOpcion[hoy], ahora);
+                    && !franjasHorarioDia(horariosOpcion[hoy]).some(rango => horarioTieneHoraDisponible(hoy, rango, ahora));
                 if (horarioDeHoyFinalizado) {
                     detalle = 'el horario publicado para hoy ya finalizó';
-                } else if (fechasConHoraFutura.length > 0 && reservas.length > 0) {
+                } else if (fechasConHoraFutura.length > 0 && reserva) {
                     detalle = 'horarios fuera de tu estancia';
                 } else {
                     detalle = 'sin horarios futuros publicados';
@@ -1439,7 +1525,8 @@ function inicializarCancelacionHistorial() {
     function agruparFechasConHorario(fechas) {
         const grupos = [];
         fechas.forEach(fecha => {
-            const rango = horarioCompartido(fecha);
+            const rangos = horarioCompartido(fecha) || [];
+            const horas = rangos.map(rango => `${rango.inicio}–${rango.fin}`).join(', ');
             const ultimo = grupos[grupos.length - 1];
             let fechaSiguiente = null;
             if (ultimo) {
@@ -1447,10 +1534,10 @@ function inicializarCancelacionHistorial() {
                 siguiente.setDate(siguiente.getDate() + 1);
                 fechaSiguiente = `${siguiente.getFullYear()}-${String(siguiente.getMonth() + 1).padStart(2, '0')}-${String(siguiente.getDate()).padStart(2, '0')}`;
             }
-            if (ultimo && fecha === fechaSiguiente && ultimo.inicio_hora === rango.inicio && ultimo.fin_hora === rango.fin) {
+            if (ultimo && fecha === fechaSiguiente && ultimo.horas === horas) {
                 ultimo.fin = fecha;
             } else {
-                grupos.push({ inicio: fecha, fin: fecha, inicio_hora: rango.inicio, fin_hora: rango.fin });
+                grupos.push({ inicio: fecha, fin: fecha, horas });
             }
         });
         return grupos;
@@ -1480,7 +1567,7 @@ function inicializarCancelacionHistorial() {
         const resumenDisponibilidad = $('experienceAvailabilitySummary');
         if (resumenDisponibilidad) {
             resumenDisponibilidad.textContent = `Fechas disponibles dentro de tu estancia (${fechasValidas.length}): ` + grupos
-                .map(grupo => `${etiquetaRangoFechas(grupo.inicio, grupo.fin)} · ${grupo.inicio_hora}–${grupo.fin_hora}`)
+                .map(grupo => `${etiquetaRangoFechas(grupo.inicio, grupo.fin)} · ${grupo.horas}`)
                 .join(' | ');
         }
         selectFecha.value = fechasValidas.includes(fechaAnterior) ? fechaAnterior : '';
@@ -1500,26 +1587,20 @@ function inicializarCancelacionHistorial() {
             return;
         }
 
-        const rango = horarioCompartido(fecha);
-        if (!rango) {
+        const rangos = horarioCompartido(fecha);
+        if (!rangos) {
             contenedor.textContent = 'No hay un horario común disponible para las opciones seleccionadas.';
             return;
         }
-        const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
-        const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
-        let inicioMinutos = horaInicio * 60 + minutoInicio;
-        const finMinutos = horaFin * 60 + minutoFin;
         const ahoraBogota = fechaActualBogota();
-        if (fecha === ahoraBogota.fecha) {
-            inicioMinutos = Math.max(inicioMinutos, (Math.floor(ahoraBogota.minutos / 30) + 1) * 30);
-        }
-        if (inicioMinutos >= finMinutos) {
+        const horasDisponibles = horasDeRangosCompartidos(fecha, rangos, ahoraBogota);
+        if (horasDisponibles.length === 0) {
             contenedor.textContent = 'El horario publicado para hoy ya pasó. Elige otra fecha disponible.';
             return;
         }
-        const horaProgramada = `${String(Math.floor(inicioMinutos / 60)).padStart(2, '0')}:${String(inicioMinutos % 60).padStart(2, '0')}`;
+        const horaProgramada = horasDisponibles[0];
         if (inputHora) inputHora.value = horaProgramada;
-        contenedor.textContent = `Horario publicado: ${rango.inicio}–${rango.fin}. La experiencia quedará programada a las ${horaProgramada}.`;
+        contenedor.textContent = `Horarios publicados: ${rangos.map(rango => `${rango.inicio}–${rango.fin}`).join(', ')}. La experiencia quedará programada a las ${horaProgramada}.`;
     }
 
     form.addEventListener('submit', async event => {
@@ -1529,11 +1610,13 @@ function inicializarCancelacionHistorial() {
         const textoOriginal = submitBtn ? submitBtn.innerHTML : '';
         const feedback = $('activityModalFeedback') || crearFeedbackModal();
         const cantidadPersonas = Number($('cantidadPersonasActividad')?.value || 1);
+        const reservationId = $('reservaExperienciaActividad')?.value || '';
         const participantesRaw = $('participantesActividad')?.value || '';
         const fecha = $('fechaActividad')?.value || '';
         const hora = $('horaActividad')?.value || '';
 
         if (!experienciaActual) return mostrarError(feedback, 'Selecciona una experiencia disponible.');
+        if (!reservaSeleccionada()) return mostrarError(feedback, 'Selecciona la reserva de las personas que asistirán.');
         if (!fecha) return mostrarError(feedback, 'Selecciona una fecha.');
         if (!fechasDisponibles().includes(fecha)) {
             pintarFechasDisponibles();
@@ -1548,6 +1631,7 @@ function inicializarCancelacionHistorial() {
         const fd = new FormData();
         fd.append('accion', 'agendar_actividad');
         fd.append('experiencia_id', String(experienciaActual.id));
+        fd.append('id_reserva', reservationId);
         fd.append('cantidad_personas', String(cantidadPersonas));
         fd.append('participantes', JSON.stringify(participantes));
         fd.append('fecha', fecha);
@@ -1563,7 +1647,7 @@ function inicializarCancelacionHistorial() {
             );
             const textoConfirmacion = experienciasMismoDia.length > 0
                 ? `Ya tienes ${experienciasMismoDia.length === 1 ? 'una experiencia programada' : `${experienciasMismoDia.length} experiencias programadas`} para el ${fechaLegible(fecha)}${experienciasMismoDia.length === 1 ? '' : `: ${experienciasMismoDia.map(experiencia => experiencia.name).join(', ')}`}. ¿Seguro que quieres programar "${experienciaActual.nombre}" para este día?`
-                : `Tu reserva vigente cubre el ${fechaLegible(fecha)}. ¿Confirmas programar "${experienciaActual.nombre}" ese día a las ${hora}? La solicitud quedará asociada a esa reserva.`;
+                : `La reserva #${reservationId} cubre el ${fechaLegible(fecha)}. ¿Confirmas programar "${experienciaActual.nombre}" ese día a las ${hora}?`;
             const confirmacion = await Swal.fire({
                 icon: 'question',
                 title: experienciasMismoDia.length > 0 ? 'Ya tienes experiencias para este día' : 'Confirma tu experiencia',

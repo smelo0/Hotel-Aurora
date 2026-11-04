@@ -88,10 +88,12 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
     $cantidadPersonasRaw = $_POST['cantidad_personas'] ?? null;
     $fechaRaw = $_POST['fecha'] ?? null;
     $horaRaw = $_POST['hora'] ?? null;
+    $reservationRaw = $_POST['id_reserva'] ?? null;
 
     if (($experienciaIdRaw !== null && !is_string($experienciaIdRaw))
         || !is_string($participantesRaw)
         || !is_string($cantidadPersonasRaw)
+        || !is_string($reservationRaw)
         || ($fechaRaw !== null && !is_string($fechaRaw))
         || ($horaRaw !== null && !is_string($horaRaw))) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
@@ -99,11 +101,12 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
 
     $experienciaId = filter_var((string) $experienciaIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $cantidadPersonas = filter_var($cantidadPersonasRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
+    $reservationId = filter_var($reservationRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $participantes = json_decode($participantesRaw, true);
     $fecha = trim((string) ($fechaRaw ?? ''));
     $hora = trim((string) ($horaRaw ?? ''));
 
-    if (!$experienciaId || !$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes)
+    if (!$experienciaId || !$reservationId || !$cantidadPersonas || !is_array($participantes) || !array_is_list($participantes)
         || count($participantes) !== $cantidadPersonas) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Completa correctamente todos los campos de la experiencia.']);
     }
@@ -132,13 +135,32 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
     }
 
     try {
-        $idReservaExperiencia = $portalRepository->findReservationForExperience($conexion, $idUsuario, $fecha);
+        $reservasExperiencia = $portalRepository->fetchReservationStays($conexion, $idUsuario);
     } catch (Throwable $error) {
         error_log('Error al validar la estancia para programar una experiencia: ' . $error->getMessage());
         jsonResponse(500, ['status' => 'error', 'mensaje' => 'No fue posible validar la reserva para la experiencia.']);
     }
-    if ($idReservaExperiencia === null) {
+    $reservaSeleccionada = null;
+    foreach ($reservasExperiencia as $reserva) {
+        if ((int) $reserva['id'] === (int) $reservationId) {
+            $reservaSeleccionada = $reserva;
+            break;
+        }
+    }
+    if (
+        $reservaSeleccionada === null
+        || $fecha < $reservaSeleccionada['inicio']
+        || $fecha >= $reservaSeleccionada['fin']
+    ) {
         jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
+    }
+    if ($cantidadPersonas > (int) $reservaSeleccionada['limite_personas']) {
+        jsonResponse(422, [
+            'status' => 'error',
+            'mensaje' => 'La cantidad de personas no puede superar las '
+                . (int) $reservaSeleccionada['limite_personas']
+                . ' personas asociadas a la reserva seleccionada.',
+        ]);
     }
 
     try {
@@ -195,11 +217,18 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         $minutosSeleccionados = ((int) substr($hora, 0, 2) * 60 + (int) substr($hora, 3, 2));
         $horarioDisponible = true;
         foreach (array_unique($indicesOpcionesSeleccionadas) as $indiceOpcion) {
-            $rangoHorario = $horariosExperiencia[$indiceOpcion][$fecha] ?? null;
-            $minutosInicio = is_array($rangoHorario) ? ((int) substr($rangoHorario['inicio'], 0, 2) * 60 + (int) substr($rangoHorario['inicio'], 3, 2)) : -1;
-            $minutosFin = is_array($rangoHorario) ? ((int) substr($rangoHorario['fin'], 0, 2) * 60 + (int) substr($rangoHorario['fin'], 3, 2)) : -1;
-            if (!is_array($rangoHorario) || $minutosSeleccionados < $minutosInicio || $minutosSeleccionados >= $minutosFin
-                || ($minutosSeleccionados - $minutosInicio) % 30 !== 0) {
+            $rangosHorario = $horariosExperiencia[(string) $indiceOpcion][$fecha] ?? [];
+            $disponibleEnOpcion = false;
+            foreach ($rangosHorario as $rangoHorario) {
+                $minutosInicio = ((int) substr($rangoHorario['inicio'], 0, 2) * 60 + (int) substr($rangoHorario['inicio'], 3, 2));
+                $minutosFin = ((int) substr($rangoHorario['fin'], 0, 2) * 60 + (int) substr($rangoHorario['fin'], 3, 2));
+                if ($minutosSeleccionados >= $minutosInicio && $minutosSeleccionados < $minutosFin
+                    && ($minutosSeleccionados - $minutosInicio) % 30 === 0) {
+                    $disponibleEnOpcion = true;
+                    break;
+                }
+            }
+            if (!$disponibleEnOpcion) {
                 $horarioDisponible = false;
                 break;
             }
@@ -215,6 +244,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
         $reservaBloqueada = $portalRepository->findReservationForExperience(
             $conexion,
             $idUsuario,
+            (int) $reservationId,
             $fecha,
             true
         );

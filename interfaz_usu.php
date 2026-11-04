@@ -122,16 +122,24 @@ function agruparHorariosExperiencia(array $horarios, string $desdeFecha, array $
         static fn($rango, $fecha): bool => is_string($fecha)
             && $fecha >= $desdeFecha
             && is_array($rango)
-            && isset($rango['inicio'], $rango['fin']),
+            && (isset($rango['inicio'], $rango['fin']) || (array_is_list($rango) && isset($rango[0]) && is_array($rango[0]))),
         ARRAY_FILTER_USE_BOTH
     );
     ksort($fechas, SORT_STRING);
 
     $fechasExcluidas = array_fill_keys($fechasExcluidas, true);
     $fechasPorHorario = [];
-    foreach ($fechas as $fecha => $rango) {
-        $claveHorario = $rango['inicio'] . '|' . $rango['fin'];
-        $fechasPorHorario[$claveHorario][$fecha] = $rango;
+    foreach ($fechas as $fecha => $rangos) {
+        if (isset($rangos['inicio'], $rangos['fin'])) {
+            $rangos = [$rangos];
+        }
+        foreach ($rangos as $rango) {
+            if (!is_array($rango) || !isset($rango['inicio'], $rango['fin'])) {
+                continue;
+            }
+            $claveHorario = $rango['inicio'] . '|' . $rango['fin'];
+            $fechasPorHorario[$claveHorario][$fecha] = $rango;
+        }
     }
 
     $grupos = [];
@@ -755,8 +763,16 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     </div>
 
                                     <div class="md:col-span-2">
+                                        <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="reservaExperienciaActividad">¿Para quiénes es la experiencia?</label>
+                                        <select id="reservaExperienciaActividad" name="id_reserva" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                                            <option value="">Selecciona la reserva de las personas que asistirán</option>
+                                        </select>
+                                        <p id="resumenReservaExperiencia" class="mt-2 text-xs text-white/75" aria-live="polite">La cantidad de personas se limitará a las registradas en esta reserva.</p>
+                                    </div>
+
+                                    <div class="md:col-span-2">
                                         <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="cantidadPersonasActividad">Personas</label>
-                                        <input id="cantidadPersonasActividad" name="cantidad_personas" type="number" min="1" max="20" value="1" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                                        <input id="cantidadPersonasActividad" name="cantidad_personas" type="number" min="1" max="1" value="1" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
                                         <div id="opcionesPorPersona" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
                                         <input id="participantesActividad" name="participantes" type="hidden">
                                         <p id="resumenPrecioExperiencia" class="mt-3 text-sm font-bold text-white/85" aria-live="polite">Elige las opciones por persona para consultar el precio.</p>
@@ -1253,7 +1269,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=21"></script>
+    <script src="assets/js/interfaz_usu.js?v=22"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

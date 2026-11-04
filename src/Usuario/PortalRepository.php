@@ -27,10 +27,11 @@ final class PortalRepository
         return $contact;
     }
 
-    public function findReservationForExperience(mysqli $connection, int $userId, string $date, bool $forUpdate = false): ?int
+    public function findReservationForExperience(mysqli $connection, int $userId, int $reservationId, string $date, bool $forUpdate = false): ?int
     {
         $sql = "SELECT cod_res FROM reservas
                 WHERE id_usu_res = ?
+                  AND cod_res = ?
                   AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
                   AND DATE(fec_ent_res) <= ?
                   AND DATE(fec_sal_res) > ?
@@ -40,14 +41,14 @@ final class PortalRepository
             $sql .= ' FOR UPDATE';
         }
         $statement = $connection->prepare($sql);
-        $statement->bind_param('iss', $userId, $date, $date);
+        $statement->bind_param('iiss', $userId, $reservationId, $date, $date);
 
         $statement->execute();
-        $statement->bind_result($reservationId);
+        $statement->bind_result($foundReservationId);
         $found = $statement->fetch();
         $statement->close();
 
-        return $found ? (int) $reservationId : null;
+        return $found ? (int) $foundReservationId : null;
     }
 
     public function fetchExperienceForActivity(mysqli $connection, int $experienceId): ?array
@@ -375,12 +376,15 @@ final class PortalRepository
     {
         $today = (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d');
         $statement = $connection->prepare(
-            "SELECT DATE(fec_ent_res) AS fecha_inicio, DATE(fec_sal_res) AS fecha_fin
-             FROM reservas
-             WHERE id_usu_res = ?
-               AND LOWER(TRIM(COALESCE(est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
-               AND DATE(fec_sal_res) > ?
-             ORDER BY fec_ent_res ASC"
+            "SELECT r.cod_res, DATE(r.fec_ent_res) AS fecha_inicio, DATE(r.fec_sal_res) AS fecha_fin,
+                    r.not_res, h.tipo_hab
+             FROM reservas r
+             LEFT JOIN detalle d ON d.cod_res_det = r.cod_res
+             LEFT JOIN habitacion h ON h.cod_hab = d.cod_hab_det
+             WHERE r.id_usu_res = ?
+               AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada', 'en casa')
+               AND DATE(r.fec_sal_res) > ?
+             ORDER BY r.fec_ent_res ASC, r.cod_res ASC"
         );
         if (!$statement) {
             return [];
@@ -393,15 +397,45 @@ final class PortalRepository
         $stays = [];
         if ($result instanceof \mysqli_result) {
             while ($row = $result->fetch_assoc()) {
-                $stays[] = [
-                    'inicio' => (string) $row['fecha_inicio'],
-                    'fin' => (string) $row['fecha_fin'],
-                ];
+                $id = (int) $row['cod_res'];
+                if (!isset($stays[$id])) {
+                    $notes = (string) ($row['not_res'] ?? '');
+                    $guestCount = null;
+                    if (preg_match('/Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)/iu', $notes, $matches)) {
+                        $guestCount = (int) $matches[1] + (int) $matches[2];
+                    }
+                    $stays[$id] = [
+                        'id' => $id,
+                        'inicio' => (string) $row['fecha_inicio'],
+                        'fin' => (string) $row['fecha_fin'],
+                        'personas' => $guestCount,
+                        'limite_personas' => 0,
+                        'tipos_habitacion' => [],
+                    ];
+                }
+                if ($row['tipo_hab'] !== null) {
+                    $capacity = capacidad_habitacion((string) $row['tipo_hab']);
+                    $stays[$id]['limite_personas'] += $capacity['personas'];
+                    $stays[$id]['tipos_habitacion'][] = (string) $row['tipo_hab'];
+                }
             }
         }
 
         $statement->close();
-        return $stays;
+        foreach ($stays as &$stay) {
+            $stay['tipos_habitacion'] = array_values(array_unique($stay['tipos_habitacion']));
+            if ($stay['personas'] === null) {
+                $stay['limite_personas'] = max(1, min(20, $stay['limite_personas']));
+                $stay['personas'] = $stay['limite_personas'];
+                $stay['limite_estimado'] = true;
+            } else {
+                $stay['personas'] = max(1, min(20, $stay['personas']));
+                $stay['limite_personas'] = $stay['personas'];
+                $stay['limite_estimado'] = false;
+            }
+        }
+        unset($stay);
+        return array_values($stays);
     }
 
     public function fetchReservationHistory(mysqli $connection, int $userId): array

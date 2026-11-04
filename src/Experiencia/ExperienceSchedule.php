@@ -58,7 +58,11 @@ final class ExperienceSchedule
                 ) {
                     continue;
                 }
-                if (is_array($range) && array_is_list($range)) {
+                if (is_array($range) && isset($range['inicio'], $range['fin'])) {
+                    $ranges = [$range];
+                } elseif (is_array($range) && array_is_list($range) && isset($range[0]) && is_array($range[0])) {
+                    $ranges = $range;
+                } elseif (is_array($range) && array_is_list($range)) {
                     $hours = array_values(array_filter(
                         $range,
                         static fn($hour): bool => is_string($hour)
@@ -68,24 +72,36 @@ final class ExperienceSchedule
                     if ($hours === []) {
                         continue;
                     }
-                    $start = $hours[0];
-                    $end = $hours[count($hours) - 1];
-                } elseif (is_array($range)) {
-                    $start = $range['inicio'] ?? null;
-                    $end = $range['fin'] ?? null;
+                    $ranges = [[
+                        'inicio' => $hours[0],
+                        'fin' => $hours[count($hours) - 1],
+                    ]];
                 } else {
                     continue;
                 }
-                if (
-                    !is_string($start)
-                    || !is_string($end)
-                    || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $start)
-                    || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $end)
-                    || $end < $start
-                ) {
+                $normalizedRanges = [];
+                foreach ($ranges as $item) {
+                    $start = is_array($item) ? ($item['inicio'] ?? null) : null;
+                    $end = is_array($item) ? ($item['fin'] ?? null) : null;
+                    if (
+                        !is_string($start)
+                        || !is_string($end)
+                        || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $start)
+                        || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $end)
+                        || $end < $start
+                    ) {
+                        continue;
+                    }
+                    $normalizedRanges[] = ['inicio' => $start, 'fin' => $end];
+                }
+                if ($normalizedRanges === []) {
                     continue;
                 }
-                $result[(string) $index][$date] = ['inicio' => $start, 'fin' => $end];
+                usort(
+                    $normalizedRanges,
+                    static fn(array $left, array $right): int => [$left['inicio'], $left['fin']] <=> [$right['inicio'], $right['fin']]
+                );
+                $result[(string) $index][$date] = $normalizedRanges;
             }
             ksort($result[(string) $index], SORT_STRING);
         }
