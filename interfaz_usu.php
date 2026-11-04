@@ -919,13 +919,35 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     </span>
                                 </td>
                                 <td class="px-4 py-4">
-                                    <?php if ((int) ($reserva['puede_cancelar'] ?? 0) === 1): ?>
-                                        <button type="button" data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" data-segundos-cancelacion="<?php echo (int) ($reserva['segundos_cancelacion'] ?? 0); ?>" class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (10 min)</button>
-                                    <?php elseif (in_array(mb_strtolower((string) ($reserva['est_res'] ?? '')), ['pendiente', 'confirmada'], true)): ?>
-                                        <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido</span>
-                                    <?php else: ?>
-                                        <span class="text-xs text-white/50">No disponible</span>
-                                    <?php endif; ?>
+<?php 
+// 1. Calculamos el tiempo restante usando la fecha de entrada (fec_ent_res)
+$fechaHoraReserva = strtotime($reserva['fec_ent_res'] ?? 'now'); 
+$ahora = time();
+$faltanSegundos = $fechaHoraReserva - $ahora;
+$limite24Horas = 86400; // 24 horas exactas en segundos
+
+// 2. Validamos el estado (pendiente o confirmada)
+$estadoReserva = mb_strtolower((string) ($reserva['est_res'] ?? ''));
+$esEstadoValido = in_array($estadoReserva, ['pendiente', 'confirmada'], true);
+
+// 3. Evaluamos si faltan más de 24 horas
+$puedeCancelar24h = ($faltanSegundos >= $limite24Horas);
+?>
+
+<?php if ($esEstadoValido && $puedeCancelar24h): ?>
+    <!-- Botón activo para cancelar (sin data-segundos-cancelacion para que JS lo ignore) -->
+    <button type="button" 
+            data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" 
+            class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">
+        Cancelar reserva
+    </button>
+<?php elseif ($esEstadoValido && !$puedeCancelar24h): ?>
+    <!-- Mensaje cuando faltan menos de 24 horas -->
+    <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido (menos de 24h)</span>
+<?php else: ?>
+    <!-- Mensaje para otros estados -->
+    <span class="text-xs text-white/50">No disponible</span>
+<?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

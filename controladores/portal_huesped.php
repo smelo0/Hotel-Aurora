@@ -40,8 +40,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
              WHERE r.cod_res = ?
                AND r.id_usu_res = ?
                AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada')
-               AND r.fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-               AND r.fec_ent_res > NOW()
+               AND r.fec_ent_res >= DATE_ADD(NOW(), INTERVAL 24 HOUR) 
                AND NOT EXISTS (
                    SELECT 1 FROM pagos pg
                    WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Aprobado'
@@ -69,7 +68,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
     }
 
     if (!$cancelada) {
-        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros 10 minutos, antes del check-in y si aún no registra cobros.']);
+        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar hasta 24 horas antes del check-in y si aún no registra cobros.']);
     }
     jsonResponse(200, ['status' => 'exito', 'mensaje' => 'La reserva fue cancelada correctamente.']);
 }
