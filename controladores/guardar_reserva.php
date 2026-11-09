@@ -49,34 +49,6 @@ function parseDateOnly(string $value): ?DateTimeImmutable
     return $date;
 }
 
-function parseChildAges(mixed $value): ?array
-{
-    if (is_string($value)) {
-        if (trim($value) === '') {
-            $value = [];
-        } else {
-            $value = json_decode($value, true);
-        }
-    }
-    if (!is_array($value)) {
-        return null;
-    }
-
-    $ages = [];
-    foreach ($value as $age) {
-        if (!is_scalar($age) || filter_var((string) $age, FILTER_VALIDATE_INT) === false) {
-            return null;
-        }
-        $age = (int) $age;
-        if ($age < 0 || $age > \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE) {
-            return null;
-        }
-        $ages[] = $age;
-    }
-
-    return $ages;
-}
-
 function normalizarMetodoPago(string $metodo): string
 {
     $valor = trim($metodo);
@@ -117,40 +89,39 @@ $tipoHuesped = trim((string) ($_POST['tipo_huesped'] ?? ''));
 $fechaIn = trim((string) ($_POST['fecha_in'] ?? ''));
 $fechaOut = trim((string) ($_POST['fecha_out'] ?? ''));
 $notasReserva = trim((string) ($_POST['notas_reserva'] ?? ''));
-$cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
-$cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
-$edadesNinos = parseChildAges($_POST['edades_ninos'] ?? []);
+// Adultos y niños se guardan por separado solo como dato informativo: el límite por habitación
+// y el precio dependen únicamente del total de personas (adultos + niños).
+if (isset($_POST['cant_adultos']) || isset($_POST['cant_ninos'])) {
+    $cantidadAdultos = max(1, (int) ($_POST['cant_adultos'] ?? 1));
+    $cantidadNinos = max(0, (int) ($_POST['cant_ninos'] ?? 0));
+} else {
+    $cantidadAdultos = max(1, (int) ($_POST['cant_personas'] ?? 1));
+    $cantidadNinos = 0;
+}
+$cantidadPersonas = $cantidadAdultos + $cantidadNinos;
 
-// Distribución de huéspedes por habitación (portal del huésped con varias habitaciones):
-// JSON [{"id": 12, "adultos": 2, "ninos": 1, "edades_ninos": [7]}, ...].
+// Distribución de personas por habitación (portal del huésped con varias habitaciones):
+// JSON [{"id": 12, "personas": 3}, ...].
 $distribucionHuespedes = null;
 $distribucionRaw = $_POST['huespedes_por_habitacion'] ?? '';
 if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
     $distribucionJson = json_decode($distribucionRaw, true);
     if (!is_array($distribucionJson)) {
-        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de personas por habitación no es válida.']);
     }
     $distribucionHuespedes = [];
     foreach ($distribucionJson as $filaDistribucion) {
         if (!is_array($filaDistribucion)) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de personas por habitación no es válida.']);
         }
         $idDistribucion = (int) ($filaDistribucion['id'] ?? 0);
         if ($idDistribucion < 1 || isset($distribucionHuespedes[$idDistribucion])) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de huéspedes por habitación no es válida.']);
-        }
-        $edadesDistribucion = parseChildAges($filaDistribucion['edades_ninos'] ?? []);
-        if ($edadesDistribucion === null || count($edadesDistribucion) !== max(0, (int) ($filaDistribucion['ninos'] ?? 0))) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'Indica la edad de cada niño para calcular la tarifa correcta.']);
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de personas por habitación no es válida.']);
         }
         $distribucionHuespedes[$idDistribucion] = [
-            'adultos' => max(0, (int) ($filaDistribucion['adultos'] ?? 0)),
-            'ninos' => max(0, (int) ($filaDistribucion['ninos'] ?? 0)),
-            'edades_ninos' => $edadesDistribucion,
+            'personas' => max(0, (int) ($filaDistribucion['personas'] ?? ((int) ($filaDistribucion['adultos'] ?? 0) + (int) ($filaDistribucion['ninos'] ?? 0)))),
         ];
     }
-} elseif ($edadesNinos === null || count($edadesNinos) !== $cantidadNinos) {
-    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Indica la edad de cada niño para calcular la tarifa correcta.']);
 }
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
 $tipoHabitacion = trim((string) ($_POST['tipo_habitacion'] ?? ''));
@@ -619,32 +590,23 @@ try {
         throw new RuntimeException('habitaciones_insuficientes');
     }
 
-    // Límite de personas por habitación (adultos, niños y total) y reparto entre habitaciones.
+    // Límite de personas por habitación y reparto entre habitaciones.
     if (count($habitacionesSeleccionadas) > 1 && empty($distribucionHuespedes)) {
         throw new RuntimeException('ocupacion_invalida:Indica cuántas personas habrá en cada una de las habitaciones.');
     }
     $distribucionValidada = validar_ocupacion_habitaciones(
         $habitacionesSeleccionadas,
-        $cantidadAdultos,
-        $cantidadNinos,
+        $cantidadPersonas,
         count($habitacionesSeleccionadas) > 1 ? $distribucionHuespedes : null
     );
-    $suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
+    $cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
     foreach ($habitacionesSeleccionadas as &$habitacionTarificada) {
-        $ocupacionHabitacion = $distribucionValidada[$habitacionTarificada['cod_hab']] ?? [
-            'adultos' => $cantidadAdultos,
-            'ninos' => $cantidadNinos,
-            'edades_ninos' => $edadesNinos,
-        ];
-        if (count($ocupacionHabitacion['edades_ninos']) !== $ocupacionHabitacion['ninos']) {
-            throw new RuntimeException('edades_ninos_invalidas');
-        }
+        $personasHabitacion = (int) ($distribucionValidada[$habitacionTarificada['cod_hab']]['personas'] ?? $cantidadPersonas);
         $habitacionTarificada['precio'] = \App\Reserva\RoomRateCalculator::nightlyRate(
             (string) $habitacionTarificada['tipo_hab'],
             (float) $habitacionTarificada['precio'],
-            (int) $ocupacionHabitacion['adultos'],
-            $ocupacionHabitacion['edades_ninos'],
-            $suplementoNinoAdicional
+            $personasHabitacion,
+            $cargoPersonaAdicional
         );
     }
     unset($habitacionTarificada);
@@ -652,12 +614,11 @@ try {
     if ($distribucionValidada !== [] && count($habitacionesSeleccionadas) > 1) {
         $detalleDistribucion = [];
         foreach ($habitacionesSeleccionadas as $habitacionDistribuida) {
-            $huespedesHabitacion = $distribucionValidada[$habitacionDistribuida['cod_hab']];
+            $personasEnHabitacion = (int) $distribucionValidada[$habitacionDistribuida['cod_hab']]['personas'];
             $detalleDistribucion[] = 'Hab. ' . $habitacionDistribuida['num_hab'] . ' ('
-                . $huespedesHabitacion['adultos'] . ($huespedesHabitacion['adultos'] === 1 ? ' adulto' : ' adultos')
-                . ', ' . $huespedesHabitacion['ninos'] . ($huespedesHabitacion['ninos'] === 1 ? ' niño' : ' niños') . ')';
+                . $personasEnHabitacion . ($personasEnHabitacion === 1 ? ' persona' : ' personas') . ')';
         }
-        $notasCompletas .= "\nDistribución de huéspedes: " . implode('; ', $detalleDistribucion);
+        $notasCompletas .= "\nDistribución de personas: " . implode('; ', $detalleDistribucion);
     }
 
     $precioNocheTotal = array_sum(array_map(
@@ -837,9 +798,6 @@ try {
         $statusCode = 409;
     } elseif (str_starts_with($reason, 'ocupacion_invalida:')) {
         $message = substr($reason, strlen('ocupacion_invalida:'));
-        $statusCode = 422;
-    } elseif ($reason === 'edades_ninos_invalidas') {
-        $message = 'Indica la edad de cada niño para calcular la tarifa correcta.';
         $statusCode = 422;
     } elseif (str_starts_with($reason, 'wompi_')) {
         $message = match ($reason) {

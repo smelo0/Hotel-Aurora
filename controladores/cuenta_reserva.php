@@ -176,12 +176,7 @@ function cuenta_construir(mysqli $db, int $codRes, bool $puedeExperiencias, bool
         $monto = $experiencia['monto_experiencia'] === null ? null : round((float) $experiencia['monto_experiencia'], 2);
         $pagada = $estadoPago === 'Pagada';
         $pendiente = (!$pagada && $monto !== null && $monto > 0) ? $monto : 0.0;
-        $vinculada = $experiencia['cod_res_agenda'] === null ? null : (int) $experiencia['cod_res_agenda'];
-        $enOtraReserva = $vinculada !== null && $vinculada !== $codRes;
-        $nota = $monto === null ? 'Sin precio definido' : ($enOtraReserva ? 'Se cobra desde la reserva #' . $vinculada : '');
-        if ($pendiente > 0 && !$enOtraReserva && !$puedeExperiencias) {
-            $nota = 'Sin permiso para cobrar experiencias';
-        }
+        
         $lineas[] = [
             'tipo' => 'experiencia',
             'id' => (int) $experiencia['id_agenda'],
@@ -195,8 +190,8 @@ function cuenta_construir(mysqli $db, int $codRes, bool $puedeExperiencias, bool
             'total' => (float) ($monto ?? 0),
             'pagado' => $pagada ? (float) ($monto ?? 0) : 0.0,
             'pendiente' => $pendiente,
-            'cobrable' => $pendiente > 0 && !$enOtraReserva && $puedeExperiencias,
-            'nota' => $nota,
+            'cobrable' => $pendiente > 0 && $puedeExperiencias,
+            'nota' => $monto === null ? 'Sin precio definido' : '',
             'folio' => null,
         ];
     }
@@ -338,18 +333,30 @@ function cuenta_cobrar_alojamiento(mysqli $db, int $codRes, ?float $montoSolicit
     return $factura;
 }
 
-/** Cobra una experiencia (misma lógica que gestionar_experiencias.php) y la deja "Confirmada". */
+/** Cobra una experiencia y la deja "Confirmada", asociándola automáticamente a la reserva actual. */
 function cuenta_cobrar_experiencia(mysqli $db, int $codRes, int $idAgenda, string $metodo, array $cuenta): array
 {
     $db->begin_transaction();
     try {
+        // Validamos que la experiencia pertenezca al huésped y caiga dentro de las fechas de su estancia (o esté vinculada)
         $filas = cuenta_filas(
             $db,
-            'SELECT id_agenda, cod_res_agenda, actividad, selecciones_personas_json, precios_personas_json,
-                    fecha_agenda, hora_agenda, estado_agenda, estado_pago_experiencia, monto_experiencia
-             FROM agenda_actividad WHERE id_agenda = ? FOR UPDATE',
-            'i',
-            [$idAgenda]
+            'SELECT a.id_agenda, a.cod_res_agenda, a.actividad, a.selecciones_personas_json, a.precios_personas_json,
+                    a.fecha_agenda, a.hora_agenda, a.estado_agenda, a.estado_pago_experiencia, a.monto_experiencia
+             FROM agenda_actividad a
+             INNER JOIN reservas r ON r.cod_res = ?
+             WHERE a.id_agenda = ?
+               AND (
+                   a.cod_res_agenda = r.cod_res
+                   OR (
+                       a.id_usu_agenda = r.id_usu_res
+                       AND a.fecha_agenda IS NOT NULL
+                       AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
+                   )
+               )
+             FOR UPDATE',
+            'ii',
+            [$codRes, $idAgenda]
         );
         $experiencia = $filas[0] ?? null;
         if (!$experiencia
@@ -359,19 +366,17 @@ function cuenta_cobrar_experiencia(mysqli $db, int $codRes, int $idAgenda, strin
             || (float) $experiencia['monto_experiencia'] <= 0) {
             throw new RuntimeException('linea_no_cobrable');
         }
-        $vinculada = $experiencia['cod_res_agenda'] === null ? null : (int) $experiencia['cod_res_agenda'];
-        if ($vinculada !== null && $vinculada !== $codRes) {
-            throw new RuntimeException('linea_no_cobrable');
-        }
+        
         $monto = round((float) $experiencia['monto_experiencia'], 2);
 
+        // Actualizamos el estado, método, y reasignamos/ligamos formalmente el cod_res_agenda a la reserva actual
         [$afectadas] = cuenta_ejecutar(
             $db,
             "UPDATE agenda_actividad
              SET estado_pago_experiencia = 'Pagada', fecha_pago_experiencia = CURRENT_TIMESTAMP,
                  metodo_pago_experiencia = ?,
                  estado_agenda = IF(COALESCE(estado_agenda, 'Pendiente') = 'Pendiente', 'Confirmada', estado_agenda),
-                 cod_res_agenda = COALESCE(cod_res_agenda, ?)
+                 cod_res_agenda = ?
              WHERE id_agenda = ? AND estado_pago_experiencia = 'Pendiente'",
             'sii',
             [$metodo, $codRes, $idAgenda]

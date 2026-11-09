@@ -9,8 +9,12 @@ const SCHEDULED_EXPERIENCES = Array.isArray(window.PORTAL_CONFIG.scheduledExperi
     ? window.PORTAL_CONFIG.scheduledExperiences
     : [];
 const ROOM_RATE_POLICY = window.PORTAL_CONFIG.roomPricing;
-const guests = { adults: 2, children: 0 };
-const childAges = [];
+// Adultos y niños se eligen por separado solo para tener el dato; el precio y el límite usan el total de personas.
+const guests = {
+    adults: 2,
+    children: 0,
+    get people() { return this.adults + this.children; },
+};
 const searchState = { checkin: '', checkout: '' };
 const roomCart = [];
 let selectedRoomFilter = 'all';
@@ -128,24 +132,18 @@ function formatCurrency(value) {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
-function nightlyRateForRoom(room, adults, ages) {
-    if (Number.isFinite(room.singleOccupancyPrice) && adults + ages.length === 1) {
+function nightlyRateForRoom(room, people) {
+    if (Number.isFinite(room.singleOccupancyPrice) && people === 1) {
         return Number(room.singleOccupancyPrice);
     }
-    const includedChildren = Math.max(0, ROOM_RATE_POLICY.standardOccupancy - adults);
-    const additionalChildCount = ages.slice(includedChildren).filter(age => Number(age) > ROOM_RATE_POLICY.freeChildMaxAge).length;
-    return Number(room.price || 0) + additionalChildCount * ROOM_RATE_POLICY.additionalChildSupplement;
-}
-
-function validChildAge(age) {
-    return String(age).trim() !== '' && Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) <= ROOM_RATE_POLICY.maxChildAge;
+    const additionalPeople = Math.max(0, people - ROOM_RATE_POLICY.standardOccupancy);
+    return Number(room.price || 0) + additionalPeople * ROOM_RATE_POLICY.additionalPersonSupplement;
 }
 
 function calculateBookingNightlyRate() {
     return roomCart.reduce((total, room) => {
-        const occupancy = roomCart.length > 1 ? roomGuests[room.id] : guests;
-        const ages = roomCart.length > 1 ? (occupancy?.ages || []) : childAges;
-        return total + nightlyRateForRoom(room, occupancy?.adults || 1, ages);
+        const people = roomCart.length > 1 ? (roomGuests[room.id]?.people || 1) : guests.people;
+        return total + nightlyRateForRoom(room, people);
     }, 0);
 }
 
@@ -240,10 +238,29 @@ function initializeCalendar() {
     trigger.addEventListener('click', () => bookingCalendar.open());
 }
 
-// ---- Capacidad por habitación y límites de huéspedes ----
-// Los límites de cada tipo de habitación llegan en los data-room-max-* de su tarjeta (se definen en configuracion/capacidad_habitaciones.php).
-const MAX_ROOM_CAPACITY = { adults: 4, children: 4, people: 5 }; // capacidad máxima mientras no haya habitaciones elegidas
-const roomGuests = {}; // id de habitación -> { adults, children, ages } (solo cuando hay 2 o más habitaciones)
+// ---- Capacidad por habitación y límite de personas ----
+// El límite de cada tipo de habitación llega en el data-room-max-people de su tarjeta (se define en configuracion/capacidad_habitaciones.php).
+// Mientras no haya habitaciones elegidas, el límite sale de las tarjetas: el mínimo y el máximo entre todas las habitaciones.
+function capacityRangeFromCards() {
+    const values = Array.from(document.querySelectorAll('[data-room-add][data-room-max-people]'))
+        .map(button => Number(button.dataset.roomMaxPeople))
+        .filter(value => Number.isFinite(value) && value > 0);
+    if (values.length === 0) return { min: 1, max: 1 };
+    return { min: Math.min(...values), max: Math.max(...values) };
+}
+const roomGuests = {}; // id de habitación -> { people } (solo cuando hay 2 o más habitaciones)
+
+function guestsText() {
+    const { adults, children } = guests;
+    return `${adults} ${adults === 1 ? 'adulto' : 'adultos'}, ${children} ${children === 1 ? 'niño' : 'niños'}`;
+}
+
+// Ajusta el total de personas (por ejemplo al repartirlas entre habitaciones): si baja se quitan niños primero; si sube se suman adultos.
+function setTotalPeople(total) {
+    while (guests.people > total && guests.children > 0) guests.children--;
+    while (guests.people > total && guests.adults > 1) guests.adults--;
+    while (guests.people < total) guests.adults++;
+}
 
 function limitsText(people) {
     return `máximo ${people} personas`;
@@ -254,75 +271,69 @@ function escapeGuestText(value) {
 }
 
 function guestLimits() {
-    if (roomCart.length === 0) return { ...MAX_ROOM_CAPACITY, rooms: 0 };
+    if (roomCart.length === 0) return { people: capacityRangeFromCards().max, rooms: 0 };
     return roomCart.reduce((total, room) => ({
-        adults: total.adults + room.maxAdults,
-        children: total.children + room.maxChildren,
         people: total.people + room.maxPeople,
         rooms: total.rooms + 1,
-    }), { adults: 0, children: 0, people: 0, rooms: 0 });
+    }), { people: 0, rooms: 0 });
 }
 
 function clampGuestsToLimits() {
     const limits = guestLimits();
-    const minAdults = Math.max(1, limits.rooms); // cada habitación necesita al menos un adulto
-    guests.adults = Math.min(Math.max(guests.adults, minAdults), Math.max(limits.adults, minAdults));
-    guests.children = Math.min(Math.max(guests.children, 0), limits.children);
-    while (guests.adults + guests.children > limits.people && guests.children > 0) guests.children--;
-    while (guests.adults + guests.children > limits.people && guests.adults > minAdults) guests.adults--;
+    const min = Math.max(1, limits.rooms); // cada habitación necesita al menos una persona
+    guests.adults = Math.max(1, guests.adults);
+    guests.children = Math.max(0, guests.children);
+    setTotalPeople(Math.min(Math.max(guests.people, min), Math.max(limits.people, min)));
 }
 
 function updateGuestSummary() {
     const limits = guestLimits();
-    const total = guests.adults + guests.children;
+    const min = Math.max(1, limits.rooms);
     if ($('adultsValue')) $('adultsValue').innerText = String(guests.adults);
     if ($('childrenValue')) $('childrenValue').innerText = String(guests.children);
-    if ($('guestSummary')) $('guestSummary').innerText = `${guests.adults} adultos, ${guests.children} niños`;
-    if ($('adultsMinus')) $('adultsMinus').disabled = guests.adults <= Math.max(1, limits.rooms);
-    if ($('childrenMinus')) $('childrenMinus').disabled = guests.children <= 0;
-    if ($('adultsPlus')) $('adultsPlus').disabled = guests.adults >= limits.adults || total >= limits.people;
-    if ($('childrenPlus')) $('childrenPlus').disabled = guests.children >= limits.children || total >= limits.people;
+    if ($('guestSummary')) $('guestSummary').innerText = guestsText();
+    if ($('adultsMinus')) $('adultsMinus').disabled = guests.adults <= 1 || guests.people <= min;
+    if ($('childrenMinus')) $('childrenMinus').disabled = guests.children <= 0 || guests.people <= min;
+    if ($('adultsPlus')) $('adultsPlus').disabled = guests.people >= limits.people;
+    if ($('childrenPlus')) $('childrenPlus').disabled = guests.people >= limits.people;
     if ($('guestLimitHint')) {
+        const range = capacityRangeFromCards();
         $('guestLimitHint').innerText = limits.rooms === 0
-            ? `Cada habitación admite ${limitsText(limits.people)}. Si viajan más, agrega otra habitación.`
+            ? (range.min === range.max
+                ? `Cada habitación admite ${limitsText(range.max)}. Si viajan más, agrega otra habitación.`
+                : `El límite depende de la habitación (de ${range.min} a ${range.max} personas). Elige tu habitación para ver el suyo; si viajan más, agrega otra.`)
             : limits.rooms === 1
                 ? `La habitación elegida admite ${limitsText(limits.people)}.`
-                : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people)} en total. Cada habitación necesita al menos un adulto.`;
+                : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people)} en total. Cada habitación necesita al menos una persona.`;
     }
-    if ($('modalGuests')) $('modalGuests').innerText = `${guests.adults} adultos, ${guests.children} niños`;
+    if ($('modalGuests')) $('modalGuests').innerText = guestsText();
     if (availabilitySearchApplied) applyRoomVisibility();
 }
 
-// Reparte los huéspedes entre las habitaciones: un adulto en cada una y el resto de forma pareja, respetando sus límites.
+// Reparte las personas entre las habitaciones: una en cada una y el resto de forma pareja, respetando su límite.
 function defaultRoomGuests() {
     const distribution = {};
-    roomCart.forEach(room => { distribution[room.id] = { adults: 1, children: 0, ages: [] }; });
-    const hasSpace = (room, kind) => {
-        const d = distribution[room.id];
-        return d.adults + d.children < room.maxPeople && (kind === 'adults' ? d.adults < room.maxAdults : d.children < room.maxChildren);
-    };
-    const spread = (kind, amount) => {
-        let placed = true;
-        while (amount > 0 && placed) {
-            placed = false;
-            for (const room of roomCart) {
-                if (amount > 0 && hasSpace(room, kind)) { distribution[room.id][kind]++; amount--; placed = true; }
+    roomCart.forEach(room => { distribution[room.id] = { people: 1 }; });
+    let remaining = guests.people - roomCart.length;
+    let placed = true;
+    while (remaining > 0 && placed) {
+        placed = false;
+        for (const room of roomCart) {
+            if (remaining > 0 && distribution[room.id].people < room.maxPeople) {
+                distribution[room.id].people++;
+                remaining--;
+                placed = true;
             }
         }
-    };
-    spread('adults', guests.adults - roomCart.length);
-    spread('children', guests.children);
-    roomCart.forEach(room => {
-        distribution[room.id].ages = Array.from({ length: distribution[room.id].children }, () => '');
-    });
+    }
     return distribution;
 }
 
 function ensureRoomGuests() {
     const ids = roomCart.map(room => room.id);
     const sameRooms = ids.length === Object.keys(roomGuests).length && ids.every(id => roomGuests[id]);
-    const sum = kind => ids.reduce((total, id) => total + (roomGuests[id] ? roomGuests[id][kind] : 0), 0);
-    if (!sameRooms || sum('adults') !== guests.adults || sum('children') !== guests.children) {
+    const sum = ids.reduce((total, id) => total + (roomGuests[id] ? roomGuests[id].people : 0), 0);
+    if (!sameRooms || sum !== guests.people) {
         Object.keys(roomGuests).forEach(key => delete roomGuests[key]);
         Object.assign(roomGuests, defaultRoomGuests());
     }
@@ -334,28 +345,18 @@ function validateGuestsForRooms() {
     const limitText = room => `${room.name} admite ${limitsText(room.maxPeople)}.`;
     if (roomCart.length === 1) {
         const room = roomCart[0];
-        if (guests.adults > room.maxAdults || guests.children > room.maxChildren || guests.adults + guests.children > room.maxPeople) {
-            return limitText(room);
-        }
-        return childAges.length !== guests.children || childAges.some(age => !validChildAge(age))
-            ? 'Indica la edad de cada niño para calcular la tarifa correcta.' : '';
+        return guests.people > room.maxPeople ? limitText(room) : '';
     }
     ensureRoomGuests();
-    let sumAdults = 0;
-    let sumChildren = 0;
+    let sum = 0;
     for (const room of roomCart) {
         const d = roomGuests[room.id];
         if (!d) return 'Indica cuántas personas habrá en cada habitación.';
-        if (d.adults < 1) return `${room.name} necesita al menos un adulto.`;
-        if (d.adults > room.maxAdults || d.children > room.maxChildren || d.adults + d.children > room.maxPeople) return limitText(room);
-        if (d.ages.length !== d.children || d.ages.some(age => !validChildAge(age))) {
-            return `Indica la edad de cada niño en ${room.name}.`;
-        }
-        sumAdults += d.adults;
-        sumChildren += d.children;
+        if (d.people < 1) return `${room.name} necesita al menos una persona.`;
+        if (d.people > room.maxPeople) return limitText(room);
+        sum += d.people;
     }
-    return sumAdults !== guests.adults || sumChildren !== guests.children
-        ? 'El reparto por habitación no coincide con el total de huéspedes.' : '';
+    return sum !== guests.people ? 'El reparto por habitación no coincide con el total de personas.' : '';
 }
 
 function refreshRoomGuestsEditor() {
@@ -363,21 +364,16 @@ function refreshRoomGuestsEditor() {
     roomCart.forEach(room => {
         const d = roomGuests[room.id];
         if (!d) return;
-        const total = d.adults + d.children;
-        const set = (kind, value, minusDisabled, plusDisabled) => {
-            const valueNode = document.querySelector(`[data-room-guest-value="${room.id}|${kind}"]`);
-            if (valueNode) valueNode.textContent = String(value);
-            const minus = document.querySelector(`[data-room-guest="${room.id}|${kind}|-1"]`);
-            const plus = document.querySelector(`[data-room-guest="${room.id}|${kind}|1"]`);
-            if (minus) minus.disabled = minusDisabled;
-            if (plus) plus.disabled = plusDisabled;
-        };
-        set('adults', d.adults, d.adults <= 1, d.adults >= room.maxAdults || total >= room.maxPeople);
-        set('children', d.children, d.children <= 0, d.children >= room.maxChildren || total >= room.maxPeople);
+        const valueNode = document.querySelector(`[data-room-guest-value="${room.id}"]`);
+        if (valueNode) valueNode.textContent = String(d.people);
+        const minus = document.querySelector(`[data-room-guest="${room.id}|-1"]`);
+        const plus = document.querySelector(`[data-room-guest="${room.id}|1"]`);
+        if (minus) minus.disabled = d.people <= 1;
+        if (plus) plus.disabled = d.people >= room.maxPeople;
     });
     if (hint) {
         const problem = validateGuestsForRooms();
-        hint.textContent = problem || `La tarifa cubre hasta 4 huéspedes; se permite 1 niño adicional de 0 a 12 años por habitación.`;
+        hint.textContent = problem || `La tarifa cubre hasta ${ROOM_RATE_POLICY.standardOccupancy} personas por habitación; cada persona adicional suma ${formatCurrency(ROOM_RATE_POLICY.additionalPersonSupplement)} por noche.`;
         hint.classList.toggle('text-rose-300', Boolean(problem));
     }
     calcularTotalesCobro(calculateNights());
@@ -389,70 +385,31 @@ function renderRoomGuestsEditor() {
     if (!box || !list) return;
     if (roomCart.length < 2) { box.classList.add('hidden'); return; }
     ensureRoomGuests();
-    const stepper = (roomId, kind, label) => `
-        <div class="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
-            <span class="text-xs font-bold">${label}</span>
-            <span class="flex items-center gap-2">
-                <button type="button" data-room-guest="${roomId}|${kind}|-1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Quitar ${label.toLowerCase()}">-</button>
-                <span data-room-guest-value="${roomId}|${kind}" class="min-w-[18px] text-center text-sm font-black">0</span>
-                <button type="button" data-room-guest="${roomId}|${kind}|1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Agregar ${label.toLowerCase()}">+</button>
-            </span>
-        </div>`;
-    const ageFields = room => roomGuests[room.id].ages.map((age, index) => `
-        <label class="block text-xs font-bold text-white/70">Edad del niño ${index + 1}
-            <select data-room-child-age="${room.id}|${index}" required class="mt-1 w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
-                <option value="" ${age === '' ? 'selected' : ''}>Selecciona edad</option>
-                ${Array.from({ length: ROOM_RATE_POLICY.maxChildAge + 1 }, (_, childAge) => `<option value="${childAge}" ${age !== '' && Number(age) === childAge ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
-            </select>
-        </label>`).join('');
     list.innerHTML = roomCart.map(room => `
         <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
             <p class="text-sm font-black">${escapeGuestText(room.name)}</p>
             <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
-            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">${stepper(room.id, 'adults', 'Adultos')}${stepper(room.id, 'children', 'Niños')}</div>
-            <div class="mt-3 grid gap-2 sm:grid-cols-2">${ageFields(room)}</div>
+            <div class="mt-2 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
+                <span class="text-xs font-bold">Personas</span>
+                <span class="flex items-center gap-2">
+                    <button type="button" data-room-guest="${room.id}|-1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Quitar persona">-</button>
+                    <span data-room-guest-value="${room.id}" class="min-w-[18px] text-center text-sm font-black">0</span>
+                    <button type="button" data-room-guest="${room.id}|1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Agregar persona">+</button>
+                </span>
+            </div>
         </div>`).join('');
     box.classList.remove('hidden');
     refreshRoomGuestsEditor();
 }
 
-function renderSingleRoomChildAges() {
-    const box = $('modalSingleRoomChildAges');
-    const list = $('modalSingleRoomChildAgesList');
-    if (!box || !list) return;
-    if (roomCart.length !== 1 || guests.children === 0) {
-        box.classList.add('hidden');
-        return;
-    }
-
-    while (childAges.length < guests.children) childAges.push('');
-    childAges.length = guests.children;
-    list.innerHTML = childAges.map((age, index) => `
-        <label class="block text-xs font-bold text-white/70">Edad del niño ${index + 1}
-            <select data-single-child-age="${index}" required class="mt-1 w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
-                <option value="" ${age === '' ? 'selected' : ''}>Selecciona edad</option>
-                ${Array.from({ length: ROOM_RATE_POLICY.maxChildAge + 1 }, (_, childAge) => `<option value="${childAge}" ${age !== '' && Number(age) === childAge ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
-            </select>
-        </label>`).join('');
-    box.classList.remove('hidden');
-}
-
-function changeRoomGuest(roomId, kind, delta) {
+function changeRoomGuest(roomId, delta) {
     const room = roomCart.find(r => r.id === roomId);
     const d = roomGuests[roomId];
     if (!room || !d) return;
-    const total = d.adults + d.children;
-    const next = d[kind] + delta;
-    if (kind === 'adults' && (next < 1 || next > room.maxAdults)) return;
-    if (kind === 'children' && (next < 0 || next > room.maxChildren)) return;
-    if (delta > 0 && total >= room.maxPeople) return;
-    d[kind] = next;
-    if (kind === 'children') {
-        if (delta > 0) d.ages.push('');
-        else d.ages.pop();
-    }
-    guests.adults = roomCart.reduce((sum, r) => sum + roomGuests[r.id].adults, 0);
-    guests.children = roomCart.reduce((sum, r) => sum + roomGuests[r.id].children, 0);
+    const next = d.people + delta;
+    if (next < 1 || next > room.maxPeople) return;
+    d.people = next;
+    setTotalPeople(roomCart.reduce((sum, r) => sum + roomGuests[r.id].people, 0));
     updateGuestSummary();
     renderRoomGuestsEditor();
 }
@@ -460,23 +417,8 @@ function changeRoomGuest(roomId, kind, delta) {
 document.addEventListener('click', event => {
     const button = event.target.closest('[data-room-guest]');
     if (!button || button.disabled) return;
-    const [roomId, kind, delta] = button.dataset.roomGuest.split('|');
-    changeRoomGuest(Number(roomId), kind, Number(delta));
-});
-
-document.addEventListener('change', event => {
-    const roomAge = event.target.closest('[data-room-child-age]');
-    if (roomAge) {
-        const [roomId, index] = roomAge.dataset.roomChildAge.split('|').map(Number);
-        if (roomGuests[roomId]) roomGuests[roomId].ages[index] = roomAge.value;
-        calcularTotalesCobro(calculateNights());
-        return;
-    }
-    const singleAge = event.target.closest('[data-single-child-age]');
-    if (singleAge) {
-        childAges[Number(singleAge.dataset.singleChildAge)] = singleAge.value;
-        calcularTotalesCobro(calculateNights());
-    }
+    const [roomId, delta] = button.dataset.roomGuest.split('|');
+    changeRoomGuest(Number(roomId), Number(delta));
 });
 
 function toggleGuestPopover(forceState = null) {
@@ -491,16 +433,13 @@ function toggleGuestPopover(forceState = null) {
 
 function changeGuest(type, delta) {
     const limits = guestLimits();
-    const min = type === 'adults' ? Math.max(1, limits.rooms) : 0;
-    const max = type === 'adults' ? limits.adults : limits.children;
-    const otherTotal = type === 'adults' ? guests.children : guests.adults;
-    let next = Math.min(Math.max(min, guests[type] + delta), max);
-    if (next + otherTotal > limits.people) next = Math.max(min, limits.people - otherTotal);
-    guests[type] = next;
-    if (type === 'children') {
-        while (childAges.length < next) childAges.push('');
-        childAges.length = next;
-    }
+    const minTotal = Math.max(1, limits.rooms);
+    const nextTotal = guests.people + delta;
+    if (delta > 0 && nextTotal > limits.people) return;
+    if (delta < 0 && nextTotal < minTotal) return;
+    if (type === 'adults' && guests.adults + delta < 1) return;
+    if (type === 'children' && guests.children + delta < 0) return;
+    guests[type] += delta;
     updateGuestSummary();
 }
 
@@ -537,11 +476,8 @@ function applyRoomVisibility() {
             : 1;
         const dateAvailable = !availabilitySearchApplied || availableCount > 0;
         const addButton = card.querySelector('[data-room-add]');
-        const fitsGuests = !availabilitySearchApplied || (
-            guests.adults <= Number(addButton?.dataset.roomMaxAdults || 0)
-            && guests.children <= Number(addButton?.dataset.roomMaxChildren || 0)
-            && guests.adults + guests.children <= Number(addButton?.dataset.roomMaxPeople || 0)
-        );
+        const fitsGuests = !availabilitySearchApplied
+            || guests.people <= Number(addButton?.dataset.roomMaxPeople || 0);
         const type = (card.getAttribute('data-room-type') || 'otra').toLowerCase();
         const typeMatches = selectedRoomFilter === 'all'
             || type.includes(selectedRoomFilter)
@@ -604,8 +540,7 @@ async function searchAvailability(showFeedback = true) {
     formData.append('accion', 'buscar_disponibilidad');
     formData.append('checkin', searchState.checkin);
     formData.append('checkout', searchState.checkout);
-    formData.append('adultos', String(guests.adults));
-    formData.append('ninos', String(guests.children));
+    formData.append('personas', String(guests.people));
 
     if (button) { button.disabled = true; button.innerText = 'Buscando disponibilidad...'; }
 
@@ -659,9 +594,7 @@ function toggleRoomInCart(button) {
                 ? null
                 : Number(button.dataset.roomSingleOccupancyPrice),
             type: button.dataset.roomType || '',
-            maxPeople: Number(button.dataset.roomMaxPeople || MAX_ROOM_CAPACITY.people),
-            maxAdults: Number(button.dataset.roomMaxAdults || MAX_ROOM_CAPACITY.adults),
-            maxChildren: Number(button.dataset.roomMaxChildren || MAX_ROOM_CAPACITY.children),
+            maxPeople: Number(button.dataset.roomMaxPeople || capacityRangeFromCards().max),
         });
         button.classList.add('bg-emerald-600', 'text-white');
         if (labelSpan) labelSpan.textContent = 'Quitar';
@@ -731,9 +664,8 @@ function openBookingModalForCart(sourceButton = null) {
     if ($('modalRoomName')) $('modalRoomName').innerText = selectedReservation.roomName;
     if ($('modalCheckin')) $('modalCheckin').innerText = searchState.checkin;
     if ($('modalCheckout')) $('modalCheckout').innerText = searchState.checkout;
-    if ($('modalGuests')) $('modalGuests').innerText = `${guests.adults} adultos, ${guests.children} niños`;
+    if ($('modalGuests')) $('modalGuests').innerText = guestsText();
     renderRoomGuestsEditor();
-    renderSingleRoomChildAges();
     calcularTotalesCobro(nights);
     if ($('modalFeedback')) $('modalFeedback').className = 'mt-4 hidden text-sm font-bold';
 
@@ -858,13 +790,10 @@ async function processReservationPayment() {
         }
         fd.append('cant_adultos', guests.adults);
         fd.append('cant_ninos', guests.children);
-        fd.append('edades_ninos', JSON.stringify(childAges));
         if (roomCart.length > 1) {
             fd.append('huespedes_por_habitacion', JSON.stringify(roomCart.map(r => ({
                 id: r.id,
-                adultos: roomGuests[r.id].adults,
-                ninos: roomGuests[r.id].children,
-                edades_ninos: roomGuests[r.id].ages,
+                personas: roomGuests[r.id].people,
             }))));
         }
         fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
@@ -1211,12 +1140,14 @@ function inicializarCancelacionHistorial() {
         const reservation = reservaSeleccionada();
         const input = $('cantidadPersonasActividad');
         const summary = $('resumenReservaExperiencia');
+        const seatSummary = $('resumenCupoExperiencia');
         if (input) {
             const maximum = reservation ? Math.max(1, Number(reservation.limite_personas) || 1) : 1;
             input.max = String(maximum);
             input.disabled = !reservation;
             input.value = String(Math.min(Math.max(1, Number(input.value) || 1), maximum));
         }
+        if (seatSummary) seatSummary.textContent = '';
         if (summary) {
             if (!reservation) {
                 summary.textContent = 'Selecciona la reserva de las personas que asistirán; la cantidad se limitará a esa reserva.';
@@ -1227,6 +1158,43 @@ function inicializarCancelacionHistorial() {
             }
         }
         if (input) generarOpcionesPorPersona(Number(input.value));
+    }
+
+    function personasYaAgendadasEnHorario(reserva, fecha, hora) {
+        return SCHEDULED_EXPERIENCES
+            .filter(experience =>
+                Number(experience.reservationId) === Number(reserva.id)
+                && experience.date === fecha
+                && String(experience.time || '').slice(0, 5) === hora
+                && experience.status.trim().toLocaleLowerCase('es-CO') !== 'cancelada'
+            )
+            .reduce((total, experience) => total + Math.max(0, Number(experience.attendees) || 0), 0);
+    }
+
+    function actualizarCupoExperiencia(fecha, hora, sinCuposDisponibles = false) {
+        const reservation = reservaSeleccionada();
+        const input = $('cantidadPersonasActividad');
+        const seatSummary = $('resumenCupoExperiencia');
+        if (!input || !reservation) return 0;
+        const alreadyBooked = fecha && hora
+            ? personasYaAgendadasEnHorario(reservation, fecha, hora)
+            : 0;
+        const available = sinCuposDisponibles
+            ? 0
+            : Math.max(0, Number(reservation.limite_personas) - alreadyBooked);
+        input.max = String(Math.max(1, available));
+        input.value = String(Math.min(Math.max(1, Number(input.value) || 1), available || 1));
+        input.disabled = available === 0;
+        if (seatSummary) {
+            seatSummary.textContent = available === 0
+                ? 'Ya se asignaron todas las personas de esta reserva a experiencias a esta hora. Elige otra fecha.'
+                : alreadyBooked > 0
+                    ? `Ya hay ${alreadyBooked} ${alreadyBooked === 1 ? 'persona asignada' : 'personas asignadas'} a esta hora; puedes escoger hasta ${available} más. Cada persona ocupa un cupo.`
+                    : `Puedes escoger hasta ${available} ${available === 1 ? 'persona' : 'personas'} para esta experiencia.`;
+        }
+        generarOpcionesPorPersona(Number(input.value));
+        actualizarResumenPrecio();
+        return available;
     }
 
     $('reservaExperienciaActividad')?.addEventListener('change', () => {
@@ -1596,10 +1564,20 @@ function inicializarCancelacionHistorial() {
         const horasDisponibles = horasDeRangosCompartidos(fecha, rangos, ahoraBogota);
         if (horasDisponibles.length === 0) {
             contenedor.textContent = 'El horario publicado para hoy ya pasó. Elige otra fecha disponible.';
+            actualizarCupoExperiencia('', '');
             return;
         }
-        const horaProgramada = horasDisponibles[0];
+        const reserva = reservaSeleccionada();
+        const horaProgramada = horasDisponibles.find(hora =>
+            reserva && personasYaAgendadasEnHorario(reserva, fecha, hora) < Number(reserva.limite_personas)
+        );
+        if (!horaProgramada) {
+            contenedor.textContent = 'Ya se asignaron todas las personas de esta reserva a experiencias en los horarios publicados para este día.';
+            actualizarCupoExperiencia(fecha, '', true);
+            return;
+        }
         if (inputHora) inputHora.value = horaProgramada;
+        actualizarCupoExperiencia(fecha, horaProgramada);
         contenedor.textContent = `Horarios publicados: ${rangos.map(rango => `${rango.inicio}–${rango.fin}`).join(', ')}. La experiencia quedará programada a las ${horaProgramada}.`;
     }
 

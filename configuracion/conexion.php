@@ -4,6 +4,10 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
+// Zona horaria del hotel: evita que las fechas (facturas, pagos, reservas) salgan
+// adelantadas o atrasadas segun la zona horaria del servidor (XAMPP/php.ini).
+date_default_timezone_set('America/Bogota');
+
 // 2. Inicializar y cargar las variables del archivo .env
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../'); // Ajusta la ruta a la carpeta donde está tu archivo .env
 $dotenv->load();
@@ -73,4 +77,7 @@ if (!$conexion->set_charset('utf8mb4')) {
 }
 
 $conexion->query("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
+
+// Misma zona horaria en MySQL/MariaDB para NOW() y CURRENT_TIMESTAMP (Colombia = UTC-5, sin horario de verano).
+$conexion->query("SET time_zone = '-05:00'");
 ?>

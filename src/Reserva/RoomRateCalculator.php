@@ -7,10 +7,9 @@ use InvalidArgumentException;
 
 final class RoomRateCalculator
 {
+    /** Personas cubiertas por la tarifa de la habitación; desde la siguiente se cobra el adicional por persona. */
     public const STANDARD_OCCUPANCY = 4;
-    public const ADDITIONAL_CHILD_SUPPLEMENT = 25000.0;
-    public const FREE_CHILD_MAX_AGE = 2;
-    public const MAX_CHILD_AGE = 12;
+    public const ADDITIONAL_PERSON_SUPPLEMENT = 25000.0;
 
     public static function standardNightlyRate(string $roomType, float $configuredPrice): float
     {
@@ -22,42 +21,29 @@ final class RoomRateCalculator
         return max(0.0, $configuredPrice);
     }
 
-    /** @param list<int> $childAges */
+    /** Tarifa por noche de una habitación según la cantidad de personas que se alojan en ella. */
     public static function nightlyRate(
         string $roomType,
         float $configuredPrice,
-        int $adults,
-        array $childAges,
-        float $additionalChildSupplement = self::ADDITIONAL_CHILD_SUPPLEMENT
+        int $persons,
+        float $additionalPersonSupplement = self::ADDITIONAL_PERSON_SUPPLEMENT
     ): float {
-        if ($adults < 1) {
-            throw new InvalidArgumentException('La habitación necesita al menos un adulto.');
+        if ($persons < 1) {
+            throw new InvalidArgumentException('La habitación necesita al menos una persona.');
         }
 
         $type = mb_strtolower(trim($roomType), 'UTF-8');
         $isSingleRoom = str_contains($type, 'sencilla') || str_contains($type, 'simple') || str_contains($type, 'individual');
-        foreach ($childAges as $age) {
-            if ($age < 0 || $age > self::MAX_CHILD_AGE) {
-                throw new InvalidArgumentException('La edad de cada niño debe estar entre 0 y 12 años.');
-            }
-        }
-
-        if ($isSingleRoom && $configuredPrice === 50000.0 && $adults + count($childAges) === 1) {
+        if ($isSingleRoom && $configuredPrice === 50000.0 && $persons === 1) {
             return 50000.0;
         }
-        if (!is_finite($additionalChildSupplement) || $additionalChildSupplement < 0) {
-            throw new InvalidArgumentException('El suplemento de niño adicional no es válido.');
+        if (!is_finite($additionalPersonSupplement) || $additionalPersonSupplement < 0) {
+            throw new InvalidArgumentException('El cargo por persona adicional no es válido.');
         }
 
         $standardRate = self::standardNightlyRate($roomType, $configuredPrice);
-        $includedChildCount = max(0, self::STANDARD_OCCUPANCY - $adults);
-        $supplement = 0.0;
-        foreach (array_slice($childAges, $includedChildCount) as $age) {
-            if ($age > self::FREE_CHILD_MAX_AGE) {
-                $supplement += $additionalChildSupplement;
-            }
-        }
+        $additionalPersons = max(0, $persons - self::STANDARD_OCCUPANCY);
 
-        return round($standardRate + $supplement, 2);
+        return round($standardRate + $additionalPersons * $additionalPersonSupplement, 2);
     }
 }

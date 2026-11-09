@@ -51,6 +51,46 @@ final class PortalRepository
         return $found ? (int) $foundReservationId : null;
     }
 
+    public function countScheduledExperienceParticipants(
+        mysqli $connection,
+        int $reservationId,
+        string $date,
+        string $time
+    ): int {
+        $statement = $connection->prepare(
+            "SELECT opcion_actividad, selecciones_personas_json
+             FROM agenda_actividad
+             WHERE cod_res_agenda = ?
+               AND fecha_agenda = ?
+               AND hora_agenda = ?
+               AND LOWER(TRIM(COALESCE(estado_agenda, 'Pendiente'))) <> 'cancelada'
+             FOR UPDATE"
+        );
+        if (!$statement) {
+            throw new RuntimeException('No se pudieron validar los cupos de la experiencia.');
+        }
+        $statement->bind_param('iss', $reservationId, $date, $time);
+        $statement->execute();
+        $result = $statement->get_result();
+        if (!$result instanceof \mysqli_result) {
+            $statement->close();
+            throw new RuntimeException('No se pudieron validar los cupos de la experiencia.');
+        }
+
+        $participants = 0;
+        while ($row = $result->fetch_assoc()) {
+            $selections = json_decode((string) ($row['selecciones_personas_json'] ?? ''), true);
+            if (is_array($selections) && array_is_list($selections)) {
+                $participants += count($selections);
+            } elseif (preg_match('/^\s*(\d+)\s+personas?\s*$/iu', (string) ($row['opcion_actividad'] ?? ''), $matches)) {
+                $participants += (int) $matches[1];
+            }
+        }
+        $statement->close();
+
+        return $participants;
+    }
+
     public function fetchExperienceForActivity(mysqli $connection, int $experienceId): ?array
     {
         $statement = $connection->prepare(
@@ -260,8 +300,7 @@ final class PortalRepository
         mysqli $connection,
         string $checkin,
         string $checkout,
-        int $adults,
-        int $children
+        int $persons
     ): array {
         $statement = $connection->prepare(
             "SELECT h.cod_hab, h.tipo_hab
@@ -293,11 +332,7 @@ final class PortalRepository
             $availableIds[] = $roomId;
 
             $capacity = capacidad_habitacion((string) $roomType);
-            if (
-                $adults <= $capacity['adultos']
-                && $children <= $capacity['ninos']
-                && $adults + $children <= $capacity['personas']
-            ) {
+            if ($persons <= $capacity['personas']) {
                 $matchingIds[] = $roomId;
             }
         }
@@ -401,7 +436,10 @@ final class PortalRepository
                 if (!isset($stays[$id])) {
                     $notes = (string) ($row['not_res'] ?? '');
                     $guestCount = null;
-                    if (preg_match('/Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)/iu', $notes, $matches)) {
+                    if (preg_match('/^Personas:\s*(\d+)/iu', $notes, $matches)) {
+                        $guestCount = (int) $matches[1];
+                    } elseif (preg_match('/Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)/iu', $notes, $matches)) {
+                        // Reservas anteriores guardadas con adultos y niños por separado.
                         $guestCount = (int) $matches[1] + (int) $matches[2];
                     }
                     $stays[$id] = [

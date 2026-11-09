@@ -14,7 +14,7 @@ require_once __DIR__ . '/src/Reserva/RoomRateSettings.php';
 
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
+$cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
 $portalRepository = new \App\Usuario\PortalRepository();
 
 function e(string $value): string
@@ -268,7 +268,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=15">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=16">
     <script>
         window.PORTAL_CONFIG = <?php echo json_encode([
             'wompiPublicKey' => WOMPI_PUBLIC_KEY,
@@ -278,6 +278,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
             'scheduledExperiences' => array_values(array_map(
                 static fn(array $experience): array => [
                     'date' => (string) ($experience['fecha_agenda'] ?? ''),
+                    'time' => (string) ($experience['hora_agenda'] ?? ''),
+                    'reservationId' => (int) ($experience['cod_res_agenda'] ?? 0),
+                    'attendees' => count($experience['selecciones_personas'] ?? []),
                     'name' => (string) ($experience['actividad'] ?? ''),
                     'status' => (string) ($experience['estado_agenda'] ?? 'Pendiente'),
                 ],
@@ -288,9 +291,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             )),
             'roomPricing' => [
                 'standardOccupancy' => \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY,
-                'additionalChildSupplement' => $suplementoNinoAdicional,
-                'freeChildMaxAge' => \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE,
-                'maxChildAge' => \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE,
+                'additionalPersonSupplement' => $cargoPersonaAdicional,
             ],
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
@@ -416,7 +417,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <div class="guest-row border-t border-slate-200">
                                         <div>
                                             <p class="font-black text-[#17354f]">Niños</p>
-                                            <p class="text-sm text-slate-500">De 0 a 12 años</p>
+                                            <p class="text-sm text-slate-500">De 0 a 12 años · no cambia el precio</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="childrenMinus" type="button" class="guest-stepper">-</button>
@@ -576,8 +577,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
     data-room-single-occupancy-price="<?php echo $precioUnaPersona === null ? '' : $precioUnaPersona; ?>"
     data-room-type="<?php echo e($tipoHab); ?>"
     data-room-max-people="<?php echo (int) $capacidadHab['personas']; ?>"
-    data-room-max-adults="<?php echo (int) $capacidadHab['adultos']; ?>"
-    data-room-max-children="<?php echo (int) $capacidadHab['ninos']; ?>"
 >
     <span data-room-add-label>Agregar</span>
 </button>
@@ -773,6 +772,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <div class="md:col-span-2">
                                         <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="cantidadPersonasActividad">Personas</label>
                                         <input id="cantidadPersonasActividad" name="cantidad_personas" type="number" min="1" max="1" value="1" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                                        <p id="resumenCupoExperiencia" class="mt-2 text-xs text-white/75" aria-live="polite"></p>
                                         <div id="opcionesPorPersona" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
                                         <input id="participantesActividad" name="participantes" type="hidden">
                                         <p id="resumenPrecioExperiencia" class="mt-3 text-sm font-bold text-white/85" aria-live="polite">Elige las opciones por persona para consultar el precio.</p>
@@ -1133,12 +1133,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <div id="modalRoomGuestsList" class="mt-3 space-y-3"></div>
                             <p id="modalRoomGuestsHint" class="mt-3 text-xs font-bold leading-5 text-white/70" role="status"></p>
                         </div>
-                        <div id="modalSingleRoomChildAges" class="mt-6 hidden rounded-[28px] border border-white/10 bg-white/6 p-5">
-                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Edad de los niños</p>
-                            <div id="modalSingleRoomChildAgesList" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
-                            <p class="mt-3 text-xs leading-5 text-white/60">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos. El IVA del 19% se suma al total.</p>
-                        </div>
-
                         <fieldset class="mt-6 rounded-[28px] border border-white/10 bg-white/6 p-5">
                             <legend class="px-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">Titular del hospedaje</legend>
                             <p class="mb-3 text-sm font-bold text-white">¿El hospedaje estará a tu nombre?</p>
@@ -1159,7 +1153,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         </fieldset>
 
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
-                            <p class="text-xs leading-5 text-white/55">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos. Se adiciona IVA del 19%.</p>
+                            <p class="text-xs leading-5 text-white/55">La tarifa de cada habitación cubre hasta 4 personas (máximo 3 en habitaciones sencillas). Cada persona adicional (adulto o niño) suma $<?php echo number_format($cargoPersonaAdicional, 0, ',', '.'); ?> por noche. Se adiciona IVA del 19%.</p>
                             <div class="flex justify-between text-sm text-white/70">
                                 <span>Tarifa según ocupación/noche:</span>
                                 <span id="modalNightlyRate">$0</span>
@@ -1269,7 +1263,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=22"></script>
+    <script src="assets/js/interfaz_usu.js?v=25"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

@@ -253,6 +253,25 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'agendar_actividad') 
             $transaccionIniciada = false;
             jsonResponse(403, ['status' => 'error', 'mensaje' => 'La fecha de la experiencia debe estar dentro de una estancia reservada a tu nombre.']);
         }
+        $personasYaAgendadas = $portalRepository->countScheduledExperienceParticipants(
+            $conexion,
+            $reservaBloqueada,
+            $fecha,
+            $hora
+        );
+        $personasDisponibles = max(0, (int) $reservaSeleccionada['limite_personas'] - $personasYaAgendadas);
+        if ($cantidadPersonas > $personasDisponibles) {
+            $conexion->rollback();
+            $transaccionIniciada = false;
+            jsonResponse(409, [
+                'status' => 'error',
+                'mensaje' => $personasDisponibles === 0
+                    ? 'Ya se asignaron todas las personas de esta reserva a experiencias para esa fecha y hora. Elige otra fecha.'
+                    : 'Solo quedan ' . $personasDisponibles . ' '
+                        . ($personasDisponibles === 1 ? 'cupo disponible' : 'cupos disponibles')
+                        . ' en esta reserva para esa fecha y hora.',
+            ]);
+        }
         $experienciaInsertada = $portalRepository->insertScheduledActivity(
             $conexion,
             $actividad,
@@ -290,19 +309,16 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
 
     $checkinRaw = $_POST['checkin'] ?? '';
     $checkoutRaw = $_POST['checkout'] ?? '';
-    $adultosRaw = $_POST['adultos'] ?? '2';
-    $ninosRaw = $_POST['ninos'] ?? '0';
-    if (!is_string($checkinRaw) || !is_string($checkoutRaw)
-        || !is_string($adultosRaw) || !is_string($ninosRaw)) {
-        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona fechas y huéspedes válidos.']);
+    $personasRaw = $_POST['personas'] ?? '2';
+    if (!is_string($checkinRaw) || !is_string($checkoutRaw) || !is_string($personasRaw)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona fechas y personas válidas.']);
     }
 
     $checkin = trim($checkinRaw);
     $checkout = trim($checkoutRaw);
-    $adultos = filter_var($adultosRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
-    $ninos = filter_var($ninosRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 20]]);
-    if ($adultos === false || $ninos === false) {
-        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de huéspedes no es válida.']);
+    $personas = filter_var($personasRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
+    if ($personas === false) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'La cantidad de personas no es válida.']);
     }
 
     $checkinDate = DateTimeImmutable::createFromFormat('!Y-m-d', $checkin);
@@ -331,8 +347,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
             $conexion,
             $checkinSql,
             $checkoutSql,
-            $adultos,
-            $ninos
+            $personas
         );
     } catch (Throwable $error) {
         error_log('Error al consultar disponibilidad de habitaciones: ' . $error->getMessage());
@@ -343,16 +358,15 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'buscar_disponibilida
     jsonResponse(200, [
         'status' => 'exito',
         'mensaje' => count($matchingIds) > 0
-            ? 'Disponibilidad actualizada para las fechas y huéspedes seleccionados.'
-            : 'No hay habitaciones disponibles para esas fechas con capacidad para los huéspedes seleccionados.',
+            ? 'Disponibilidad actualizada para las fechas y personas seleccionadas.'
+            : 'No hay habitaciones disponibles para esas fechas con capacidad para las personas seleccionadas.',
         'total_disponibles' => count($matchingIds),
         'habitaciones_ids' => $matchingIds,
         'habitaciones_disponibles_ids' => $availableRooms['disponibles'],
         'filtros' => [
             'checkin' => $checkin,
             'checkout' => $checkout,
-            'adultos' => $adultos,
-            'ninos' => $ninos,
+            'personas' => $personas,
         ],
     ]);
 }

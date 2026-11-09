@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     iniciarSincronizacionReservas();
     inicializarCobroExperienciasReserva();
     inicializarCobroRoomServiceReserva();
+    inicializarModalExperienciasAdmin();
 
     // Restaurar la ultima seccion visitada (o la indicada por URL) tras recargar.
     const seccionParam = new URLSearchParams(window.location.search).get('admin_seccion');
@@ -137,7 +138,7 @@ function navegar(sec, btn) {
         finanzas: 'finanzas.ver',
         logs: 'logs.ver'
     }[sec];
-    if (permisoSeccion && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
+    if (permisoSeccion && typeof PERMISOS_USUARIO !== 'undefined' && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
     document.querySelectorAll('.seccion-contenido').forEach(s => s.classList.add('hidden'));
     const seccion = document.getElementById('sec-' + sec);
     if (seccion) seccion.classList.remove('hidden');
@@ -165,6 +166,69 @@ function filtrarReservas() {
 
     const noResultados = document.getElementById('noResultados');
     if (noResultados) noResultados.style.display = resultados ? 'none' : 'block';
+}
+
+// =======================================================
+// MODAL DE EXPERIENCIAS ADMIN (LÍMITE DINÁMICO SEGÚN RESERVA)
+// =======================================================
+function inicializarModalExperienciasAdmin() {
+    const inputCantidad = document.getElementById('adminCantidadPersonasExperiencia') || document.getElementById('cantidadSolicitudExperienciaRecepcion');
+    const contenedorOpciones = document.getElementById('adminContenedorOpcionesPersonas') || document.getElementById('contenedorOpcionesSolicitudRecepcion');
+    const selectEstancia = document.getElementById('estanciaSolicitudExperienciaRecepcion');
+    
+    if (inputCantidad && contenedorOpciones) {
+        inputCantidad.addEventListener('input', () => {
+            let maxPermitido = parseInt(inputCantidad.max) || 20;
+            let cantidad = parseInt(inputCantidad.value) || 1;
+            if (cantidad < 1) cantidad = 1;
+            if (cantidad > maxPermitido) cantidad = maxPermitido;
+            inputCantidad.value = cantidad;
+            
+            renderizarCamposOpcionesPersonas(cantidad);
+        });
+    }
+
+    if (selectEstancia && inputCantidad) {
+        selectEstancia.addEventListener('change', function() {
+            const textoSeleccionado = this.options[this.selectedIndex]?.textContent || '';
+            
+            // Extraer el número total de personas de la reserva (ej: buscando patrones en las notas o texto de la estancia)
+            // Si la opción almacena las personas en un data-attribute, lo leemos directamente:
+            let totalPersonas = parseInt(this.options[this.selectedIndex]?.dataset?.personas, 10);
+            
+            if (!totalPersonas || isNaN(totalPersonas)) {
+                // Intento alternativo de extracción desde el texto de la opción o buscando datos de la reserva
+                const matchPersonas = textoSeleccionado.match(/(\d+)\s*(?:personas?|huespedes?)/i);
+                totalPersonas = matchPersonas ? parseInt(matchPersonas[1], 10) : 5; // Por defecto 5 si no se detecta
+            }
+
+            // Aplicamos el límite exacto de la reserva al input numérico
+            inputCantidad.max = totalPersonas;
+            inputCantidad.value = Math.min(parseInt(inputCantidad.value || 1, 10), totalPersonas);
+
+            renderizarCamposOpcionesPersonas(parseInt(inputCantidad.value));
+        });
+    }
+}
+
+function renderizarCamposOpcionesPersonas(cantidad) {
+    const contenedor = document.getElementById('adminContenedorOpcionesPersonas') || document.getElementById('contenedorOpcionesSolicitudRecepcion');
+    if (!contenedor) return;
+
+    let html = '';
+    for (let i = 1; i <= cantidad; i++) {
+        html += `
+            <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 mb-2">
+                <label class="block text-xs font-bold text-slate-700 mb-1">Opción de la persona ${i}</label>
+                <select name="opcion_persona_${i}" class="w-full rounded-lg border border-slate-200 p-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary">
+                    <option value="General">Opción General / Estándar</option>
+                    <option value="VIP">Opción VIP / Premium</option>
+                    <option value="Personalizada">Opción Personalizada</option>
+                </select>
+            </div>
+        `;
+    }
+    contenedor.innerHTML = html;
 }
 
 // =======================================================
@@ -342,7 +406,7 @@ function inicializarCobroExperienciasReserva() {
 }
 
 // =======================================================
-// RESERVAS: modal "Total y cobro" (alojamiento + experiencias + room service)
+// RESERVAS: modal "Total y cobro"
 // =======================================================
 let totalReservaActual = null;
 
@@ -359,7 +423,6 @@ function inicializarCobroRoomServiceReserva() {
         }
     });
 
-    // El panel del modal detiene la propagación de los clics, así que sus botones se escuchan aquí mismo.
     document.getElementById('totalReservaContenido')?.addEventListener('click', event => {
         const cobrar = event.target.closest('[data-total-cobrar]');
         if (cobrar) {
@@ -450,7 +513,6 @@ async function cobrarDesdeModalTotal(boton) {
     const tipo = boton.dataset.totalCobrar;
     error.classList.add('hidden');
 
-    // La ventana se abre dentro del clic para que el navegador no bloquee la factura.
     const ventana = window.open('', '_blank');
     if (!ventana) {
         error.textContent = 'Permite las ventanas emergentes para imprimir la factura.';
@@ -497,7 +559,6 @@ async function cobrarDesdeModalTotal(boton) {
         await refrescarTablaReservas();
         notificarCambioReservas();
         window.dispatchEvent(new CustomEvent('roomservice:actualizar'));
-        // Vuelve a pintar el modal con los totales ya actualizados.
         const nuevo = document.querySelector(`tr[data-reserva-id="${detalle.cod_res}"] [data-detalle-total]`);
         if (nuevo && totalReservaActual) pintarModalTotalReserva(JSON.parse(nuevo.dataset.detalleTotal));
     } catch (e) {
@@ -543,25 +604,11 @@ function obtenerPrioridadMantenimiento(observacion) {
     return coincidencia ? coincidencia[1].trim() : 'No urgente';
 }
 
-function obtenerUIPrioridad(prioridad) {
-    if (prioridad === 'Urgente') {
-        return { icono: '&#9650;', clases: 'text-red-500 bg-red-50 border-red-100', texto: 'Urgente' };
-    }
-
-    if (prioridad === 'Importante') {
-        return { icono: '&#9670;', clases: 'text-orange-500 bg-orange-50 border-orange-100', texto: 'Importante' };
-    }
-
-    return { icono: '&#9679;', clases: 'text-green-600 bg-green-50 border-green-100', texto: 'No urgente' };
-}
-
-// ✅ FUNCIÓN CORREGIDA DE HOUSEKEEPING
 async function renderHousekeeping() {
     const grid = document.getElementById('gridHousekeeping');
     if (!grid) return;
 
     try {
-        // Usamos el endpoint correcto que trae la info de reservas y ocupación
         const respuesta = await fetch('../../controladores/gestionar_habitaciones.php?accion=listar', {
             headers: { Accept: 'application/json' },
             cache: 'no-store'
@@ -606,7 +653,7 @@ async function renderHousekeeping() {
                 observacion: habitacion.observacion || ''
             });
             grid.insertAdjacentHTML('beforeend', `
-                <button type="button" onclick="abrirModalMantenimiento(${Number(habitacion.id)})" class="aspect-square rounded-lg ${clasesColor} text-white font-black text-sm shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30 flex flex-col items-center justify-center relative cursor-pointer" title="Habitación ${Number(habitacion.numero)} · ${escaparHTMLHousekeeping(estado)}${tieneReservaFutura ? ' · Tiene reserva futura' : ''}" aria-label="Habitación ${Number(habitacion.numero)}, estado ${escaparHTMLHousekeeping(estado)}${tieneReservaFutura ? ', con reserva futura' : ''}">
+                <button type="button" onclick="abrirModalMantenimiento(${Number(habitacion.id)})" class="aspect-square rounded-lg ${clasesColor} text-white font-black text-sm shadow-sm transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30 flex flex-col items-center justify-center relative cursor-pointer" title="Habitación ${Number(habitacion.numero)} · ${escaparHTMLHousekeeping(estado)}${tieneReservaFutura ? ' · Tiene reserva futura' : ''}">
                     ${tieneReservaFutura ? '<span class="absolute right-1 top-1 rounded bg-white px-1 text-[8px] font-black uppercase leading-4 text-sky-800">R</span>' : ''}
                     <span>${escaparHTMLHousekeeping(habitacion.numero)}</span>
                 </button>
@@ -925,13 +972,11 @@ function marcarTareaComoHecha(id, botonHTML) {
     return marcarTareaComoHechaAdmin(id, botonHTML);
 }
 
-// ✅ FUNCIÓN CORREGIDA PARA EXTRAER SOLO EL NÚMERO DEL JSON
 async function actualizarContadorTareasAdmin() {
     const contenedor = document.getElementById('contenedorTareasAdmin');
     const badge = document.getElementById('badgeNotificacionesAdmin');
     const contadorDashboard = document.getElementById('contador-tareas');
 
-    // 1. Si estamos en la vista donde están las tarjetas de tareas, contamos desde el DOM
     if (contenedor && contenedor.children.length > 0) {
         const cantidad = contenedor.querySelectorAll('.task-item').length;
         if (badge) {
@@ -939,9 +984,7 @@ async function actualizarContadorTareasAdmin() {
             badge.classList.toggle('hidden', cantidad === 0);
         }
         if (contadorDashboard) contadorDashboard.innerText = cantidad;
-    } 
-    // 2. Si estamos en el Dashboard (no hay contenedor de tareas), hacemos la petición AJAX
-    else if (contadorDashboard) {
+    } else if (contadorDashboard) {
         try {
             const respuesta = await fetch('../../controladores/obtener_tareas.php', {
                 cache: 'no-store',
@@ -949,7 +992,6 @@ async function actualizarContadorTareasAdmin() {
             });
             const datos = await respuesta.json();
             
-            // Extraemos el número: si es un array usamos su longitud, si es objeto usamos .total
             let total = 0;
             if (Array.isArray(datos)) {
                 total = datos.length;
@@ -957,7 +999,6 @@ async function actualizarContadorTareasAdmin() {
                 total = datos.total;
             }
             
-            // ✅ Aquí asignamos SOLO EL NÚMERO al HTML, nunca el JSON completo
             contadorDashboard.innerText = total;
             if (badge) {
                 badge.innerText = total;
@@ -972,11 +1013,9 @@ async function actualizarContadorTareasAdmin() {
 function iniciarSincronizacionTareasAdmin() {
     if (intervaloColaAdmin) return;
     intervaloColaAdmin = setInterval(() => {
-        // Si estamos en la vista de tareas, renderizamos la cola (esto actualiza el contador internamente)
         if (document.getElementById('contenedorTareasAdmin')) {
             renderTareasAdmin();
         } else {
-            // Si estamos en el dashboard, solo actualizamos el número del contador
             actualizarContadorTareasAdmin();
         }
     }, 3000);
@@ -1186,16 +1225,21 @@ function formatearFechaReserva(fecha) {
 
 function separarNotasReserva(notas) {
     const texto = String(notas || '').trim();
-    const match = texto.match(/^Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)\s*([\s\S]*)$/i);
-    if (!match) {
+    const nuevo = texto.match(/^Personas:\s*(\d+)\s*([\s\S]*)$/i);
+    const detalle = nuevo ? null : texto.match(/^Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)\s*([\s\S]*)$/i);
+    if (!nuevo && !detalle) {
         return { huespedes: '', peticion: texto };
     }
 
-    const adultos = Number(match[1]);
-    const ninos = Number(match[2]);
+    if (nuevo) {
+        const personas = Number(nuevo[1]);
+        return { huespedes: `${personas} Persona${personas === 1 ? '' : 's'}`, peticion: String(nuevo[2] || '').trim() };
+    }
+    const adultos = Number(detalle[1]);
+    const ninos = Number(detalle[2]);
     return {
         huespedes: `${adultos} Adulto${adultos === 1 ? '' : 's'}, ${ninos} Niño${ninos === 1 ? '' : 's'}`,
-        peticion: String(match[3] || '').trim()
+        peticion: String(detalle[3] || '').trim()
     };
 }
 
@@ -1234,30 +1278,6 @@ function crearFilaReservaHTML(reserva) {
                 </button>
             </div></td>
         </tr>`;
-}
-
-function actualizarFilaReserva(reserva) {
-    const tabla = document.getElementById('tablaReservas');
-    if (!tabla || !reserva || !reserva.cod_res) return;
-
-    tabla.querySelectorAll('tr').forEach(fila => {
-        if (fila.querySelector('td[colspan]')) fila.remove();
-    });
-
-    const filaActual = tabla.querySelector(`[data-reserva-id="${Number(reserva.cod_res)}"]`);
-    const template = document.createElement('tbody');
-    template.innerHTML = crearFilaReservaHTML(reserva).trim();
-    const filaNueva = template.firstElementChild;
-
-    if (filaActual && filaNueva) {
-        filaActual.replaceWith(filaNueva);
-        filaNueva.classList.add('reserva-row-updated');
-        setTimeout(() => filaNueva.classList.remove('reserva-row-updated'), 900);
-    } else if (!filaActual && filaNueva) {
-        tabla.insertAdjacentElement('afterbegin', filaNueva);
-        filaNueva.classList.add('reserva-row-updated');
-        setTimeout(() => filaNueva.classList.remove('reserva-row-updated'), 900);
-    }
 }
 
 function notificarCambioReservas() {
@@ -1302,64 +1322,6 @@ async function refrescarTablaReservas() {
     }
 }
 
-function filtrarHuespedesReserva() {
-    const input = document.getElementById('buscadorHuespedReserva');
-    const selector = document.getElementById('selectorHuesped');
-    if (!input || !selector) return;
-
-    const termino = input.value.trim().toLowerCase();
-    [...selector.options].forEach(option => {
-        if (option.value === 'nuevo' || option.value === '') {
-            option.hidden = false;
-            return;
-        }
-        option.hidden = termino !== '' && !String(option.dataset.busqueda || option.textContent).includes(termino);
-    });
-}
-
-function crearConfirmacionReserva() {
-    let modal = document.getElementById('confirmacionEliminarReserva');
-    if (modal) return modal;
-
-    modal = document.createElement('div');
-    modal.id = 'confirmacionEliminarReserva';
-    modal.className = 'confirm-reserva hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-[8px] p-4';
-    modal.innerHTML = `
-        <div class="confirm-reserva-card bg-white rounded-xl shadow-2xl border border-slate-100 w-full max-w-sm p-6">
-            <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center mb-4">
-                <span class="material-symbols-outlined">delete</span>
-            </div>
-            <h3 class="text-lg font-black text-heading mb-2">Eliminar reserva</h3>
-            <p class="text-sm text-slate-500 font-semibold leading-relaxed mb-6">Esta accion eliminara la reserva y sus detalles asociados.</p>
-            <div class="flex gap-3">
-                <button type="button" data-accion="cancelar" class="ui-action flex-1 border border-slate-200 text-slate-500 font-bold rounded-lg py-3 hover:bg-slate-50">Cancelar</button>
-                <button type="button" data-accion="confirmar" class="ui-action flex-1 bg-red-500 text-white font-bold rounded-lg py-3 hover:bg-red-600 shadow-md">Eliminar</button>
-            </div>
-        </div>`;
-    document.body.appendChild(modal);
-    return modal;
-}
-
-function confirmarEliminacionReservaPremium(idReserva) {
-    const modal = crearConfirmacionReserva();
-    const btnCancelar = modal.querySelector('[data-accion="cancelar"]');
-    const btnConfirmar = modal.querySelector('[data-accion="confirmar"]');
-
-    modal.classList.remove('hidden');
-    requestAnimationFrame(() => modal.classList.add('confirm-reserva-visible'));
-
-    const cerrar = () => {
-        modal.classList.remove('confirm-reserva-visible');
-        setTimeout(() => modal.classList.add('hidden'), 220);
-    };
-
-    btnCancelar.onclick = cerrar;
-    btnConfirmar.onclick = async () => {
-        cerrar();
-        await eliminarReservaEnVivo(idReserva);
-    };
-}
-
 window.eliminarReservaEnVivo = async function(idReserva) {
     try {
         const fd = new FormData();
@@ -1380,7 +1342,6 @@ window.eliminarReservaEnVivo = async function(idReserva) {
         alert(err instanceof Error ? err.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.');
     }
 };
-
 
 document.addEventListener('submit', async function(e) {
     const form = e.target;
@@ -1456,11 +1417,7 @@ document.addEventListener('submit', async function(e) {
                     document.getElementById('huespedSeleccionadoReserva')?.classList.add('hidden');
                     document.getElementById('listaHuespedesReserva')?.querySelectorAll('button').forEach(btn => btn.classList.remove('bg-primary/10'));
                 }
-                if (typeof cambiarHuespedesAdmin === 'function') {
-                    while (Number(document.getElementById('cantAdultosReserva')?.value || 1) > 1) cambiarHuespedesAdmin('adultos', -1);
-                    while (Number(document.getElementById('cantNinosReserva')?.value || 0) > 0) cambiarHuespedesAdmin('ninos', -1);
-                }
-                if (typeof actualizarTotalReservaPreview === 'function') actualizarTotalReservaPreview();
+                if (typeof sincronizarHuespedesAdmin === 'function') sincronizarHuespedesAdmin();
             }
 
             await refrescarTablaReservas();
@@ -1477,5 +1434,4 @@ document.addEventListener('submit', async function(e) {
         btn.disabled = false;
         btn.dataset.enviando = '0';
     }
-    
 }, true);

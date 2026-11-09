@@ -82,11 +82,11 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) { return; }
             <div id="configuracionTarifaNino" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div class="flex flex-wrap items-end gap-3">
                     <div class="min-w-[200px] flex-1">
-                        <label for="precioNinoAdicional" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo por niño adicional de 3 a 12 años (COP/noche)</label>
+                        <label for="precioNinoAdicional" class="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo por persona adicional (COP/noche)</label>
                         <input type="text" id="precioNinoAdicional" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" class="w-full border-slate-200 bg-white rounded-lg p-3 outline-none focus:ring-1 focus:ring-primary">
                     </div>
                     <button id="guardarTarifaNino" type="button" class="bg-primary text-white px-5 py-3 rounded-lg font-bold text-sm shadow hover:brightness-110">Guardar cargo</button>
-                    <p class="basis-full text-[11px] text-slate-400">Este cargo se aplica a todas las habitaciones y se guarda independientemente de los datos de esta habitación.</p>
+                    <p class="basis-full text-[11px] text-slate-400">Se suma por cada persona que supere las 4 incluidas en la tarifa de la habitación. Aplica a todas las habitaciones y se guarda independientemente de los datos de esta habitación.</p>
                     <p id="mensajeTarifaNino" class="hidden basis-full text-sm font-bold" role="status" aria-live="polite"></p>
                 </div>
             </div>
@@ -427,13 +427,13 @@ document.getElementById('guardarTarifaNino').addEventListener('click', async eve
         if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudo guardar el cargo');
         datosHabitaciones.suplemento_nino_adicional = datos.suplemento_nino_adicional;
         if (typeof POLITICA_TARIFA_RESERVA !== 'undefined') {
-            POLITICA_TARIFA_RESERVA.suplementoNinoAdicional = Number(datos.suplemento_nino_adicional);
+            POLITICA_TARIFA_RESERVA.cargoPersonaAdicional = Number(datos.suplemento_nino_adicional);
             if (typeof actualizarTotalReservaPreview === 'function') actualizarTotalReservaPreview();
         }
-        const descripcionCargo = document.getElementById('descripcionCargoNinoAdmin');
+        const descripcionCargo = document.getElementById('descripcionCargoPersonaAdmin');
         if (descripcionCargo) {
             const monto = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(datos.suplemento_nino_adicional));
-            descripcionCargo.textContent = `La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $${monto} por noche al superar los 4 huéspedes incluidos.`;
+            descripcionCargo.textContent = `La tarifa de cada habitación cubre hasta 4 personas (máximo 3 en habitaciones sencillas). Cada persona adicional (adulto o niño) suma $${monto} por noche. Los niños se registran solo como dato: no cambian el precio.`;
         }
         mensaje.textContent = datos.mensaje;
         mensaje.className = 'basis-full text-sm font-bold text-emerald-700';

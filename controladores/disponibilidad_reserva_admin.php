@@ -29,13 +29,12 @@ if (!usuario_tiene_permiso($conexion, 'reservas.crear')) {
 
 $checkin = trim((string) ($_GET['checkin'] ?? ''));
 $checkout = trim((string) ($_GET['checkout'] ?? ''));
-$adults = filter_var($_GET['adultos'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
-$children = filter_var($_GET['ninos'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 20]]);
+$persons = filter_var($_GET['personas'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
 $checkinDate = DateTimeImmutable::createFromFormat('!Y-m-d', $checkin);
 $checkoutDate = DateTimeImmutable::createFromFormat('!Y-m-d', $checkout);
 
 if (
-    $adults === false || $children === false
+    $persons === false
     || $checkinDate === false || $checkoutDate === false
     || $checkinDate->format('Y-m-d') !== $checkin
     || $checkoutDate->format('Y-m-d') !== $checkout
@@ -82,11 +81,7 @@ $result = $statement->get_result();
 $rooms = [];
 while ($row = $result->fetch_assoc()) {
     $capacity = capacidad_habitacion((string) $row['tipo_hab']);
-    if (
-        $adults > $capacity['adultos']
-        || $children > $capacity['ninos']
-        || $adults + $children > $capacity['personas']
-    ) {
+    if ($persons > $capacity['personas']) {
         continue;
     }
 

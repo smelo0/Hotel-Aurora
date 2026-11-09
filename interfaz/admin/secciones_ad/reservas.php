@@ -24,7 +24,7 @@ if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
     return;
 }
 require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
-$suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
+$cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
 
 if (!function_exists('formatear_fecha_reserva_admin')) {
     function formatear_fecha_reserva_admin($fecha) {
@@ -48,7 +48,12 @@ if (!function_exists('separar_notas_reserva_admin')) {
             $resultado['peticion'] = $notas;
         }
 
-        if (preg_match('/^Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)\s*(.*)$/isu', $notas, $coincidencias)) {
+        if (preg_match('/^Personas:\s*(\d+)\s*(.*)$/isu', $notas, $coincidencias)) {
+            $personas = (int) $coincidencias[1];
+            $resto = trim($coincidencias[2] ?? '');
+            $resultado['huespedes'] = $personas . ' Persona' . ($personas === 1 ? '' : 's');
+            $resultado['peticion'] = trim(preg_replace('/^\R+/', '', $resto));
+        } elseif (preg_match('/^Adultos:\s*(\d+)\s*\|\s*Ni(?:ñ|n)os:\s*(\d+)\s*(.*)$/isu', $notas, $coincidencias)) {
             $adultos = (int) $coincidencias[1];
             $ninos = (int) $coincidencias[2];
             $resto = trim($coincidencias[3] ?? '');
@@ -389,18 +394,16 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     </select>
                     <p id="mensajeDisponibilidadHabitacionesReserva" class="mt-2 text-xs text-slate-500" role="status" aria-live="polite">Selecciona entrada y salida para consultar las habitaciones disponibles.</p>
                 </div>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Adultos
-                        <input type="number" id="cantAdultosReserva" name="cant_adultos" min="1" max="4" value="1" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
-                    </label>
-                    <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Niños
-                        <input type="number" id="cantNinosReserva" name="cant_ninos" min="0" max="4" value="0" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
-                    </label>
-                </div>
-                <div id="edadesNinosReservaAdmin" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <p class="text-xs font-black uppercase tracking-wider text-slate-500">Edad de cada niño</p>
-                    <div id="edadesNinosReservaAdminLista" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
-                    <p id="descripcionCargoNinoAdmin" class="mt-2 text-xs text-slate-500">La tarifa estándar cubre hasta 4 huéspedes (máximo 3 en habitaciones sencillas). Los niños de 0 a 2 años no tienen costo; los de 3 a 12 años suman $<?php echo number_format($suplementoNinoAdicional, 0, ',', '.'); ?> por noche al superar los 4 huéspedes incluidos.</p>
+                <div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Adultos
+                            <input type="number" id="cantAdultosReserva" name="cant_adultos" min="1" max="5" value="1" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                        </label>
+                        <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Niños
+                            <input type="number" id="cantNinosReserva" name="cant_ninos" min="0" max="4" value="0" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
+                        </label>
+                    </div>
+                    <p id="descripcionCargoPersonaAdmin" class="mt-2 text-xs text-slate-500">La tarifa de cada habitación cubre hasta 4 personas (máximo 3 en habitaciones sencillas). Cada persona adicional (adulto o niño) suma $<?php echo number_format($cargoPersonaAdicional, 0, ',', '.'); ?> por noche. Los niños se registran solo como dato: no cambian el precio.</p>
                 </div>
                 <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Peticiones especiales
                     <textarea name="notas_reserva" rows="2" maxlength="500" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium normal-case" placeholder="Opcional"></textarea>
@@ -559,12 +562,8 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const POLITICA_TARIFA_RESERVA = {
             ocupacionEstandar: <?php echo \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY; ?>,
-            suplementoNinoAdicional: <?php echo $suplementoNinoAdicional; ?>,
-            edadMaximaSinCosto: <?php echo \App\Reserva\RoomRateCalculator::FREE_CHILD_MAX_AGE; ?>,
-            edadMaximaNino: <?php echo \App\Reserva\RoomRateCalculator::MAX_CHILD_AGE; ?>
+            cargoPersonaAdicional: <?php echo $cargoPersonaAdicional; ?>
         };
-        const huespedesAdminState = { adultos: 1, ninos: 0 };
-        const edadesNinosAdmin = [];
         const formatoMonedaReserva = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
         let solicitudDisponibilidadHabitacionesAdmin = 0;
@@ -574,8 +573,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 const mensaje = document.getElementById('mensajeDisponibilidadHabitacionesReserva');
                 const entrada = form?.elements.namedItem('fecha_in')?.value || '';
                 const salida = form?.elements.namedItem('fecha_out')?.value || '';
-                const adultos = Number(document.getElementById('cantAdultosReserva')?.value || 1);
-                const ninos = Number(document.getElementById('cantNinosReserva')?.value || 0);
+                const personas = Number(document.getElementById('cantAdultosReserva')?.value || 1) + Number(document.getElementById('cantNinosReserva')?.value || 0);
                 const solicitud = ++solicitudDisponibilidadHabitacionesAdmin;
                 selector.replaceChildren(new Option('Selecciona primero las fechas', ''));
                 selector.disabled = true;
@@ -586,7 +584,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 }
                 if (mensaje) mensaje.textContent = 'Consultando habitaciones disponibles...';
                 try {
-                    const parametros = new URLSearchParams({ checkin: entrada, checkout: salida, adultos: String(adultos), ninos: String(ninos) });
+                    const parametros = new URLSearchParams({ checkin: entrada, checkout: salida, personas: String(personas) });
                     const respuesta = await fetch(`../../controladores/disponibilidad_reserva_admin.php?${parametros}`, {
                         headers: { Accept: 'application/json' },
                         credentials: 'same-origin'
@@ -605,8 +603,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         opcion.dataset.singlePersonPrice = habitacion.precio_una_persona === null ? '' : String(habitacion.precio_una_persona);
                         opcion.dataset.roomType = habitacion.tipo;
                         opcion.dataset.maxPeople = String(capacidad.personas);
-                        opcion.dataset.maxAdults = String(capacidad.adultos);
-                        opcion.dataset.maxChildren = String(capacidad.ninos);
                         selector.add(opcion);
                     });
                     selector.disabled = datos.habitaciones.length === 0;
@@ -627,10 +623,12 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 const adultos = document.getElementById('cantAdultosReserva');
                 const ninos = document.getElementById('cantNinosReserva');
                 if (!opcion?.value || !adultos || !ninos) return;
-                adultos.max = opcion.dataset.maxAdults || '4';
-                ninos.max = opcion.dataset.maxChildren || '4';
-                if (Number(adultos.value) > Number(adultos.max)) adultos.value = adultos.max;
-                if (Number(ninos.value) > Number(ninos.max)) ninos.value = ninos.max;
+                const maximo = Number(opcion.dataset.maxPeople || 5);
+                adultos.max = String(maximo);
+                ninos.max = String(Math.max(0, maximo - 1));
+                // Si el total supera el límite de la habitación, se quitan niños primero y luego adultos.
+                while (Number(adultos.value) + Number(ninos.value) > maximo && Number(ninos.value) > 0) ninos.value = Number(ninos.value) - 1;
+                while (Number(adultos.value) + Number(ninos.value) > maximo && Number(adultos.value) > 1) adultos.value = Number(adultos.value) - 1;
             }
 
         function actualizarTotalReservaPreview() {
@@ -639,8 +637,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             const entrada = form?.elements.namedItem('fecha_in')?.value;
             const salida = form?.elements.namedItem('fecha_out')?.value;
             const precioBase = Number(habitacion?.selectedOptions[0]?.dataset.price || 0);
-            const adultos = Number(document.getElementById('cantAdultosReserva')?.value || 1);
-            const edades = Array.from(document.querySelectorAll('[data-edad-nino-admin]')).map(select => select.value);
+            const personas = Math.max(1, Number(document.getElementById('cantAdultosReserva')?.value || 1) + Number(document.getElementById('cantNinosReserva')?.value || 0));
             const totalElement = document.getElementById('totalReservaPreview');
             const detalleElement = document.getElementById('detalleTotalReservaPreview');
             if (!totalElement || !detalleElement) return;
@@ -658,53 +655,25 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 return;
             }
 
-            const ninosIncluidos = Math.max(0, POLITICA_TARIFA_RESERVA.ocupacionEstandar - adultos);
-            const ninosAdicionalesConCosto = edades.slice(ninosIncluidos)
-                .filter(edad => Number(edad) > POLITICA_TARIFA_RESERVA.edadMaximaSinCosto).length;
+            const personasAdicionales = Math.max(0, personas - POLITICA_TARIFA_RESERVA.ocupacionEstandar);
             const precioUnaPersona = Number(habitacion?.selectedOptions[0]?.dataset.singlePersonPrice || 0);
-            const tarifaNoche = adultos + edades.length === 1 && precioUnaPersona > 0
+            const tarifaNoche = personas === 1 && precioUnaPersona > 0
                 ? precioUnaPersona
-                : precioBase + ninosAdicionalesConCosto * POLITICA_TARIFA_RESERVA.suplementoNinoAdicional;
+                : precioBase + personasAdicionales * POLITICA_TARIFA_RESERVA.cargoPersonaAdicional;
             const subtotal = tarifaNoche * noches;
             const iva = Math.round(subtotal * 0.19 * 100) / 100;
             const total = subtotal + iva;
             totalElement.textContent = formatoMonedaReserva.format(total);
-            const faltanEdades = edades.some(edad => edad === '');
-            detalleElement.textContent = `${noches} noche(s) · tarifa ${formatoMonedaReserva.format(tarifaNoche)}/noche · subtotal ${formatoMonedaReserva.format(subtotal)} + IVA 19% ${formatoMonedaReserva.format(iva)}.${faltanEdades ? ' Completa las edades para precisar la tarifa.' : ''}`;
-        }
-
-        function actualizarEdadesNinosAdmin() {
-            const box = document.getElementById('edadesNinosReservaAdmin');
-            const list = document.getElementById('edadesNinosReservaAdminLista');
-            const cantidad = Math.max(0, Number(document.getElementById('cantNinosReserva')?.value || 0));
-            if (!box || !list) return;
-            while (edadesNinosAdmin.length < cantidad) edadesNinosAdmin.push('');
-            edadesNinosAdmin.length = cantidad;
-            box.classList.toggle('hidden', cantidad === 0);
-            list.innerHTML = edadesNinosAdmin.map((edad, indice) => `
-                <label class="block text-xs font-bold text-slate-600">Edad del niño ${indice + 1}
-                    <select name="edades_ninos[]" data-edad-nino-admin required class="mt-1 w-full rounded-lg border-slate-200 bg-white p-3 text-sm">
-                        <option value="" ${edad === '' ? 'selected' : ''}>Selecciona edad</option>
-                        ${Array.from({ length: POLITICA_TARIFA_RESERVA.edadMaximaNino + 1 }, (_, edadOpcion) => `<option value="${edadOpcion}" ${edad !== '' && Number(edad) === edadOpcion ? 'selected' : ''}>${edadOpcion} ${edadOpcion === 1 ? 'año' : 'años'}</option>`).join('')}
-                    </select>
-                </label>`).join('');
-            actualizarTotalReservaPreview();
+            detalleElement.textContent = `${noches} noche(s) · tarifa ${formatoMonedaReserva.format(tarifaNoche)}/noche · subtotal ${formatoMonedaReserva.format(subtotal)} + IVA 19% ${formatoMonedaReserva.format(iva)}.`;
         }
 
         function sincronizarHuespedesAdmin() {
             const adultos = document.getElementById('cantAdultosReserva');
             const ninos = document.getElementById('cantNinosReserva');
-            huespedesAdminState.adultos = Math.max(1, Number(adultos?.value || 1));
-            huespedesAdminState.ninos = Math.max(0, Number(ninos?.value || 0));
-            if (adultos) adultos.value = huespedesAdminState.adultos;
-            if (ninos) ninos.value = huespedesAdminState.ninos;
-            const contadorAdultos = document.getElementById('contadorAdultosAdmin');
-            const contadorNinos = document.getElementById('contadorNinosAdmin');
-            const resumen = document.getElementById('resumenHuespedesAdmin');
-            if (contadorAdultos) contadorAdultos.innerText = huespedesAdminState.adultos;
-            if (contadorNinos) contadorNinos.innerText = huespedesAdminState.ninos;
-            if (resumen) resumen.innerText = `${huespedesAdminState.adultos} Adulto${huespedesAdminState.adultos === 1 ? '' : 's'}, ${huespedesAdminState.ninos} Niño${huespedesAdminState.ninos === 1 ? '' : 's'}`;
-            actualizarEdadesNinosAdmin();
+            if (adultos) adultos.value = Math.max(1, Number(adultos.value || 1));
+            if (ninos) ninos.value = Math.max(0, Number(ninos.value || 0));
+            actualizarLimitesHabitacionAdmin();
+            actualizarTotalReservaPreview();
         }
 
         document.getElementById('formCrearReserva')?.addEventListener('input', evento => {
@@ -802,20 +771,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
         function togglePopoverHuespedesAdmin() {
             document.getElementById('popoverHuespedesAdmin').classList.toggle('hidden');
-        }
-
-        function cambiarHuespedesAdmin(tipo, delta) {
-            const minimo = tipo === 'adultos' ? 1 : 0;
-            huespedesAdminState[tipo] = Math.max(minimo, huespedesAdminState[tipo] + delta);
-            const contadorAdultos = document.getElementById('contadorAdultosAdmin');
-            const contadorNinos = document.getElementById('contadorNinosAdmin');
-            const resumen = document.getElementById('resumenHuespedesAdmin');
-            if (contadorAdultos) contadorAdultos.innerText = huespedesAdminState.adultos;
-            if (contadorNinos) contadorNinos.innerText = huespedesAdminState.ninos;
-            document.getElementById('cantAdultosReserva').value = huespedesAdminState.adultos;
-            document.getElementById('cantNinosReserva').value = huespedesAdminState.ninos;
-            if (resumen) resumen.innerText = `${huespedesAdminState.adultos} Adulto${huespedesAdminState.adultos === 1 ? '' : 's'}, ${huespedesAdminState.ninos} Niño${huespedesAdminState.ninos === 1 ? '' : 's'}`;
-            actualizarEdadesNinosAdmin();
         }
 
         function abrirSubModalNuevoHuesped() {

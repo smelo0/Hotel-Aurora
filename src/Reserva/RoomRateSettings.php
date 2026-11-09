@@ -8,38 +8,39 @@ use RuntimeException;
 
 final class RoomRateSettings
 {
+    // La clave se conserva con su nombre original para no perder el valor ya guardado en la base de datos.
     private const CONFIG_KEY = 'suplemento_nino_adicional';
     private static bool $schemaReady = false;
 
-    public static function additionalChildSupplement(mysqli $connection): float
+    public static function additionalPersonSupplement(mysqli $connection): float
     {
         self::ensureSchema($connection);
 
         $stmt = $connection->prepare('SELECT valor FROM tarifa_hotel_configuracion WHERE clave = ? LIMIT 1');
         if (!$stmt) {
-            throw new RuntimeException('No se pudo consultar la tarifa adicional de niños: ' . $connection->error);
+            throw new RuntimeException('No se pudo consultar el cargo por persona adicional: ' . $connection->error);
         }
         $key = self::CONFIG_KEY;
         $stmt->bind_param('s', $key);
         if (!$stmt->execute()) {
             $error = $stmt->error;
             $stmt->close();
-            throw new RuntimeException('No se pudo consultar la tarifa adicional de niños: ' . $error);
+            throw new RuntimeException('No se pudo consultar el cargo por persona adicional: ' . $error);
         }
         $stmt->bind_result($value);
         if (!$stmt->fetch()) {
             $stmt->close();
-            throw new RuntimeException('No se encontró la tarifa adicional de niños.');
+            throw new RuntimeException('No se encontró el cargo por persona adicional.');
         }
         $stmt->close();
 
         return (float) $value;
     }
 
-    public static function setAdditionalChildSupplement(mysqli $connection, float $value): void
+    public static function setAdditionalPersonSupplement(mysqli $connection, float $value): void
     {
         if (!is_finite($value) || $value < 0 || $value > 99999999) {
-            throw new RuntimeException('La tarifa adicional de niños debe estar entre 0 y 99.999.999 pesos.');
+            throw new RuntimeException('El cargo por persona adicional debe estar entre 0 y 99.999.999 pesos.');
         }
         self::ensureSchema($connection);
 
@@ -48,14 +49,14 @@ final class RoomRateSettings
              ON DUPLICATE KEY UPDATE valor = VALUES(valor)'
         );
         if (!$stmt) {
-            throw new RuntimeException('No se pudo guardar la tarifa adicional de niños: ' . $connection->error);
+            throw new RuntimeException('No se pudo guardar el cargo por persona adicional: ' . $connection->error);
         }
         $key = self::CONFIG_KEY;
         $stmt->bind_param('sd', $key, $value);
         if (!$stmt->execute()) {
             $error = $stmt->error;
             $stmt->close();
-            throw new RuntimeException('No se pudo guardar la tarifa adicional de niños: ' . $error);
+            throw new RuntimeException('No se pudo guardar el cargo por persona adicional: ' . $error);
         }
         $stmt->close();
     }
@@ -76,18 +77,18 @@ final class RoomRateSettings
             throw new RuntimeException('No se pudo preparar la configuración de tarifas: ' . $connection->error);
         }
         $key = self::CONFIG_KEY;
-        $default = RoomRateCalculator::ADDITIONAL_CHILD_SUPPLEMENT;
+        $default = RoomRateCalculator::ADDITIONAL_PERSON_SUPPLEMENT;
         $stmt = $connection->prepare(
             'INSERT IGNORE INTO tarifa_hotel_configuracion (clave, valor) VALUES (?, ?)'
         );
         if (!$stmt) {
-            throw new RuntimeException('No se pudo inicializar la tarifa adicional de niños: ' . $connection->error);
+            throw new RuntimeException('No se pudo inicializar el cargo por persona adicional: ' . $connection->error);
         }
         $stmt->bind_param('sd', $key, $default);
         if (!$stmt->execute()) {
             $error = $stmt->error;
             $stmt->close();
-            throw new RuntimeException('No se pudo inicializar la tarifa adicional de niños: ' . $error);
+            throw new RuntimeException('No se pudo inicializar el cargo por persona adicional: ' . $error);
         }
         $stmt->close();
         self::$schemaReady = true;

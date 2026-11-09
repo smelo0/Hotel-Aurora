@@ -146,15 +146,15 @@ if ($metodo === 'GET' && $accion === 'listar') {
     $stmtReservas->close();
 
     try {
-        $suplementoNinoAdicional = \App\Reserva\RoomRateSettings::additionalChildSupplement($conexion);
+        $cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
     } catch (RuntimeException $error) {
-        error_log('No se pudo cargar la tarifa adicional de niños: ' . $error->getMessage());
+        error_log('No se pudo cargar el cargo por persona adicional: ' . $error->getMessage());
         responder_habitaciones(500, 'No se pudo cargar la configuración de tarifas');
     }
 
     responder_habitaciones(200, 'Habitaciones cargadas', [
         'habitaciones'    => $habitaciones,
-        'suplemento_nino_adicional' => $suplementoNinoAdicional,
+        'suplemento_nino_adicional' => $cargoPersonaAdicional,
         'puede_gestionar' => usuario_tiene_permiso($conexion, 'habitaciones.gestionar'),
     ]);
 }
@@ -172,19 +172,19 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.gestionar')) {
 if ($accion === 'guardar_tarifa_nino') {
     $precioTexto = $_POST['precio_nino_adicional'] ?? null;
     if (!is_string($precioTexto) || !preg_match('/^\d{1,8}$/', $precioTexto)) {
-        responder_habitaciones(422, 'El precio adicional debe ser un monto entero entre 0 y 99.999.999 pesos');
+        responder_habitaciones(422, 'El cargo por persona adicional debe ser un monto entero entre 0 y 99.999.999 pesos');
     }
     try {
-        \App\Reserva\RoomRateSettings::setAdditionalChildSupplement($conexion, (float) $precioTexto);
+        \App\Reserva\RoomRateSettings::setAdditionalPersonSupplement($conexion, (float) $precioTexto);
     } catch (RuntimeException $error) {
-        error_log('No se pudo guardar la tarifa adicional de niños: ' . $error->getMessage());
-        responder_habitaciones(500, 'No se pudo guardar la tarifa adicional de niños');
+        error_log('No se pudo guardar el cargo por persona adicional: ' . $error->getMessage());
+        responder_habitaciones(500, 'No se pudo guardar el cargo por persona adicional');
     }
-    Logger::registrarLog('INFO', 'Tarifa adicional de niños actualizada desde el panel admin', [
+    Logger::registrarLog('INFO', 'Cargo por persona adicional actualizado desde el panel admin', [
         'usuario_id' => actor_habitaciones(),
         'precio_nino_adicional' => (int) $precioTexto,
     ]);
-    responder_habitaciones(200, 'Tarifa adicional de niños actualizada', [
+    responder_habitaciones(200, 'Cargo por persona adicional actualizado', [
         'suplemento_nino_adicional' => (float) $precioTexto,
     ]);
 }
