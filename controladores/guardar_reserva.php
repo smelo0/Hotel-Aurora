@@ -100,9 +100,11 @@ if (isset($_POST['cant_adultos']) || isset($_POST['cant_ninos'])) {
 }
 $cantidadPersonas = $cantidadAdultos + $cantidadNinos;
 
-// Distribución de personas por habitación (portal del huésped con varias habitaciones):
-// JSON [{"id": 12, "personas": 3}, ...].
+// Distribución del portal: cada habitación incluye adultos, niños y sus edades, además del total.
 $distribucionHuespedes = null;
+$distribucionDetallada = false;
+$adultosDistribuidos = 0;
+$ninosDistribuidos = 0;
 $distribucionRaw = $_POST['huespedes_por_habitacion'] ?? '';
 if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
     $distribucionJson = json_decode($distribucionRaw, true);
@@ -118,9 +120,52 @@ if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
         if ($idDistribucion < 1 || isset($distribucionHuespedes[$idDistribucion])) {
             jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de personas por habitación no es válida.']);
         }
-        $distribucionHuespedes[$idDistribucion] = [
-            'personas' => max(0, (int) ($filaDistribucion['personas'] ?? ((int) ($filaDistribucion['adultos'] ?? 0) + (int) ($filaDistribucion['ninos'] ?? 0)))),
-        ];
+        $personasDistribuidas = max(0, (int) ($filaDistribucion['personas'] ?? ((int) ($filaDistribucion['adultos'] ?? 0) + (int) ($filaDistribucion['ninos'] ?? 0))));
+        $registroDistribucion = ['personas' => $personasDistribuidas];
+        $tieneDesglose = array_key_exists('adultos', $filaDistribucion)
+            || array_key_exists('ninos', $filaDistribucion)
+            || array_key_exists('edades_ninos', $filaDistribucion);
+        if ($tieneDesglose) {
+            $adultos = $filaDistribucion['adultos'] ?? null;
+            $ninos = $filaDistribucion['ninos'] ?? null;
+            $personas = $filaDistribucion['personas'] ?? null;
+            $edadesNinos = $filaDistribucion['edades_ninos'] ?? null;
+            if (
+                !is_int($adultos) || $adultos < 1
+                || !is_int($ninos) || $ninos < 0
+                || !is_int($personas) || $personas !== $adultos + $ninos
+                || !is_array($edadesNinos) || count($edadesNinos) !== $ninos
+            ) {
+                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y niños por habitación no es válida.']);
+            }
+            $edadesValidadas = [];
+            foreach ($edadesNinos as $edad) {
+                if (!is_int($edad) || $edad < 0 || $edad > 12) {
+                    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona una edad válida para cada niño.']);
+                }
+                $edadesValidadas[] = $edad;
+            }
+            $registroDistribucion['adultos'] = $adultos;
+            $registroDistribucion['ninos'] = $ninos;
+            $registroDistribucion['edades_ninos'] = $edadesValidadas;
+            $distribucionDetallada = true;
+            $adultosDistribuidos += $adultos;
+            $ninosDistribuidos += $ninos;
+        }
+        $distribucionHuespedes[$idDistribucion] = $registroDistribucion;
+    }
+    if ($distribucionDetallada) {
+        if (count($distribucionHuespedes) !== count($distribucionJson)) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de personas por habitación no es válida.']);
+        }
+        foreach ($distribucionHuespedes as $registroDistribucion) {
+            if (!array_key_exists('adultos', $registroDistribucion)) {
+                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y niños por habitación no es válida.']);
+            }
+        }
+        if ($adultosDistribuidos !== $cantidadAdultos || $ninosDistribuidos !== $cantidadNinos) {
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución por habitación no coincide con el total de adultos y niños.']);
+        }
     }
 }
 $idHabitacion = (int) ($_POST['id_habitacion'] ?? 0);
@@ -597,7 +642,7 @@ try {
     $distribucionValidada = validar_ocupacion_habitaciones(
         $habitacionesSeleccionadas,
         $cantidadPersonas,
-        count($habitacionesSeleccionadas) > 1 ? $distribucionHuespedes : null
+        count($habitacionesSeleccionadas) > 1 || $distribucionDetallada ? $distribucionHuespedes : null
     );
     $cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
     foreach ($habitacionesSeleccionadas as &$habitacionTarificada) {
@@ -611,14 +656,30 @@ try {
     }
     unset($habitacionTarificada);
 
-    if ($distribucionValidada !== [] && count($habitacionesSeleccionadas) > 1) {
+    if ($distribucionValidada !== [] && ($distribucionDetallada || count($habitacionesSeleccionadas) > 1)) {
         $detalleDistribucion = [];
         foreach ($habitacionesSeleccionadas as $habitacionDistribuida) {
-            $personasEnHabitacion = (int) $distribucionValidada[$habitacionDistribuida['cod_hab']]['personas'];
-            $detalleDistribucion[] = 'Hab. ' . $habitacionDistribuida['num_hab'] . ' ('
-                . $personasEnHabitacion . ($personasEnHabitacion === 1 ? ' persona' : ' personas') . ')';
+            $detalle = $distribucionValidada[$habitacionDistribuida['cod_hab']];
+            if ($distribucionDetallada) {
+                $adultosEnHabitacion = (int) $detalle['adultos'];
+                $ninosEnHabitacion = (int) $detalle['ninos'];
+                $descripcion = $adultosEnHabitacion . ($adultosEnHabitacion === 1 ? ' adulto' : ' adultos')
+                    . ', ' . $ninosEnHabitacion . ($ninosEnHabitacion === 1 ? ' niño' : ' niños');
+                if ($ninosEnHabitacion > 0) {
+                    $edades = array_map(
+                        static fn(int $edad): string => $edad . ($edad === 1 ? ' año' : ' años'),
+                        $detalle['edades_ninos']
+                    );
+                    $descripcion .= ' (edades: ' . implode(', ', $edades) . ')';
+                }
+            } else {
+                $personasEnHabitacion = (int) $detalle['personas'];
+                $descripcion = $personasEnHabitacion . ($personasEnHabitacion === 1 ? ' persona' : ' personas');
+            }
+            $detalleDistribucion[] = 'Hab. ' . $habitacionDistribuida['num_hab'] . ' (' . $descripcion . ')';
         }
-        $notasCompletas .= "\nDistribución de personas: " . implode('; ', $detalleDistribucion);
+        $etiquetaDistribucion = $distribucionDetallada ? 'Distribución de huéspedes' : 'Distribución de personas';
+        $notasCompletas .= "\n{$etiquetaDistribucion}: " . implode('; ', $detalleDistribucion);
     }
 
     $precioNocheTotal = array_sum(array_map(

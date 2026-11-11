@@ -1153,7 +1153,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         </fieldset>
 
                         <div class="mt-6 border-t border-white/10 pt-4 space-y-2">
-                            <p class="text-xs leading-5 text-white/55">La tarifa de cada habitación cubre hasta 4 personas (máximo 3 en habitaciones sencillas). Cada persona adicional (adulto o niño) suma $<?php echo number_format($cargoPersonaAdicional, 0, ',', '.'); ?> por noche. Se adiciona IVA del 19%.</p>
                             <div class="flex justify-between text-sm text-white/70">
                                 <span>Tarifa según ocupación/noche:</span>
                                 <span id="modalNightlyRate">$0</span>
@@ -1263,7 +1262,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=25"></script>
+    <script src="assets/js/interfaz_usu.js?v=27"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

@@ -142,7 +142,10 @@ function nightlyRateForRoom(room, people) {
 
 function calculateBookingNightlyRate() {
     return roomCart.reduce((total, room) => {
-        const people = roomCart.length > 1 ? (roomGuests[room.id]?.people || 1) : guests.people;
+        const allocation = roomGuests[room.id];
+        const people = roomCart.length > 1 && allocation
+            ? allocation.adults + allocation.children.length
+            : guests.people;
         return total + nightlyRateForRoom(room, people);
     }, 0);
 }
@@ -248,7 +251,7 @@ function capacityRangeFromCards() {
     if (values.length === 0) return { min: 1, max: 1 };
     return { min: Math.min(...values), max: Math.max(...values) };
 }
-const roomGuests = {}; // id de habitación -> { people } (solo cuando hay 2 o más habitaciones)
+const roomGuests = {};
 
 function guestsText() {
     const { adults, children } = guests;
@@ -286,7 +289,7 @@ function clampGuestsToLimits() {
     setTotalPeople(Math.min(Math.max(guests.people, min), Math.max(limits.people, min)));
 }
 
-function updateGuestSummary() {
+function updateGuestSummary(updateRoomVisibility = true) {
     const limits = guestLimits();
     const min = Math.max(1, limits.rooms);
     if ($('adultsValue')) $('adultsValue').innerText = String(guests.adults);
@@ -307,24 +310,38 @@ function updateGuestSummary() {
                 : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people)} en total. Cada habitación necesita al menos una persona.`;
     }
     if ($('modalGuests')) $('modalGuests').innerText = guestsText();
-    if (availabilitySearchApplied) applyRoomVisibility();
+    if (availabilitySearchApplied && updateRoomVisibility) applyRoomVisibility();
 }
 
-// Reparte las personas entre las habitaciones: una en cada una y el resto de forma pareja, respetando su límite.
+// Reparte primero un adulto por habitación y asigna el resto sin superar cada capacidad.
 function defaultRoomGuests() {
     const distribution = {};
-    roomCart.forEach(room => { distribution[room.id] = { people: 1 }; });
-    let remaining = guests.people - roomCart.length;
-    let placed = true;
-    while (remaining > 0 && placed) {
-        placed = false;
+    roomCart.forEach(room => { distribution[room.id] = { adults: 1, children: [] }; });
+    let remainingAdults = guests.adults - roomCart.length;
+    let remainingChildren = guests.children;
+    while (remainingAdults > 0) {
+        let placed = false;
         for (const room of roomCart) {
-            if (remaining > 0 && distribution[room.id].people < room.maxPeople) {
-                distribution[room.id].people++;
-                remaining--;
+            const guestsInRoom = distribution[room.id];
+            if (remainingAdults > 0 && guestsInRoom.adults + guestsInRoom.children.length < room.maxPeople) {
+                guestsInRoom.adults++;
+                remainingAdults--;
                 placed = true;
             }
         }
+        if (!placed) break;
+    }
+    while (remainingChildren > 0) {
+        let placed = false;
+        for (const room of roomCart) {
+            const guestsInRoom = distribution[room.id];
+            if (remainingChildren > 0 && guestsInRoom.adults + guestsInRoom.children.length < room.maxPeople) {
+                guestsInRoom.children.push('');
+                remainingChildren--;
+                placed = true;
+            }
+        }
+        if (!placed) break;
     }
     return distribution;
 }
@@ -332,8 +349,14 @@ function defaultRoomGuests() {
 function ensureRoomGuests() {
     const ids = roomCart.map(room => room.id);
     const sameRooms = ids.length === Object.keys(roomGuests).length && ids.every(id => roomGuests[id]);
-    const sum = ids.reduce((total, id) => total + (roomGuests[id] ? roomGuests[id].people : 0), 0);
-    if (!sameRooms || sum !== guests.people) {
+    const validDistribution = sameRooms && ids.every(id =>
+        Number.isInteger(roomGuests[id].adults)
+        && roomGuests[id].adults >= 1
+        && Array.isArray(roomGuests[id].children)
+    );
+    const adults = validDistribution ? ids.reduce((sum, id) => sum + roomGuests[id].adults, 0) : 0;
+    const children = validDistribution ? ids.reduce((sum, id) => sum + roomGuests[id].children.length, 0) : 0;
+    if (!validDistribution || adults !== guests.adults || children !== guests.children) {
         Object.keys(roomGuests).forEach(key => delete roomGuests[key]);
         Object.assign(roomGuests, defaultRoomGuests());
     }
@@ -343,39 +366,42 @@ function ensureRoomGuests() {
 function validateGuestsForRooms() {
     if (roomCart.length === 0) return '';
     const limitText = room => `${room.name} admite ${limitsText(room.maxPeople)}.`;
-    if (roomCart.length === 1) {
-        const room = roomCart[0];
-        return guests.people > room.maxPeople ? limitText(room) : '';
-    }
     ensureRoomGuests();
-    let sum = 0;
+    let adults = 0;
+    let children = 0;
     for (const room of roomCart) {
         const d = roomGuests[room.id];
         if (!d) return 'Indica cuántas personas habrá en cada habitación.';
-        if (d.people < 1) return `${room.name} necesita al menos una persona.`;
-        if (d.people > room.maxPeople) return limitText(room);
-        sum += d.people;
+        const people = d.adults + d.children.length;
+        if (d.adults < 1) return `${room.name} necesita al menos un adulto.`;
+        if (people > room.maxPeople) return limitText(room);
+        if (d.children.some(age => age === '')) return `Selecciona la edad de cada niño en ${room.name}.`;
+        adults += d.adults;
+        children += d.children.length;
     }
-    return sum !== guests.people ? 'El reparto por habitación no coincide con el total de personas.' : '';
+    return adults !== guests.adults || children !== guests.children
+        ? 'El reparto por habitación no coincide con el total de adultos y niños.'
+        : '';
 }
 
 function refreshRoomGuestsEditor() {
-    const hint = $('modalRoomGuestsHint');
     roomCart.forEach(room => {
         const d = roomGuests[room.id];
         if (!d) return;
-        const valueNode = document.querySelector(`[data-room-guest-value="${room.id}"]`);
-        if (valueNode) valueNode.textContent = String(d.people);
-        const minus = document.querySelector(`[data-room-guest="${room.id}|-1"]`);
-        const plus = document.querySelector(`[data-room-guest="${room.id}|1"]`);
-        if (minus) minus.disabled = d.people <= 1;
-        if (plus) plus.disabled = d.people >= room.maxPeople;
+        const people = d.adults + d.children.length;
+        const adultsValue = document.querySelector(`[data-room-guest-value="${room.id}|adults"]`);
+        const childrenValue = document.querySelector(`[data-room-guest-value="${room.id}|children"]`);
+        const adultsMinus = document.querySelector(`[data-room-guest="${room.id}|adults|-1"]`);
+        const adultsPlus = document.querySelector(`[data-room-guest="${room.id}|adults|1"]`);
+        const childrenMinus = document.querySelector(`[data-room-guest="${room.id}|children|-1"]`);
+        const childrenPlus = document.querySelector(`[data-room-guest="${room.id}|children|1"]`);
+        if (adultsValue) adultsValue.textContent = String(d.adults);
+        if (childrenValue) childrenValue.textContent = String(d.children.length);
+        if (adultsMinus) adultsMinus.disabled = d.adults <= 1;
+        if (adultsPlus) adultsPlus.disabled = people >= room.maxPeople;
+        if (childrenMinus) childrenMinus.disabled = d.children.length <= 0;
+        if (childrenPlus) childrenPlus.disabled = people >= room.maxPeople;
     });
-    if (hint) {
-        const problem = validateGuestsForRooms();
-        hint.textContent = problem || `La tarifa cubre hasta ${ROOM_RATE_POLICY.standardOccupancy} personas por habitación; cada persona adicional suma ${formatCurrency(ROOM_RATE_POLICY.additionalPersonSupplement)} por noche.`;
-        hint.classList.toggle('text-rose-300', Boolean(problem));
-    }
     calcularTotalesCobro(calculateNights());
 }
 
@@ -383,42 +409,80 @@ function renderRoomGuestsEditor() {
     const box = $('modalRoomGuests');
     const list = $('modalRoomGuestsList');
     if (!box || !list) return;
-    if (roomCart.length < 2) { box.classList.add('hidden'); return; }
+    if (roomCart.length === 0) { box.classList.add('hidden'); return; }
     ensureRoomGuests();
-    list.innerHTML = roomCart.map(room => `
-        <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <p class="text-sm font-black">${escapeGuestText(room.name)}</p>
-            <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
-            <div class="mt-2 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
-                <span class="text-xs font-bold">Personas</span>
-                <span class="flex items-center gap-2">
-                    <button type="button" data-room-guest="${room.id}|-1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Quitar persona">-</button>
-                    <span data-room-guest-value="${room.id}" class="min-w-[18px] text-center text-sm font-black">0</span>
-                    <button type="button" data-room-guest="${room.id}|1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Agregar persona">+</button>
-                </span>
-            </div>
-        </div>`).join('');
+    list.innerHTML = roomCart.map(room => {
+        const guestState = roomGuests[room.id];
+        const childAges = guestState.children.map((age, index) => `
+            <label class="block text-xs font-bold text-white/75">
+                <span class="mb-1 block">Edad del niño ${index + 1}</span>
+                <select data-room-child-age="${room.id}|${index}" class="w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
+                    <option value="">Selecciona edad</option>
+                    ${Array.from({ length: 13 }, (_, childAge) => `<option value="${childAge}" ${String(childAge) === String(age) ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
+                </select>
+            </label>`).join('');
+        return `
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p class="text-sm font-black">${escapeGuestText(room.name)}</p>
+                <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
+                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    ${['adults', 'children'].map((type, index) => {
+                        const label = index === 0 ? 'Adultos' : 'Niños';
+                        const ariaLabel = index === 0 ? 'adulto' : 'niño';
+                        return `<div class="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
+                            <span class="text-xs font-bold">${label}</span>
+                            <span class="flex items-center gap-2">
+                                <button type="button" data-room-guest="${room.id}|${type}|-1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Quitar ${ariaLabel}">-</button>
+                                <span data-room-guest-value="${room.id}|${type}" class="min-w-[18px] text-center text-sm font-black">0</span>
+                                <button type="button" data-room-guest="${room.id}|${type}|1" class="h-7 w-7 rounded-full bg-white/15 text-sm font-black text-white hover:bg-white/25 disabled:opacity-30" aria-label="Agregar ${ariaLabel}">+</button>
+                            </span>
+                        </div>`;
+                    }).join('')}
+                </div>
+                ${childAges ? `<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">${childAges}</div>` : ''}
+            </div>`;
+    }).join('');
     box.classList.remove('hidden');
     refreshRoomGuestsEditor();
 }
 
-function changeRoomGuest(roomId, delta) {
+function changeRoomGuest(roomId, type, delta) {
     const room = roomCart.find(r => r.id === roomId);
     const d = roomGuests[roomId];
     if (!room || !d) return;
-    const next = d.people + delta;
-    if (next < 1 || next > room.maxPeople) return;
-    d.people = next;
-    setTotalPeople(roomCart.reduce((sum, r) => sum + roomGuests[r.id].people, 0));
-    updateGuestSummary();
+    const people = d.adults + d.children.length;
+    if (type === 'adults') {
+        if (delta < 0 && d.adults <= 1) return;
+        if (delta > 0 && people >= room.maxPeople) return;
+        d.adults += delta;
+    } else if (type === 'children') {
+        if (delta < 0 && d.children.length <= 0) return;
+        if (delta > 0 && people >= room.maxPeople) return;
+        if (delta > 0) d.children.push('');
+        else d.children.pop();
+    } else {
+        return;
+    }
+    guests.adults = roomCart.reduce((sum, selectedRoom) => sum + roomGuests[selectedRoom.id].adults, 0);
+    guests.children = roomCart.reduce((sum, selectedRoom) => sum + roomGuests[selectedRoom.id].children.length, 0);
+    updateGuestSummary(false);
     renderRoomGuestsEditor();
 }
 
 document.addEventListener('click', event => {
     const button = event.target.closest('[data-room-guest]');
     if (!button || button.disabled) return;
-    const [roomId, delta] = button.dataset.roomGuest.split('|');
-    changeRoomGuest(Number(roomId), Number(delta));
+    const [roomId, type, delta] = button.dataset.roomGuest.split('|');
+    changeRoomGuest(Number(roomId), type, Number(delta));
+});
+
+document.addEventListener('change', event => {
+    const select = event.target.closest('[data-room-child-age]');
+    if (!select) return;
+    const [roomId, childIndex] = select.dataset.roomChildAge.split('|').map(Number);
+    const childAges = roomGuests[roomId]?.children;
+    if (!childAges || !Number.isInteger(childIndex) || childIndex < 0 || childIndex >= childAges.length) return;
+    childAges[childIndex] = select.value;
 });
 
 function toggleGuestPopover(forceState = null) {
@@ -790,10 +854,13 @@ async function processReservationPayment() {
         }
         fd.append('cant_adultos', guests.adults);
         fd.append('cant_ninos', guests.children);
-        if (roomCart.length > 1) {
+        if (roomCart.length > 0) {
             fd.append('huespedes_por_habitacion', JSON.stringify(roomCart.map(r => ({
                 id: r.id,
-                personas: roomGuests[r.id].people,
+                adultos: roomGuests[r.id].adults,
+                ninos: roomGuests[r.id].children.length,
+                edades_ninos: roomGuests[r.id].children.map(Number),
+                personas: roomGuests[r.id].adults + roomGuests[r.id].children.length,
             }))));
         }
         fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
