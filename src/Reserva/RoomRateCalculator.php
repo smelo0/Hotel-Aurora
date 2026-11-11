@@ -8,7 +8,7 @@ use InvalidArgumentException;
 final class RoomRateCalculator
 {
     /** Personas cubiertas por la tarifa de la habitación; desde la siguiente se cobra el adicional por persona. */
-    public const STANDARD_OCCUPANCY = 4;
+    public const STANDARD_OCCUPANCY = 5;
     public const ADDITIONAL_PERSON_SUPPLEMENT = 25000.0;
 
     public static function standardNightlyRate(string $roomType, float $configuredPrice): float

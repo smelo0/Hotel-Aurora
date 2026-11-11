@@ -20,6 +20,7 @@ $metodo = $_SERVER['REQUEST_METHOD'];
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? 'listar';
 
 if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
+    $ventanaCancelacion = \App\Cancelacion\PoliticaCancelacion::VENTANA_MINUTOS;
     $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
     $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
     $esAdministrador = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
@@ -40,7 +41,7 @@ if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
                       AND COALESCE(estado_pago_experiencia, 'Pendiente') <> 'Pagada'
                       AND TIMESTAMP(fecha_agenda, hora_agenda) > NOW()";
     if (!$esAdministrador) {
-        $sqlCancelar .= ' AND id_usu_agenda = ? AND creado_en >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)';
+        $sqlCancelar .= ' AND id_usu_agenda = ? AND creado_en >= DATE_SUB(NOW(), INTERVAL ' . $ventanaCancelacion . ' MINUTE)';
     }
     $stmt = $conexion->prepare($sqlCancelar);
     if ($esAdministrador) {
@@ -55,7 +56,7 @@ if ($metodo === 'POST' && $accion === 'cancelar_solicitud') {
     if (!$cancelada) {
         $mensaje = $esAdministrador
             ? 'No se encontró una solicitud futura que todavía pueda cancelarse o ya fue cobrada'
-            : 'Solo puedes cancelar la experiencia durante los primeros 5 minutos, antes de que comience y si aún no fue cobrada';
+            : 'Solo puedes cancelar la experiencia durante los primeros ' . $ventanaCancelacion . ' minutos, antes de que comience y si aún no fue cobrada';
         responder_experiencias(404, $mensaje);
     }
     responder_experiencias(200, 'La experiencia fue cancelada correctamente');

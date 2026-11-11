@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Experiencia;
 
+use App\Cancelacion\PoliticaCancelacion;
 use mysqli;
 
 final class ExperienceRepository
@@ -17,9 +18,9 @@ final class ExperienceRepository
                            a.precios_personas_json, a.id_usu_agenda, a.cod_res_agenda,
                            (COALESCE(a.estado_agenda, 'Pendiente') <> 'Cancelada'
                             AND COALESCE(a.estado_pago_experiencia, 'Pendiente') <> 'Pagada'
-                            AND a.creado_en >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                            AND a.creado_en >= DATE_SUB(NOW(), INTERVAL " . PoliticaCancelacion::VENTANA_MINUTOS . " MINUTE)
                             AND TIMESTAMP(a.fecha_agenda, a.hora_agenda) > NOW()) AS puede_cancelar,
-                           GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(a.creado_en, INTERVAL 5 MINUTE))) AS segundos_cancelacion,
+                           GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(a.creado_en, INTERVAL " . PoliticaCancelacion::VENTANA_MINUTOS . " MINUTE))) AS segundos_cancelacion,
                            COALESCE(NULLIF(u.nom_usu, ''), a.nombre_contacto) AS nombre_cliente,
                            COALESCE(NULLIF(u.corr_usu, ''), a.correo_contacto) AS correo_cliente
                     FROM agenda_actividad a

@@ -20,7 +20,7 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
     <?php if (!empty($googleClientId)): ?>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=3">
+    <link rel="stylesheet" href="../../assets/css/index_usu.css?v=4">
 </head>
 <body>
     <?php
@@ -36,8 +36,9 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
         'vacio' => 'Por favor, completa todos los campos.',
         'email' => 'Ingresa un correo válido.',
         'tipo_doc' => 'Selecciona un tipo de documento válido.',
-        'documento' => 'Ingresa un número de documento válido (4 a 20 caracteres, solo letras y números; para cédulas y permisos, solo números).',
-        'telefono' => 'Ingresa un número de celular válido (entre 7 y 15 dígitos).',
+        'nombre' => 'El nombre solo puede contener letras y espacios.',
+        'documento' => 'Ingresa un número de documento válido (entre 4 y 20 dígitos).',
+        'telefono' => 'Ingresa un número de celular válido (entre 7 y 15 dígitos; + opcional al inicio).',
         'documento_duplicado' => 'Ya existe una cuenta registrada con ese documento.',
         'credenciales' => 'Correo o contraseña incorrectos.',
         'captcha' => 'Debes marcar la casilla: No soy un robot.',
@@ -128,7 +129,8 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
             <form method="POST" action="../../controladores/registrar_usuario.php">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                 <label for="nom_usu">Nombre completo</label>
-                <input id="nom_usu" type="text" name="nom_usu" autocomplete="name" required placeholder="Tu nombre">
+                <input id="nom_usu" type="text" name="nom_usu" autocomplete="name" maxlength="140" aria-describedby="nom_usu_hint" required placeholder="Tu nombre">
+                <small id="nom_usu_hint" class="field-hint">Solo se permiten letras y espacios.</small>
 
                 <div class="field-row">
                     <div class="field-col">
@@ -144,12 +146,14 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
                     </div>
                     <div class="field-col">
                         <label for="doc_usu">Número de documento</label>
-                        <input id="doc_usu" type="text" name="doc_usu" inputmode="text" autocomplete="off" required minlength="4" maxlength="20" pattern="[A-Za-z0-9]{4,20}" title="Entre 4 y 20 caracteres, solo letras y números, sin puntos ni espacios" placeholder="Sin puntos ni espacios">
+                        <input id="doc_usu" type="text" name="doc_usu" inputmode="numeric" autocomplete="off" aria-describedby="doc_usu_hint" required minlength="4" maxlength="20" pattern="[0-9]{4,20}" title="Entre 4 y 20 dígitos, sin puntos ni espacios" placeholder="Sin puntos ni espacios">
+                        <small id="doc_usu_hint" class="field-hint">Solo se permiten números, sin puntos ni espacios.</small>
                     </div>
                 </div>
 
                 <label for="tel_usu">Número de celular</label>
-                <input id="tel_usu" type="tel" name="tel_usu" inputmode="tel" autocomplete="tel" required minlength="7" maxlength="20" pattern="\+?[0-9 ]{7,20}" title="Entre 7 y 15 dígitos. Puedes iniciar con + para el indicativo del país" placeholder="Ej: 3001234567">
+                <input id="tel_usu" type="tel" name="tel_usu" inputmode="tel" autocomplete="tel" aria-describedby="tel_usu_hint" required minlength="7" maxlength="16" pattern="\+?[0-9]{7,15}" title="Entre 7 y 15 dígitos. Puedes iniciar con + para el indicativo del país" placeholder="Ej: 3001234567">
+                <small id="tel_usu_hint" class="field-hint">Solo se permiten números y un + opcional al inicio.</small>
 
                 <label for="corr_usu">Correo</label>
                 <input id="corr_usu" type="email" name="corr_usu" autocomplete="email" required placeholder="nombre@correo.com">
@@ -186,7 +190,7 @@ $googleClientId = trim((string) (getenv('GOOGLE_CLIENT_ID') ?: ($_ENV['GOOGLE_CL
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
 
-    <script src="../../assets/js/login_usuario.js?v=1"></script>
+    <script src="../../assets/js/login_usuario.js?v=2"></script>
     
     <?php include __DIR__ . '/../../includes/translate.php'; ?>
     <?php

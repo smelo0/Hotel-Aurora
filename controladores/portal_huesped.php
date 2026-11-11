@@ -21,6 +21,7 @@ if (!function_exists('jsonResponse')) {
 $httpMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
+    $ventanaCancelacion = \App\Cancelacion\PoliticaCancelacion::VENTANA_MINUTOS;
     $idUsuario = (int) ($_SESSION['user_auth']['id_usuario'] ?? 0);
     $rolUsuario = (int) ($_SESSION['user_auth']['rol_usuario'] ?? 0);
     if ($idUsuario < 1 || $rolUsuario !== 6) {
@@ -40,7 +41,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
              WHERE r.cod_res = ?
                AND r.id_usu_res = ?
                AND LOWER(TRIM(COALESCE(r.est_res, ''))) IN ('pendiente', 'confirmada')
-               AND r.fec_res >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+               AND r.fec_res >= DATE_SUB(NOW(), INTERVAL " . $ventanaCancelacion . " MINUTE)
                AND r.fec_ent_res > NOW()
                AND NOT EXISTS (
                    SELECT 1 FROM pagos pg
@@ -69,7 +70,7 @@ if ($httpMethod === 'POST' && ($_POST['accion'] ?? '') === 'cancelar_reserva') {
     }
 
     if (!$cancelada) {
-        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros 10 minutos, antes del check-in y si aún no registra cobros.']);
+        jsonResponse(409, ['status' => 'error', 'mensaje' => 'La reserva solo se puede cancelar durante los primeros ' . $ventanaCancelacion . ' minutos, antes del check-in y si aún no registra cobros.']);
     }
     jsonResponse(200, ['status' => 'exito', 'mensaje' => 'La reserva fue cancelada correctamente.']);
 }

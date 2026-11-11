@@ -735,7 +735,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <?php else: ?>
                     <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Prepara algo especial</h3>
-                        <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles o solicita una propuesta personalizada.</p>
+                        <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles <strong>SEGUN</strong> la fecha de tu reserva.</p>
                         <button id="openActivityModal" type="button" class="hero-button primary-button mt-5 w-full px-5 py-4 text-sm uppercase tracking-[0.18em]">
                             Programar experiencia
                         </button>
@@ -920,7 +920,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 </td>
                                 <td class="px-4 py-4">
                                     <?php if ((int) ($reserva['puede_cancelar'] ?? 0) === 1): ?>
-                                        <button type="button" data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" data-segundos-cancelacion="<?php echo (int) ($reserva['segundos_cancelacion'] ?? 0); ?>" class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (10 min)</button>
+                                        <button type="button" data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" data-segundos-cancelacion="<?php echo (int) ($reserva['segundos_cancelacion'] ?? 0); ?>" class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (<?php echo \App\Cancelacion\PoliticaCancelacion::etiquetaVentana(); ?>)</button>
                                     <?php elseif (in_array(mb_strtolower((string) ($reserva['est_res'] ?? '')), ['pendiente', 'confirmada'], true)): ?>
                                         <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido</span>
                                     <?php else: ?>
@@ -1000,7 +1000,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 </td>
                                 <td class="px-4 py-4">
                                     <?php if ($puedeCancelarExperiencia): ?>
-                                        <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (5 min)</button>
+                                        <button type="button" data-cancelar-experiencia="<?php echo (int) $solicitudExperiencia['id_agenda']; ?>" data-segundos-cancelacion="<?php echo (int) ($solicitudExperiencia['segundos_cancelacion'] ?? 0); ?>" class="rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (<?php echo \App\Cancelacion\PoliticaCancelacion::etiquetaVentana(); ?>)</button>
                                     <?php else: ?>
                                         <span class="text-xs text-white/50"><?php echo ($solicitudExperiencia['estado_agenda'] ?? '') === 'Cancelada' ? 'Cancelada' : 'No disponible'; ?></span>
                                     <?php endif; ?>
@@ -1262,7 +1262,27 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=27"></script>
+    <div id="modalConfirmacionUsuario" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all" aria-hidden="true">
+        <div id="cajaConfirmacionUsuario" role="dialog" aria-modal="true" aria-labelledby="tituloConfirmacionUsuario" aria-describedby="mensajeConfirmacionUsuario" tabindex="-1" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-95 opacity-0">
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span id="iconoConfirmacionUsuario" class="material-symbols-outlined text-4xl">warning</span>
+                </div>
+                <h4 id="tituloConfirmacionUsuario" class="text-xl font-black text-slate-800 mb-2"></h4>
+                <p id="mensajeConfirmacionUsuario" class="text-sm text-slate-500"></p>
+            </div>
+            <div class="flex border-t border-slate-100">
+                <button id="cancelarAccionUsuario" type="button" class="flex-1 px-6 py-4 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors border-r border-slate-100">
+                    Volver
+                </button>
+                <button id="confirmarAccionUsuario" type="button" class="flex-1 px-6 py-4 text-sm font-black text-red-500 hover:bg-red-50 transition-colors">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/interfaz_usu.js?v=28"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

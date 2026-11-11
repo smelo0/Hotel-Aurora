@@ -903,21 +903,86 @@ async function processReservationPayment() {
     }
 }
 
+let confirmacionUsuarioResolver = null;
+let confirmacionUsuarioTrigger = null;
+let confirmacionUsuarioCloseTimeout = null;
+
+function mostrarConfirmacionUsuario({ titulo, mensaje, icono, textoConfirmacion }) {
+    const modal = $('modalConfirmacionUsuario');
+    const caja = $('cajaConfirmacionUsuario');
+    if (!modal || !caja) throw new Error('No se pudo abrir la confirmación.');
+    if (confirmacionUsuarioResolver) return Promise.resolve(false);
+    if (confirmacionUsuarioCloseTimeout !== null) {
+        window.clearTimeout(confirmacionUsuarioCloseTimeout);
+        confirmacionUsuarioCloseTimeout = null;
+    }
+
+    $('iconoConfirmacionUsuario').textContent = icono;
+    $('tituloConfirmacionUsuario').textContent = titulo;
+    $('mensajeConfirmacionUsuario').textContent = mensaje;
+    $('confirmarAccionUsuario').textContent = textoConfirmacion;
+    confirmacionUsuarioTrigger = document.activeElement;
+
+    const confirmacion = new Promise(resolve => {
+        confirmacionUsuarioResolver = resolve;
+    });
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    window.requestAnimationFrame(() => {
+        caja.classList.remove('scale-95', 'opacity-0');
+        caja.classList.add('scale-100', 'opacity-100');
+        $('cancelarAccionUsuario').focus();
+    });
+    return confirmacion;
+}
+
+function cerrarConfirmacionUsuario(confirmado = false) {
+    const modal = $('modalConfirmacionUsuario');
+    const caja = $('cajaConfirmacionUsuario');
+    if (!modal || !caja || !confirmacionUsuarioResolver) return;
+
+    caja.classList.remove('scale-100', 'opacity-100');
+    caja.classList.add('scale-95', 'opacity-0');
+    modal.setAttribute('aria-hidden', 'true');
+    confirmacionUsuarioCloseTimeout = window.setTimeout(() => {
+        modal.classList.add('hidden');
+        confirmacionUsuarioCloseTimeout = null;
+    }, 200);
+
+    const resolver = confirmacionUsuarioResolver;
+    confirmacionUsuarioResolver = null;
+    if (resolver) resolver(confirmado);
+    if (confirmacionUsuarioTrigger instanceof HTMLElement) confirmacionUsuarioTrigger.focus();
+    confirmacionUsuarioTrigger = null;
+}
+
 function attachLogoutFlow() {
+    const modal = $('modalConfirmacionUsuario');
+    const cancelButton = $('cancelarAccionUsuario');
+    const confirmButton = $('confirmarAccionUsuario');
+    if (modal && cancelButton && confirmButton) {
+        cancelButton.addEventListener('click', () => cerrarConfirmacionUsuario(false));
+        confirmButton.addEventListener('click', () => cerrarConfirmacionUsuario(true));
+        modal.addEventListener('click', event => {
+            if (event.target === modal) cerrarConfirmacionUsuario(false);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+                cerrarConfirmacionUsuario(false);
+            }
+        });
+    }
+
     const logoutButton = $('logoutButton');
     if (!logoutButton) return;
     logoutButton.addEventListener('click', async () => {
-        const result = await Swal.fire({
-            title: 'Cerrar sesión',
-            text: '¿Deseas salir de tu cuenta?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, salir',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#519b5b',
-            cancelButtonColor: '#b37922'
+        const confirmado = await mostrarConfirmacionUsuario({
+            titulo: '¿Cerrar sesión?',
+            mensaje: 'Estás a punto de salir del sistema. Asegúrate de haber guardado todos tus cambios.',
+            icono: 'logout',
+            textoConfirmacion: 'Sí, salir ahora'
         });
-        if (result.isConfirmed) window.location.href = 'controladores/logout.php?panel=user';
+        if (confirmado) window.location.href = 'controladores/logout.php?panel=user';
     });
 }
 
@@ -1051,17 +1116,13 @@ function inicializarCancelacionHistorial() {
         if (!boton || boton.disabled) return;
 
         const tipo = botonReserva ? 'reserva' : 'experiencia';
-        const confirmacion = await Swal.fire({
-            icon: 'warning',
-            title: `¿Cancelar ${tipo}?`,
-            text: `Esta acción cancelará la ${tipo}.`,
-            showCancelButton: true,
-            confirmButtonText: 'Sí, cancelar',
-            cancelButtonText: 'Volver',
-            confirmButtonColor: '#e11d48',
-            cancelButtonColor: '#64748b'
+        const confirmacion = await mostrarConfirmacionUsuario({
+            titulo: `¿Cancelar ${tipo}?`,
+            mensaje: `Esta acción cancelará la ${tipo}.`,
+            icono: 'event_busy',
+            textoConfirmacion: 'Sí, cancelar'
         });
-        if (!confirmacion.isConfirmed) return;
+        if (!confirmacion) return;
 
         boton.disabled = true;
         const cuerpo = new URLSearchParams({

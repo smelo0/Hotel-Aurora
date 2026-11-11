@@ -113,6 +113,17 @@ select {
   margin-bottom: -0.4rem;
 }
 
+.field-hint {
+  margin-top: -0.35rem;
+  color: rgba(238, 244, 255, 0.82);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.field-hint.is-error {
+  color: #fecaca;
+}
+
 input[type="email"]::placeholder,
 input[type="password"]::placeholder,
 input[type="text"]::placeholder,

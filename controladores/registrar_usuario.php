@@ -49,8 +49,8 @@ exigir_csrf();
 $nombre = trim((string) ($_POST['nom_usu'] ?? ''));
 $correo = trim((string) ($_POST['corr_usu'] ?? ''));
 $tipoDocumento = strtoupper(trim((string) ($_POST['tipo_doc_usu'] ?? '')));
-$documento = preg_replace('/[\s.\-]/', '', trim((string) ($_POST['doc_usu'] ?? ''))) ?? '';
-$telefono = trim((string) ($_POST['tel_usu'] ?? ''));
+$documento = (string) ($_POST['doc_usu'] ?? '');
+$telefono = (string) ($_POST['tel_usu'] ?? '');
 $passwordPura = (string) ($_POST['psw_usu'] ?? '');
 $dataConsent = (int) ($_POST['data_consent'] ?? 0);
 $captchaToken = trim((string) ($_POST['g-recaptcha-response'] ?? ''));
@@ -66,6 +66,11 @@ if ($dataConsent !== 1) {
     redirectToUserLogin('vista=registro&error=consentimiento');
 }
 
+if (mb_strlen($nombre) > 140 || preg_match('/^[\p{L}\p{M}]+(?: [\p{L}\p{M}]+)*$/uD', $nombre) !== 1) {
+    Logger::registrarLog('WARN', 'Intento de registro con nombre completo inválido', ['correo' => $correo]);
+    redirectToUserLogin('vista=registro&error=nombre');
+}
+
 if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
     Logger::registrarLog('WARN', 'Intento de registro con formato de correo electrónico inválido', ['correo' => $correo]);
     redirectToUserLogin('vista=registro&error=email');
@@ -77,30 +82,23 @@ if (!in_array($tipoDocumento, $tiposDocumentoValidos, true)) {
     redirectToUserLogin('vista=registro&error=tipo_doc');
 }
 
-// El pasaporte puede ser alfanumérico; las cédulas y permisos solo numéricos.
-$documentoValido = $tipoDocumento === 'PAS'
-    ? preg_match('/^[A-Za-z0-9]{4,20}$/', $documento) === 1
-    : preg_match('/^[0-9]{4,20}$/', $documento) === 1;
-
+$documentoValido = preg_match('/^[0-9]{4,20}$/D', $documento) === 1;
 if (!$documentoValido) {
     Logger::registrarLog('WARN', 'Intento de registro con número de documento inválido', ['correo' => $correo, 'tipo_doc' => $tipoDocumento]);
     redirectToUserLogin('vista=registro&error=documento');
 }
 $documento = strtoupper($documento);
 
-$telefonoLimpio = preg_replace('/\s+/', '', $telefono) ?? '';
-if (preg_match('/^\+?[0-9]{7,15}$/', $telefonoLimpio) !== 1) {
+if (preg_match('/^\+?[0-9]{7,15}$/D', $telefono) !== 1) {
     Logger::registrarLog('WARN', 'Intento de registro con número de celular inválido', ['correo' => $correo]);
     redirectToUserLogin('vista=registro&error=telefono');
 }
-$telefono = $telefonoLimpio;
-
 if (Recaptcha::isEnabled() && !Recaptcha::verify($captchaToken)) {
     Logger::registrarLog('WARN', 'Fallo en la validación del token de reCAPTCHA durante el registro', ['correo' => $correo]);
     redirectToUserLogin('vista=registro&error=captcha');
 }
 
-if (mb_strlen($nombre) > 140 || mb_strlen($passwordPura) < 12 || strlen($passwordPura) > 72) {
+if (mb_strlen($passwordPura) < 12 || strlen($passwordPura) > 72) {
     redirectToUserLogin('vista=registro&error=contrasena');
 }
 
