@@ -395,7 +395,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <button id="guestTrigger" type="button" class="flex h-full w-full items-center justify-between text-left">
                                 <span>
                                     <span class="booking-label">Huéspedes</span>
-                                    <span id="guestSummary" class="booking-value">2 adultos, 0 niños</span>
+                                    <span id="guestSummary" class="booking-value">2 adultos, 0 menores de edad</span>
                                 </span>
                                 <span class="material-symbols-outlined text-3xl text-[#17354f]">groups</span>
                             </button>
@@ -405,7 +405,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     <div class="guest-row">
                                         <div>
                                             <p class="font-black text-[#17354f]">Adultos</p>
-                                            <p class="text-sm text-slate-500">Mayores de 12 años</p>
+                                            <p class="text-sm text-slate-500">Mayores de 17 años</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="adultsMinus" type="button" class="guest-stepper">-</button>
@@ -416,8 +416,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
 
                                     <div class="guest-row border-t border-slate-200">
                                         <div>
-                                            <p class="font-black text-[#17354f]">Niños</p>
-                                            <p class="text-sm text-slate-500">De 0 a 12 años · no cambia el precio</p>
+                                            <p class="font-black text-[#17354f]">Menores de edad</p>
+                                            <p class="text-sm text-slate-500">De 0 a 17 años · no cambia el precio</p>
                                         </div>
                                         <div class="flex items-center gap-3">
                                             <button id="childrenMinus" type="button" class="guest-stepper">-</button>
@@ -1125,7 +1125,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
                             <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
                             <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-out</p><p id="modalCheckout" class="mt-1 text-lg font-black">-</p></div>
-                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 niños</p></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Huéspedes</p><p id="modalGuests" class="mt-1 text-lg font-black">2 adultos, 0 menores de edad</p></div>
                         </div>
 
                         <div id="modalRoomGuests" class="mt-6 hidden rounded-[28px] border border-white/10 bg-white/6 p-5">
@@ -1282,7 +1282,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=28"></script>
+    <script src="assets/js/interfaz_usu.js?v=29"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

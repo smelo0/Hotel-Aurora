@@ -9,7 +9,7 @@ const SCHEDULED_EXPERIENCES = Array.isArray(window.PORTAL_CONFIG.scheduledExperi
     ? window.PORTAL_CONFIG.scheduledExperiences
     : [];
 const ROOM_RATE_POLICY = window.PORTAL_CONFIG.roomPricing;
-// Adultos y niños se eligen por separado solo para tener el dato; el precio y el límite usan el total de personas.
+// Adultos y menores de edad se eligen por separado; el precio y el límite usan el total de personas.
 const guests = {
     adults: 2,
     children: 0,
@@ -17,6 +17,8 @@ const guests = {
 };
 const searchState = { checkin: '', checkout: '' };
 const roomCart = [];
+let unavailableSelectedRoomIds = new Set();
+let selectedRoomAvailabilityCheck = null;
 let selectedRoomFilter = 'all';
 let latestAvailableRoomIds = null;
 let availabilitySearchApplied = false;
@@ -255,7 +257,7 @@ const roomGuests = {};
 
 function guestsText() {
     const { adults, children } = guests;
-    return `${adults} ${adults === 1 ? 'adulto' : 'adultos'}, ${children} ${children === 1 ? 'niño' : 'niños'}`;
+    return `${adults} ${adults === 1 ? 'adulto' : 'adultos'}, ${children} ${children === 1 ? 'menor de edad' : 'menores de edad'}`;
 }
 
 // Ajusta el total de personas (por ejemplo al repartirlas entre habitaciones): si baja se quitan niños primero; si sube se suman adultos.
@@ -375,12 +377,12 @@ function validateGuestsForRooms() {
         const people = d.adults + d.children.length;
         if (d.adults < 1) return `${room.name} necesita al menos un adulto.`;
         if (people > room.maxPeople) return limitText(room);
-        if (d.children.some(age => age === '')) return `Selecciona la edad de cada niño en ${room.name}.`;
+        if (d.children.some(age => age === '')) return `Selecciona la edad de cada menor de edad en ${room.name}.`;
         adults += d.adults;
         children += d.children.length;
     }
     return adults !== guests.adults || children !== guests.children
-        ? 'El reparto por habitación no coincide con el total de adultos y niños.'
+        ? 'El reparto por habitación no coincide con el total de adultos y menores de edad.'
         : '';
 }
 
@@ -413,22 +415,31 @@ function renderRoomGuestsEditor() {
     ensureRoomGuests();
     list.innerHTML = roomCart.map(room => {
         const guestState = roomGuests[room.id];
+        const roomName = escapeGuestText(room.name);
         const childAges = guestState.children.map((age, index) => `
             <label class="block text-xs font-bold text-white/75">
-                <span class="mb-1 block">Edad del niño ${index + 1}</span>
+                <span class="mb-1 block">Edad del menor de edad ${index + 1}</span>
                 <select data-room-child-age="${room.id}|${index}" class="w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
                     <option value="">Selecciona edad</option>
-                    ${Array.from({ length: 13 }, (_, childAge) => `<option value="${childAge}" ${String(childAge) === String(age) ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
+                    ${Array.from({ length: 18 }, (_, childAge) => `<option value="${childAge}" ${String(childAge) === String(age) ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
                 </select>
             </label>`).join('');
         return `
             <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
-                <p class="text-sm font-black">${escapeGuestText(room.name)}</p>
-                <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-sm font-black">${roomName}</p>
+                        <p class="text-[11px] text-white/55">${limitsText(room.maxPeople).replace(/^m/, 'M')}</p>
+                    </div>
+                    <button type="button" data-remove-selected-room="${room.id}" class="rounded-full bg-white/10 p-1 text-white/70 transition hover:bg-rose-500/20 hover:text-rose-300" aria-label="Quitar ${roomName} de la reserva" title="Quitar habitación">
+                        <span class="material-symbols-outlined block text-lg pointer-events-none">close</span>
+                    </button>
+                </div>
+                ${unavailableSelectedRoomIds.has(room.id) ? `<p class="mt-2 text-xs font-bold leading-5 text-rose-300">${roomName} ya está reservada para las fechas seleccionadas. Quítala y elige otra habitación disponible.</p>` : ''}
                 <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     ${['adults', 'children'].map((type, index) => {
-                        const label = index === 0 ? 'Adultos' : 'Niños';
-                        const ariaLabel = index === 0 ? 'adulto' : 'niño';
+                        const label = index === 0 ? 'Adultos' : 'Menores de edad';
+                        const ariaLabel = index === 0 ? 'adulto' : 'menor de edad';
                         return `<div class="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
                             <span class="text-xs font-bold">${label}</span>
                             <span class="flex items-center gap-2">
@@ -444,6 +455,108 @@ function renderRoomGuestsEditor() {
     }).join('');
     box.classList.remove('hidden');
     refreshRoomGuestsEditor();
+}
+
+async function refreshSelectedRoomAvailability() {
+    if (selectedRoomAvailabilityCheck) return selectedRoomAvailabilityCheck;
+    if (roomCart.length === 0) return true;
+
+    selectedRoomAvailabilityCheck = (async () => {
+        const hint = $('modalRoomGuestsHint');
+        if (hint) {
+            hint.textContent = 'Verificando disponibilidad de las habitaciones...';
+            hint.className = 'mt-3 text-xs font-bold leading-5 text-white/70';
+        }
+
+        const formData = new FormData();
+        formData.append('accion', 'buscar_disponibilidad');
+        formData.append('checkin', searchState.checkin);
+        formData.append('checkout', searchState.checkout);
+        formData.append('personas', '1');
+
+        try {
+            const response = await fetch('controladores/portal_huesped.php', {
+                method: 'POST',
+                body: formData,
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+            const result = await readJsonSafely(response);
+            if (!response.ok || result.status !== 'exito') {
+                throw new Error(result.mensaje || 'No se pudo consultar la disponibilidad.');
+            }
+            if (!Array.isArray(result.habitaciones_disponibles_ids)) {
+                throw new Error('La respuesta de disponibilidad no es válida.');
+            }
+
+            const availableIds = new Set(result.habitaciones_disponibles_ids.map(Number));
+            unavailableSelectedRoomIds = new Set(
+                roomCart.filter(room => !availableIds.has(Number(room.id))).map(room => room.id)
+            );
+            renderRoomGuestsEditor();
+
+            const unavailableRooms = roomCart.filter(room => unavailableSelectedRoomIds.has(room.id));
+            if (hint) {
+                if (unavailableRooms.length > 0) {
+                    hint.textContent = `No disponibles: ${unavailableRooms.map(room => room.name).join(', ')}. Quítalas y selecciona otras habitaciones.`;
+                    hint.className = 'mt-3 text-xs font-bold leading-5 text-rose-300';
+                } else {
+                    hint.textContent = '';
+                    hint.className = 'mt-3 text-xs font-bold leading-5 text-white/70';
+                }
+            }
+            return unavailableRooms.length === 0;
+        } catch (error) {
+            if (hint) {
+                hint.textContent = `No se pudo verificar la disponibilidad. ${error.message}`;
+                hint.className = 'mt-3 text-xs font-bold leading-5 text-rose-300';
+            }
+            return false;
+        }
+    })();
+
+    try {
+        return await selectedRoomAvailabilityCheck;
+    } finally {
+        selectedRoomAvailabilityCheck = null;
+    }
+}
+
+function removeSelectedRoom(roomId) {
+    const roomIndex = roomCart.findIndex(room => room.id === roomId);
+    if (roomIndex < 0) return;
+
+    roomCart.splice(roomIndex, 1);
+    delete roomGuests[roomId];
+    unavailableSelectedRoomIds.delete(roomId);
+
+    const roomButton = Array.from(document.querySelectorAll('[data-room-add]'))
+        .find(button => Number(button.dataset.roomId) === roomId);
+    if (roomButton) {
+        roomButton.classList.remove('bg-emerald-600', 'text-white');
+        const label = roomButton.querySelector('[data-room-add-label]');
+        if (label) label.textContent = 'Agregar';
+    }
+
+    if (roomCart.length > 0) {
+        guests.adults = roomCart.reduce((total, room) => total + roomGuests[room.id].adults, 0);
+        guests.children = roomCart.reduce((total, room) => total + roomGuests[room.id].children.length, 0);
+    }
+
+    selectedReservation.roomIds = roomCart.map(room => room.id);
+    selectedReservation.roomId = roomCart[0]?.id || 0;
+    selectedReservation.roomQuantity = roomCart.length;
+    selectedReservation.roomName = roomCart.length === 1
+        ? roomCart[0].name
+        : `${roomCart.length} habitaciones seleccionadas`;
+
+    renderRoomCart();
+    if (roomCart.length === 0) {
+        closeBookingModal();
+        return;
+    }
+    if ($('modalRoomName')) $('modalRoomName').textContent = selectedReservation.roomName;
+    renderRoomGuestsEditor();
 }
 
 function changeRoomGuest(roomId, type, delta) {
@@ -729,6 +842,7 @@ function openBookingModalForCart(sourceButton = null) {
     if ($('modalCheckin')) $('modalCheckin').innerText = searchState.checkin;
     if ($('modalCheckout')) $('modalCheckout').innerText = searchState.checkout;
     if ($('modalGuests')) $('modalGuests').innerText = guestsText();
+    unavailableSelectedRoomIds = new Set();
     renderRoomGuestsEditor();
     calcularTotalesCobro(nights);
     if ($('modalFeedback')) $('modalFeedback').className = 'mt-4 hidden text-sm font-bold';
@@ -739,6 +853,7 @@ function openBookingModalForCart(sourceButton = null) {
         modal.style.display = 'flex';
         document.body.classList.add('overflow-hidden');
     }
+    void refreshSelectedRoomAvailability();
 }
 
 function closeBookingModal() {
@@ -778,6 +893,7 @@ async function processReservationPayment() {
         }
         return;
     }
+    if (!await refreshSelectedRoomAvailability()) return;
     // Se valida el límite de personas ANTES de cobrar: si no cabe, no se abre el pago.
     const guestsProblem = validateGuestsForRooms();
     if (guestsProblem) {
@@ -813,6 +929,7 @@ async function processReservationPayment() {
         background: '#fffdf8'
     });
     if (!confirmation.isConfirmed) return;
+    if (!await refreshSelectedRoomAvailability()) return;
 
     if (metodoPago !== 'Recepción' && btn) {
         btn.disabled = true;
@@ -893,9 +1010,17 @@ async function processReservationPayment() {
         window.location.reload();
     } catch (err) {
         if (RECAPTCHA_SITE_KEY && window.grecaptcha?.reset) window.grecaptcha.reset();
+        let feedbackMessage = err?.message || 'No se pudo procesar la reserva.';
+        if (feedbackMessage === 'Una de las habitaciones seleccionadas ya está reservada para esas fechas.') {
+            await refreshSelectedRoomAvailability();
+            const unavailableRooms = roomCart.filter(room => unavailableSelectedRoomIds.has(room.id));
+            if (unavailableRooms.length > 0) {
+                feedbackMessage = `La habitación ${unavailableRooms.map(room => room.name).join(', ')} ya está reservada para esas fechas. Quítala y elige otra disponible.`;
+            }
+        }
         if (feedback) {
             feedback.className = 'mt-4 text-sm font-bold text-rose-400 block';
-            feedback.innerText = err?.message || 'No se pudo procesar la reserva.';
+            feedback.innerText = feedbackMessage;
             feedback.classList.remove('hidden');
         }
     } finally {
@@ -1001,6 +1126,12 @@ document.addEventListener('click', event => {
     const roomAdd = event.target.closest('[data-room-add]');
     if (roomAdd) { toggleRoomInCart(roomAdd); return; }
 
+    const removeRoomButton = event.target.closest('[data-remove-selected-room]');
+    if (removeRoomButton) {
+        removeSelectedRoom(Number(removeRoomButton.dataset.removeSelectedRoom));
+        return;
+    }
+
     const cartCheckout = event.target.closest('#roomCartCheckout');
     if (cartCheckout) { openBookingModalForCart(cartCheckout); return; }
 
@@ -1039,6 +1170,7 @@ document.addEventListener('click', event => {
             if (cardFields) cardFields.classList.remove('hidden');
             if (transferFields) transferFields.classList.add('hidden');
         }
+        void refreshSelectedRoomAvailability();
         return;
     }
 

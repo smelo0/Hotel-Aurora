@@ -136,12 +136,12 @@ if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
                 || !is_int($personas) || $personas !== $adultos + $ninos
                 || !is_array($edadesNinos) || count($edadesNinos) !== $ninos
             ) {
-                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y niños por habitación no es válida.']);
+                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y menores de edad por habitación no es válida.']);
             }
             $edadesValidadas = [];
             foreach ($edadesNinos as $edad) {
-                if (!is_int($edad) || $edad < 0 || $edad > 12) {
-                    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona una edad válida para cada niño.']);
+                if (!is_int($edad) || $edad < 0 || $edad > 17) {
+                    jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona una edad válida para cada menor de edad.']);
                 }
                 $edadesValidadas[] = $edad;
             }
@@ -160,11 +160,11 @@ if (is_string($distribucionRaw) && trim($distribucionRaw) !== '') {
         }
         foreach ($distribucionHuespedes as $registroDistribucion) {
             if (!array_key_exists('adultos', $registroDistribucion)) {
-                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y niños por habitación no es válida.']);
+                jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución de adultos y menores de edad por habitación no es válida.']);
             }
         }
         if ($adultosDistribuidos !== $cantidadAdultos || $ninosDistribuidos !== $cantidadNinos) {
-            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución por habitación no coincide con el total de adultos y niños.']);
+            jsonResponse(422, ['status' => 'error', 'mensaje' => 'La distribución por habitación no coincide con el total de adultos y menores de edad.']);
         }
     }
 }
