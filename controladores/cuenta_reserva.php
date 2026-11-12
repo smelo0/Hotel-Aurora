@@ -486,7 +486,9 @@ foreach ($solicitadas as $pedido) {
     $resultado = ['tipo' => $tipo, 'id' => $id, 'concepto' => $indice[$clave]['concepto'] ?? $tipo, 'ok' => false, 'mensaje' => ''];
 
     try {
-        if (!isset($indice[$clave]) || isset($vistas[$clave])) {
+        // El alojamiento admite varias partes en un mismo cobro (pago dividido en métodos distintos);
+        // cada parte se valida contra el saldo que queda tras la anterior. Las demás líneas, una sola vez.
+        if (!isset($indice[$clave]) || (isset($vistas[$clave]) && $tipo !== 'alojamiento')) {
             throw new RuntimeException('linea_no_cobrable');
         }
         $vistas[$clave] = true;

@@ -60,12 +60,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $sql_det = "DELETE FROM detalle WHERE cod_res_det = ?";
         $stmt_det = $conexion->prepare($sql_det);
         $stmt_det->bind_param("i", $cod_res);
-        $stmt_det->execute();
+        if (!$stmt_det->execute()) {
+            throw new Exception('fallo_detalle: ' . $stmt_det->error);
+        }
 
         $sql_res = "DELETE FROM reservas WHERE cod_res = ?";
         $stmt_res = $conexion->prepare($sql_res);
         $stmt_res->bind_param("i", $cod_res);
-        $stmt_res->execute();
+        // La conexión tiene mysqli_report(OFF): si el DELETE falla no lanza excepción, así que se verifica aquí.
+        if (!$stmt_res->execute() || $stmt_res->affected_rows < 1) {
+            throw new Exception('fallo_reserva: ' . $stmt_res->error);
+        }
 
         $conexion->commit();
 

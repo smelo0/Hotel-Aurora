@@ -17,6 +17,8 @@ final class AdminReservationRepository
     public function obtenerDatos(int $requestedPage = 1, string $search = ''): array
     {
         RoomRateSchemaMigrator::ensure($this->connection);
+        // La columna pagos.concepto separa los pagos de alojamiento de los de experiencias y room service.
+        \App\Billing\BillingRegistrar::asegurarEsquema($this->connection);
 
         $search = trim(mb_substr($search, 0, 100, 'UTF-8'));
         $searchSql = $search === '' ? '' : ' WHERE u.nom_usu LIKE ?';
@@ -61,6 +63,19 @@ final class AdminReservationRepository
                             0
                         )
                     ) AS saldo_pendiente,
+                    -- Total y pagado del alojamiento con la misma regla de controladores/cuenta_reserva.php
+                    (
+                        COALESCE((
+                            SELECT SUM(COALESCE(d3.precio_noche_det, NULLIF(h3.pre_hab, 0), h3.precio_hab, 0))
+                            FROM detalle d3
+                            INNER JOIN habitacion h3 ON h3.cod_hab = d3.cod_hab_det
+                            WHERE d3.cod_res_det = r.cod_res
+                        ), 0) * GREATEST(1, DATEDIFF(r.fec_sal_res, r.fec_ent_res)) * 1.19
+                    ) AS total_alojamiento,
+                    COALESCE((
+                        SELECT SUM(pg3.monto) FROM pagos pg3
+                        WHERE pg3.cod_res_pago = r.cod_res AND pg3.concepto = 'alojamiento' AND pg3.estado_pago = 'Aprobado'
+                    ), 0) AS pagado_alojamiento,
                     (
                         EXISTS (
                             SELECT 1 FROM pagos pg

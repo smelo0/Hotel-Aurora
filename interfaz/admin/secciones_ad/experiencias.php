@@ -140,6 +140,7 @@ if (!usuario_tiene_permiso($conexion, 'experiencias.ver')) { return; }
                             <label class="text-xs font-bold text-slate-600" for="horaFinExperiencia">Hora de fin<input id="horaFinExperiencia" type="time" step="60" class="mt-1 w-full rounded-lg border-slate-200 bg-slate-50 p-3"></label>
                         </div>
                         <button id="agregarHorarioExperiencia" type="button" class="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Añadir horario a las fechas</button>
+                        <p id="mensajeHorarioExperiencia" class="hidden mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-600" role="alert" aria-live="polite"></p>
                         <button id="cancelarEdicionHorarioExperiencia" type="button" class="mt-2 hidden w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">Cancelar edición</button>
                     </div>
                 </div>
@@ -287,9 +288,10 @@ function limpiarEdicionHorarioExperiencia(limpiarCampos = false) {
 }
 function agregarHorarioExperiencia() {
     purgarFechasExpiradasExperiencias();
+    limpiarErrorHorarioExperiencia();
     const opcion = document.getElementById('opcionHorarioExperiencia').value;
     if (!opcion) {
-        mostrarMensajeExperiencias('Completa una opción antes de programar fechas y horarios.', true);
+        mostrarErrorHorarioExperiencia('Completa una opción antes de programar fechas y horarios.', true);
         return;
     }
     const fechaInicio = document.getElementById('fechaInicioHorarioExperiencia').value;
@@ -297,19 +299,19 @@ function agregarHorarioExperiencia() {
     const inicio = document.getElementById('horaInicioExperiencia').value;
     const fin = document.getElementById('horaFinExperiencia').value;
     if (!fechaInicio || !fechaFin || !inicio || !fin) {
-        mostrarMensajeExperiencias('Selecciona las fechas de inicio y fin, y las horas de inicio y fin.', true);
+        mostrarErrorHorarioExperiencia('Selecciona las fechas de inicio y fin, y las horas de inicio y fin.', true);
         return;
     }
     if (fechaInicio < document.getElementById('fechaInicioHorarioExperiencia').min || fechaFin < fechaInicio) {
-        mostrarMensajeExperiencias('Selecciona un rango de fechas válido, desde hoy en adelante.', true);
+        mostrarErrorHorarioExperiencia('Selecciona un rango de fechas válido, desde hoy en adelante.', true);
         return;
     }
     if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(inicio) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(fin)) {
-        mostrarMensajeExperiencias('Ingresa una hora válida entre 00:00 y 23:59.', true);
+        mostrarErrorHorarioExperiencia('Ingresa una hora válida entre 00:00 y 23:59.', true);
         return;
     }
     if (fin <= inicio) {
-        mostrarMensajeExperiencias('La hora de fin debe ser posterior a la hora de inicio.', true);
+        mostrarErrorHorarioExperiencia('La hora de fin debe ser posterior a la hora de inicio.', true);
         return;
     }
     const milisegundosPorDia = 24 * 60 * 60 * 1000;
@@ -317,7 +319,7 @@ function agregarHorarioExperiencia() {
     const ultimoDia = Date.parse(`${fechaFin}T00:00:00Z`);
     const cantidadDias = Math.floor((ultimoDia - primerDia) / milisegundosPorDia) + 1;
     if (!Number.isSafeInteger(cantidadDias) || cantidadDias < 1 || cantidadDias > 100) {
-        mostrarMensajeExperiencias('Cada rango admite hasta 100 fechas programadas.', true);
+        mostrarErrorHorarioExperiencia('Cada rango admite hasta 100 fechas programadas.', true);
         return;
     }
     horariosExperienciaBorrador[opcion] ||= {};
@@ -328,7 +330,7 @@ function agregarHorarioExperiencia() {
     const horariosOpcion = horariosExperienciaBorrador[opcion];
     const fechasNuevas = fechasRango.filter(fecha => !Object.prototype.hasOwnProperty.call(horariosOpcion, fecha));
     if (Object.keys(horariosOpcion).length + fechasNuevas.length > 100) {
-        mostrarMensajeExperiencias('Cada opción admite hasta 100 fechas programadas.', true);
+        mostrarErrorHorarioExperiencia('Cada opción admite hasta 100 fechas programadas.', true);
         return;
     }
     const actualizaciones = {};
@@ -347,11 +349,11 @@ function agregarHorarioExperiencia() {
             return inicioMinutos < existenteFin && finMinutos > existenteInicio;
         });
         if (seSuperpone) {
-            mostrarMensajeExperiencias(`El horario se superpone con otro horario del ${fechaExperienciaCorta(fecha)}.`, true);
+            mostrarErrorHorarioExperiencia(`El horario se superpone con otro horario del ${fechaExperienciaCorta(fecha)}.`, true);
             return;
         }
         if (rangos.length >= 20) {
-            mostrarMensajeExperiencias('Cada día admite hasta 20 horarios.', true);
+            mostrarErrorHorarioExperiencia('Cada día admite hasta 20 horarios.', true);
             return;
         }
         rangos.push({ inicio, fin });
@@ -374,8 +376,11 @@ function agregarHorarioExperiencia() {
     document.getElementById('listaHorariosExperiencia').scrollTop = document.getElementById('listaHorariosExperiencia').scrollHeight;
 }
 function mostrarMensajeExperiencias(texto, error = false) { const mensaje = document.getElementById('mensajeExperiencias'); mensaje.textContent = texto; mensaje.className = `mb-5 rounded-lg px-4 py-3 text-sm font-bold ${error ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`; mensaje.classList.remove('hidden'); }
-function mostrarErrorFormularioExperiencia(texto) { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = texto; mensaje.className = 'rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-600'; }
-function limpiarErrorFormularioExperiencia() { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = ''; mensaje.className = 'hidden rounded-lg px-4 py-3 text-sm font-bold'; }
+function mostrarErrorFormularioExperiencia(texto) { const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = texto; mensaje.className = 'rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-600'; mensaje.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+// Errores del bloque de horarios: se muestran dentro del modal, junto al botón que los provoca.
+function mostrarErrorHorarioExperiencia(texto) { const mensaje = document.getElementById('mensajeHorarioExperiencia'); mensaje.textContent = texto; mensaje.classList.remove('hidden'); mensaje.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+function limpiarErrorHorarioExperiencia() { const mensaje = document.getElementById('mensajeHorarioExperiencia'); if (!mensaje) return; mensaje.textContent = ''; mensaje.classList.add('hidden'); }
+function limpiarErrorFormularioExperiencia() { limpiarErrorHorarioExperiencia(); const mensaje = document.getElementById('mensajeFormularioExperiencia'); mensaje.textContent = ''; mensaje.className = 'hidden rounded-lg px-4 py-3 text-sm font-bold'; }
 async function cargarExperiencias() { try { const respuesta = await fetch(`${ENDPOINT_EXPERIENCIAS}?accion=listar`, { cache: 'no-store', headers: { Accept: 'application/json' } }); const datos = await respuesta.json(); if (!respuesta.ok) throw new Error(datos.mensaje || 'No se pudieron cargar las experiencias'); datosExperiencias = datos; document.getElementById('btnNuevaExperiencia').classList.toggle('hidden', !datos.puede_gestionar); const solicitudRecepcion = document.getElementById('btnSolicitudExperienciaRecepcion'); solicitudRecepcion.classList.toggle('hidden', !datos.puede_gestionar); solicitudRecepcion.disabled = !Array.isArray(datos.huespedes_recepcion) || datos.huespedes_recepcion.length === 0; solicitudRecepcion.title = solicitudRecepcion.disabled ? 'No hay huéspedes registrados' : ''; cargarSelectoresSolicitudRecepcion(); renderizarExperiencias(); renderizarHistorialExperiencias(); return true; } catch (error) { mostrarMensajeExperiencias(error.message, true); return false; } }
 
 function cargarSelectoresSolicitudRecepcion() {
@@ -648,7 +653,12 @@ function renderizarHistorialExperiencias() {
         ? `${historial.length} de ${total} solicitudes`
         : `${total} ${total === 1 ? 'solicitud' : 'solicitudes'}`;
     renderizarGruposHistorialExperiencias(historial);
-    document.getElementById('tablaHistorialExperiencias').innerHTML = historial.map(solicitud => {
+    const esProgramada = solicitud => (solicitud.estado_agenda || 'Pendiente') !== 'Cancelada' && !solicitudYaPaso(solicitud);
+    const instanteOrden = solicitud => (instanteSolicitudExperiencia(solicitud) || new Date(8640000000000000)).getTime();
+    const programadas = historial.filter(esProgramada).sort((a, b) => instanteOrden(a) - instanteOrden(b));
+    const anteriores = historial.filter(solicitud => !esProgramada(solicitud)).sort((a, b) => instanteOrden(b) - instanteOrden(a));
+    const filaEncabezadoHistorial = texto => `<tr class="bg-slate-50"><td colspan="7" class="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">${texto}</td></tr>`;
+    const filasHistorial = [...programadas, ...anteriores].map(solicitud => {
         const selecciones = Array.isArray(solicitud.selecciones_personas) ? solicitud.selecciones_personas : [];
         const precios = Array.isArray(solicitud.precios_personas) ? solicitud.precios_personas : [];
         const moneda = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -674,7 +684,12 @@ function renderizarHistorialExperiencias() {
             ? `<button type="button" data-cancelar-solicitud-admin="${Number(solicitud.id_agenda)}" class="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50">Cancelar</button>`
             : '<span class="text-xs text-slate-400">—</span>';
         return `<tr class="hover:bg-slate-50/70"><td class="px-5 py-4"><p class="font-bold text-slate-800">${escaparExperiencias(solicitud.nombre_cliente || solicitud.nombre_contacto)}</p><p class="mt-1 text-xs text-slate-500">${escaparExperiencias(solicitud.correo_cliente || solicitud.correo_contacto)}</p></td><td class="px-5 py-4 font-black text-slate-800">${escaparExperiencias(solicitud.actividad)}</td><td class="px-5 py-4"><div class="flex max-w-sm flex-wrap gap-1">${opciones || '<span class="text-xs text-slate-400">Sin detalle de opciones</span>'}</div></td><td class="px-5 py-4 font-bold text-slate-700">${escaparExperiencias(monto)}</td><td class="px-5 py-4 text-slate-600"><p>${fecha}</p><p class="mt-1 text-xs">${escaparExperiencias(String(solicitud.hora_agenda || '').slice(0, 5))}</p></td><td class="px-5 py-4"><span class="rounded-full px-3 py-1 text-[10px] font-black uppercase ${claseEstado}">${escaparExperiencias(estado)}</span></td><td class="px-5 py-4">${accion}</td></tr>`;
-    }).join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-sm text-slate-400">Todavía no hay experiencias programadas por los clientes.</td></tr>';
+    });
+    if (anteriores.length) {
+        filasHistorial.splice(programadas.length, 0, filaEncabezadoHistorial('Ya pasaron o fueron canceladas'));
+        if (programadas.length) filasHistorial.unshift(filaEncabezadoHistorial('Programadas'));
+    }
+    document.getElementById('tablaHistorialExperiencias').innerHTML = filasHistorial.join('') || '<tr><td colspan="7" class="px-5 py-8 text-center text-sm text-slate-400">Todavía no hay experiencias programadas por los clientes.</td></tr>';
 }
 // ---- Historial agrupado: cuántas personas pidieron cada experiencia, por opción y horario ----
 let vistaHistorialExperiencias = 'grupos';
@@ -687,12 +702,40 @@ function personasDeSolicitudExperiencia(solicitud) {
 
 function textoPersonasExperiencia(cantidad) { return `${cantidad} ${cantidad === 1 ? 'persona' : 'personas'}`; }
 
+function instanteSolicitudExperiencia(solicitud) {
+    const fecha = String(solicitud.fecha_agenda || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null;
+    const hora = String(solicitud.hora_agenda || '').slice(0, 8) || '00:00:00';
+    const instante = new Date(`${fecha}T${hora}`);
+    return Number.isFinite(instante.getTime()) ? instante : null;
+}
+function solicitudYaPaso(solicitud) {
+    const instante = instanteSolicitudExperiencia(solicitud);
+    return !!instante && instante < new Date();
+}
+
+// Las experiencias programadas (próximas) van arriba; las que ya pasaron quedan en un bloque aparte al final.
 function renderizarGruposHistorialExperiencias(historial) {
     const contenedor = document.getElementById('gruposHistorialExperiencias');
     if (!historial.length) {
         contenedor.innerHTML = '<p class="rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center text-sm text-slate-400">Todavía no hay experiencias programadas por los clientes.</p>';
         return;
     }
+    const proximas = historial.filter(solicitud => !solicitudYaPaso(solicitud));
+    const pasadas = historial.filter(solicitud => solicitudYaPaso(solicitud));
+    const bloqueProximas = proximas.length
+        ? construirGruposHistorialExperiencias(proximas, false)
+        : '<p class="rounded-xl border border-dashed border-slate-200 px-5 py-6 text-center text-sm text-slate-400">No hay experiencias programadas próximamente.</p>';
+    const bloquePasadas = pasadas.length
+        ? `<div class="mt-8 border-t border-slate-200 pt-6">
+            <h4 class="text-lg font-black text-slate-500">Experiencias que ya pasaron</h4>
+            <p class="mb-4 mt-1 text-xs text-slate-400">Quedan aparte para que no se mezclen con las programadas.</p>
+            <div class="space-y-5">${construirGruposHistorialExperiencias(pasadas, true)}</div></div>`
+        : '';
+    contenedor.innerHTML = bloqueProximas + bloquePasadas;
+}
+
+function construirGruposHistorialExperiencias(historial, esPasada = false) {
     const ahora = new Date();
     const grupos = new Map();
     historial.forEach(solicitud => {
@@ -727,7 +770,7 @@ function renderizarGruposHistorialExperiencias(historial) {
     };
     const chip = (texto, clases) => `<span class="rounded-full px-3 py-1 text-[10px] font-black uppercase ${clases}">${texto}</span>`;
 
-    contenedor.innerHTML = [...grupos.values()]
+    return [...grupos.values()]
         .sort((a, b) => b.personas - a.personas || a.nombre.localeCompare(b.nombre, 'es'))
         .map(grupo => {
             const sesiones = [...grupo.sesiones.values()].sort(ordenSesiones).map(sesion => {
@@ -766,7 +809,7 @@ function renderizarGruposHistorialExperiencias(historial) {
                 grupo.confirmadas ? chip(`${grupo.confirmadas} confirmada${grupo.confirmadas === 1 ? '' : 's'}`, 'bg-emerald-100 text-emerald-700') : '',
                 grupo.canceladas ? chip(`${grupo.canceladas} cancelada${grupo.canceladas === 1 ? '' : 's'}`, 'bg-rose-100 text-rose-700') : '',
             ].join('');
-            return `<details open class="rounded-xl border border-slate-200 bg-white shadow-sm">
+            return `<details ${esPasada ? '' : 'open'} class="rounded-xl border ${esPasada ? 'border-slate-200 bg-slate-50/60' : 'border-slate-200 bg-white'} shadow-sm">
                 <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-5 py-4">
                     <div><p class="text-lg font-black text-primary">${escaparExperiencias(grupo.nombre)}</p>
                     <p class="text-sm font-bold text-slate-600"><span class="text-2xl font-black text-primary">${grupo.personas}</span> ${frase}</p></div>

@@ -101,6 +101,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
                     <th class="p-4">Experiencias y room service</th>
+                    <th class="p-4 text-right">Total a pagar</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
@@ -229,7 +230,25 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         $totalRoomServiceReserva = 0;
                         $roomServicePorCobrar = 0;
 
+                        // Cuenta de la reserva (solo para mostrar): alojamiento + experiencias + room service,
+                        // con las mismas reglas del modal "Editar reserva".
+                        $reservaCancelada = in_array(strtolower(trim((string) $estado)), ['cancelada', 'cancelado'], true);
+                        $cuentaTotal = round((float) ($reserva['total_alojamiento'] ?? 0), 2);
+                        $cuentaPagado = min(round((float) ($reserva['pagado_alojamiento'] ?? 0), 2), $cuentaTotal);
+                        $cuentaPendiente = $reservaCancelada ? 0.0 : round(max(0.0, $cuentaTotal - $cuentaPagado), 2);
+
                         foreach ($experienciasPorReserva[$id_reserva] ?? [] as $experienciaReserva) {
+                            $agendaCancelada = strtolower(trim((string) ($experienciaReserva['estado_agenda'] ?? ''))) === 'cancelada'
+                                || strtolower(trim((string) ($experienciaReserva['estado_pago_experiencia'] ?? ''))) === 'cancelada';
+                            if (!$agendaCancelada) {
+                                $montoCuentaExp = round((float) ($experienciaReserva['monto_experiencia'] ?? 0), 2);
+                                $cuentaTotal += $montoCuentaExp;
+                                if (trim((string) ($experienciaReserva['estado_pago_experiencia'] ?? 'Pendiente')) === 'Pagada') {
+                                    $cuentaPagado += $montoCuentaExp;
+                                } elseif ($montoCuentaExp > 0) {
+                                    $cuentaPendiente += $montoCuentaExp;
+                                }
+                            }
                             $idAgenda = (int) ($experienciaReserva['id_agenda'] ?? 0);
                             $nombreExperiencia = htmlspecialchars((string) ($experienciaReserva['actividad'] ?? ''), ENT_QUOTES, 'UTF-8');
                             $fechaExperiencia = htmlspecialchars(
@@ -269,6 +288,12 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 continue;
                             }
                             $pedidoPagado = ($pedidoRoomService['estado_pago'] ?? '') === 'Pagado';
+                            $cuentaTotal += round((float) $pedidoRoomService['total'], 2);
+                            if ($pedidoPagado) {
+                                $cuentaPagado += round((float) $pedidoRoomService['total'], 2);
+                            } else {
+                                $cuentaPendiente += round((float) $pedidoRoomService['total'], 2);
+                            }
                             $totalRoomServiceReserva++;
                             if (!$pedidoPagado) {
                                 $roomServicePorCobrar++;
@@ -292,6 +317,21 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 . $panelDesplegableReserva($id_reserva, 'room_service', $tarjetasRoomService, $roomServicePorCobrar);
                         }
 
+                        $formatoPesosCuenta = static fn(float $valor): string => '$' . number_format($valor, 0, ',', '.');
+                        if ($cuentaPendiente > 0) {
+                            $cuentaPrincipal = '<span class="block text-base font-black text-amber-600">' . $formatoPesosCuenta($cuentaPendiente) . '</span>'
+                                . '<span class="block text-[10px] font-bold uppercase tracking-widest text-amber-600/70">Por cobrar</span>';
+                        } else {
+                            $cuentaPrincipal = '<span class="inline-flex rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest '
+                                . ($reservaCancelada ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-700') . '">'
+                                . ($reservaCancelada ? 'Sin saldo' : 'Al día') . '</span>';
+                        }
+                        $cuentaDetalle = $cuentaTotal > 0
+                            ? '<span class="mt-1 block text-[10px] font-bold text-slate-400">Total ' . $formatoPesosCuenta($cuentaTotal)
+                                . ' · Pagado ' . $formatoPesosCuenta(min($cuentaPagado, $cuentaTotal)) . '</span>'
+                            : '';
+                        $cuentaCelda = '<div class="leading-tight">' . $cuentaPrincipal . $cuentaDetalle . '</div>';
+
                         $nombreUsuario = htmlspecialchars($reserva['nom_usu'] ?? 'Huésped desconocido', ENT_QUOTES, 'UTF-8');
 
                         // Datos mínimos para abrir el modal; la cuenta completa se consulta en cuenta_reserva.php.
@@ -310,6 +350,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '<td class="py-5 px-4 align-middle"><span class="' . $color_clase . ' px-3 py-1 rounded-full text-[9px] uppercase tracking-widest">' . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . '</span></td>';
                         echo '<td class="py-5 px-4 align-middle max-w-xs">' . $notas_tabla . '</td>';
                         echo '<td class="py-5 px-4 align-middle min-w-64">' . $experienciasTabla . '</td>';
+                        echo '<td class="py-5 px-4 align-middle text-right whitespace-nowrap" data-total-cuenta="' . htmlspecialchars(number_format($cuentaPendiente, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '">' . $cuentaCelda . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
                         echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\" data-tiene-cobro=\"" . (!empty($reserva['tiene_cobro']) ? '1' : '0') . "\" data-detalles-json=\"$detallesJson\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
                         echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
@@ -318,7 +359,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '</tr>';
                     }
                 } else {
-                    echo '<tr><td colspan="7" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
+                    echo '<tr><td colspan="8" class="p-4 text-center text-slate-400">No hay reservas registradas en el sistema.</td></tr>';
                 }
 
                 $huespedes_reserva =$datosReservasAdmin['huespedes'] ?? [];
@@ -699,8 +740,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
         });
 
         function confirmarEliminacion(idReserva) {
-            if (typeof confirmarEliminacionReservaPremium === 'function') {
-                confirmarEliminacionReservaPremium(idReserva);
+            if (!window.confirm('¿Eliminar la reserva #' + idReserva + '? Esta acción no se puede deshacer.')) return;
+            if (typeof window.eliminarReservaEnVivo === 'function') {
+                window.eliminarReservaEnVivo(idReserva);
+            } else {
+                alert('No se pudo cargar la función de eliminar. Recarga la página e inténtalo de nuevo.');
             }
         }
 
@@ -950,6 +994,28 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700" title="Monto a cobrar en pesos (puedes cobrar solo una parte)">` : ''}
                             <select data-cuenta-metodo="${escaparCuenta(clave)}" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">${metodos}</select>
                         </div>` : '';
+                    const dividirAlojamiento = (l.tipo === 'alojamiento' && l.cobrable) ? `
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <label class="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                                <input type="checkbox" id="cuentaDividirCheck" class="rounded border-slate-300"> Dividir el pago del alojamiento en dos métodos
+                            </label>
+                            <div id="cuentaDividirCampos" class="mt-3 hidden space-y-2">
+                                <div class="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-600">
+                                    <span class="w-14">Parte 1</span>
+                                    <input type="text" id="cuentaDividirMontoA" inputmode="numeric" maxlength="13" placeholder="Monto"
+                                        class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700" title="Cuánto se paga con el primer método">
+                                    <select id="cuentaDividirMetodoA" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">${metodosDivision('Transferencia')}</select>
+                                    <button type="button" id="cuentaDividirMitad" class="text-[11px] font-bold text-primary underline">Mitad</button>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-600">
+                                    <span class="w-14">Parte 2</span>
+                                    <span id="cuentaDividirMontoB" class="inline-block w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700">$0</span>
+                                    <select id="cuentaDividirMetodoB" class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">${metodosDivision('Efectivo')}</select>
+                                    <span class="text-slate-400">el resto</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400">Se registran dos pagos del alojamiento, cada uno con su método y su factura.</p>
+                            </div>
+                        </div>` : '';
                     cuerpo += `
                         <div class="py-2 border-b border-slate-100 last:border-0">
                             <div class="flex items-start justify-between gap-3">
@@ -959,7 +1025,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                     <p class="text-[11px] mt-0.5">${etiqueta}${l.nota ? ` <span class="text-slate-400">· ${escaparCuenta(l.nota)}</span>` : ''}</p>
                                 </div>
                                 <span class="font-bold text-slate-700 whitespace-nowrap">${l.total > 0 ? moneda(l.total) : 'Sin precio'}</span>
-                            </div>${controles}
+                            </div>${controles}${dividirAlojamiento}
                         </div>`;
                 });
                 html += `
@@ -995,6 +1061,26 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 campo.addEventListener('change', actualizarSeleccionCuenta);
                 campo.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
             });
+            const checkDividir = document.getElementById('cuentaDividirCheck');
+            if (checkDividir) {
+                const campoA = document.getElementById('cuentaDividirMontoA');
+                const mitad = () => {
+                    const linea = cuentaReservaActual?.lineas.find(x => x.tipo === 'alojamiento');
+                    if (!linea) return;
+                    campoA.value = formatearMontoCuenta(Math.floor(montoLineaCuenta(linea) / 2));
+                    actualizarSeleccionCuenta();
+                };
+                checkDividir.addEventListener('change', () => {
+                    if (checkDividir.checked && !campoA.value) mitad();
+                    else actualizarSeleccionCuenta();
+                });
+                campoA.addEventListener('input', () => {
+                    campoA.value = formatearMontoCuenta(campoA.value);
+                    actualizarSeleccionCuenta();
+                });
+                campoA.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+                document.getElementById('cuentaDividirMitad').addEventListener('click', mitad);
+            }
             actualizarSeleccionCuenta();
         }
 
@@ -1015,25 +1101,72 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             return Number.isFinite(valor) ? Math.min(Math.max(valor, 0), linea.pendiente) : 0;
         }
 
+        function metodosDivision(seleccionado) {
+            return ['Efectivo', 'Tarjeta', 'Transferencia']
+                .map(m => `<option value="${m}"${m === seleccionado ? ' selected' : ''}>${m}</option>`).join('');
+        }
+
+        function montoDigitosCuenta(id) {
+            const digitos = (document.getElementById(id)?.value || '').replace(/\D/g, '');
+            return digitos === '' ? 0 : Number(digitos);
+        }
+
+        function divisionActiva() {
+            return !!document.getElementById('cuentaDividirCheck')?.checked;
+        }
+
+        // Muestra/oculta los campos de la división y calcula la parte 2 (el resto) en pantalla.
+        function actualizarDivisionAlojamiento() {
+            const check = document.getElementById('cuentaDividirCheck');
+            if (!check || !cuentaReservaActual) return;
+            const campos = document.getElementById('cuentaDividirCampos');
+            campos?.classList.toggle('hidden', !check.checked);
+            const selectGeneral = document.querySelector(`#editCuentaLineas [data-cuenta-metodo="${CSS.escape('alojamiento|0')}"]`);
+            if (selectGeneral) selectGeneral.disabled = check.checked;
+            if (!check.checked) return;
+            const linea = cuentaReservaActual.lineas.find(x => x.tipo === 'alojamiento');
+            const total = linea ? montoLineaCuenta(linea) : 0;
+            const parteA = montoDigitosCuenta('cuentaDividirMontoA');
+            const resto = Math.round((total - parteA) * 100) / 100;
+            const etiqueta = document.getElementById('cuentaDividirMontoB');
+            if (etiqueta) {
+                etiqueta.textContent = formatoMonedaReserva.format(Math.max(0, resto));
+                etiqueta.classList.toggle('text-rose-600', !(parteA > 0 && resto > 0));
+            }
+        }
+
+        // Devuelve una o dos partes del alojamiento según el cobro esté dividido o no.
+        function partesAlojamientoCuenta(linea, montoTotal, metodo) {
+            if (!divisionActiva()) {
+                return [{ tipo: linea.tipo, id: linea.id, metodo, monto: montoTotal }];
+            }
+            const parteA = montoDigitosCuenta('cuentaDividirMontoA');
+            const parteB = Math.round((montoTotal - parteA) * 100) / 100;
+            return [
+                { tipo: linea.tipo, id: linea.id, metodo: document.getElementById('cuentaDividirMetodoA')?.value || 'Transferencia', monto: parteA, dividido: true },
+                { tipo: linea.tipo, id: linea.id, metodo: document.getElementById('cuentaDividirMetodoB')?.value || 'Efectivo', monto: parteB, dividido: true },
+            ];
+        }
+
         function lineasSeleccionadasCuenta() {
             if (!cuentaReservaActual) return [];
             return cuentaReservaActual.lineas
                 .filter(l => l.cobrable)
                 .filter(l => document.querySelector(`#editCuentaLineas [data-cuenta-check="${CSS.escape(l.tipo + '|' + l.id)}"]`)?.checked)
-                .map(l => {
+                .flatMap(l => {
                     const metodo = document.querySelector(`#editCuentaLineas [data-cuenta-metodo="${CSS.escape(l.tipo + '|' + l.id)}"]`)?.value || '';
-                    const linea = { tipo: l.tipo, id: l.id, metodo };
-                    if (l.tipo === 'alojamiento') linea.monto = montoLineaCuenta(l);
-                    return linea;
+                    if (l.tipo === 'alojamiento') return partesAlojamientoCuenta(l, montoLineaCuenta(l), metodo);
+                    return [{ tipo: l.tipo, id: l.id, metodo }];
                 });
         }
 
         function actualizarSeleccionCuenta() {
             if (!cuentaReservaActual) return;
+            actualizarDivisionAlojamiento();
             let total = 0;
             lineasSeleccionadasCuenta().forEach(sel => {
                 const l = cuentaReservaActual.lineas.find(x => x.tipo === sel.tipo && x.id === sel.id);
-                total += sel.tipo === 'alojamiento' ? sel.monto : l.pendiente;
+                total += sel.tipo === 'alojamiento' ? Math.max(0, sel.monto) : l.pendiente;
             });
             document.getElementById('editCuentaSeleccion').textContent = formatoMonedaReserva.format(total);
         }
@@ -1044,12 +1177,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
 
         function cobrarTodoCuenta() {
             if (!cuentaReservaActual) return;
-            cobrarCuentaReserva(cuentaReservaActual.lineas.filter(l => l.cobrable).map(l => ({
-                tipo: l.tipo,
-                id: l.id,
-                metodo: '',
-                ...(l.tipo === 'alojamiento' ? { monto: l.pendiente } : {}),
-            })));
+            cobrarCuentaReserva(cuentaReservaActual.lineas.filter(l => l.cobrable).flatMap(l => (
+                l.tipo === 'alojamiento'
+                    ? partesAlojamientoCuenta(l, l.pendiente, '')
+                    : [{ tipo: l.tipo, id: l.id, metodo: '' }]
+            )));
         }
 
         async function cobrarCuentaReserva(lineas) {
@@ -1059,6 +1191,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             error.classList.add('text-rose-600');
             if (!lineas.length) {
                 error.textContent = 'Selecciona al menos un concepto para cobrar.';
+                error.classList.remove('hidden');
+                return;
+            }
+            if (lineas.some(l => l.dividido && !(l.monto > 0))) {
+                error.textContent = 'En el pago dividido, las dos partes deben ser mayores que cero y sumar el monto del alojamiento.';
                 error.classList.remove('hidden');
                 return;
             }
