@@ -101,6 +101,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     <th class="p-4">Estado</th>
                     <th class="p-4">Peticiones</th>
                     <th class="p-4">Experiencias y room service</th>
+                    <th class="p-4">Saldo pendiente</th>
                     <th class="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
