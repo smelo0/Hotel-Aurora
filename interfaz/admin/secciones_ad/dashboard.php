@@ -27,18 +27,18 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
         
         <div class="admin-card bg-white p-6 rounded-xl border-t-4 border-t-primary">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ocupación</p>
-            <h3 class="text-4xl font-black text-heading"><?php echo $resumenAdmin['ocupacion']; ?>%</h3>
-            <p class="mt-1 text-xs font-bold text-slate-400"><?php echo (int) $resumenAdmin['habitaciones_ocupadas']; ?> de <?php echo (int) $resumenAdmin['total_habitaciones']; ?> habitaciones ocupadas</p>
+            <h3 id="dash-ocupacion" class="text-4xl font-black text-heading"><?php echo $resumenAdmin['ocupacion']; ?>%</h3>
+            <p id="dash-ocupacion-detalle" class="mt-1 text-xs font-bold text-slate-400"><?php echo (int) $resumenAdmin['habitaciones_ocupadas']; ?> de <?php echo (int) $resumenAdmin['total_habitaciones']; ?> habitaciones ocupadas</p>
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Llegadas Hoy</p>
-            <h3 class="text-4xl font-black text-heading"><?php echo $resumenAdmin['check_ins_hoy']; ?></h3>
+            <h3 id="dash-llegadas" class="text-4xl font-black text-heading"><?php echo $resumenAdmin['check_ins_hoy']; ?></h3>
         </div>
         
         <div class="admin-card bg-white p-6 rounded-xl">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pagos de Reservas Hoy</p>
-            <h3 class="text-4xl font-black text-heading">$<?php echo number_format($resumenAdmin['ingresos_hoy'], 0, ',', '.'); ?></h3>
+            <h3 id="dash-ingresos" class="text-4xl font-black text-heading">$<?php echo number_format($resumenAdmin['ingresos_hoy'], 0, ',', '.'); ?></h3>
         </div>
         
         <div onclick="mostrarVista('sec-tareas')" class="admin-card bg-white p-6 rounded-xl cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all">
@@ -49,7 +49,7 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
 
     <div class="rounded-xl border border-primary/10 bg-white p-8">
         <h3 class="text-xl font-black text-primary uppercase tracking-tighter">Actividad reciente del sistema</h3>
-        <div class="mt-5 space-y-3">
+        <div id="dash-eventos" class="mt-5 space-y-3">
             <?php if ($eventosRecientesAdmin === []): ?>
                 <p class="text-sm text-slate-500">Todavía no hay eventos recientes registrados.</p>
             <?php else: ?>
@@ -165,5 +165,98 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
 
         actualizarContadorTareas();
         setInterval(actualizarContadorTareas, 5000); 
+
+        // ---- Refresco automático del dashboard (ocupación, llegadas, pagos y actividad reciente) ----
+        const DASHBOARD_INTERVALO_MS = 4000;
+        let dashboardConsultando = false;
+        let dashboardUltimaFirma = '';
+        let dashboardUltimosEventos = '';
+
+        function dashboardEscribir(id, texto) {
+            const elemento = document.getElementById(id);
+            if (elemento && elemento.textContent !== texto) elemento.textContent = texto;
+        }
+
+        function dashboardPintarEventos(eventos) {
+            const contenedor = document.getElementById('dash-eventos');
+            if (!contenedor) return;
+            contenedor.replaceChildren();
+
+            if (!eventos.length) {
+                const vacio = document.createElement('p');
+                vacio.className = 'text-sm text-slate-500';
+                vacio.textContent = 'Todavía no hay eventos recientes registrados.';
+                contenedor.appendChild(vacio);
+                return;
+            }
+
+            eventos.forEach(evento => {
+                const fila = document.createElement('div');
+                fila.className = 'flex flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-3';
+
+                const nivel = document.createElement('span');
+                nivel.className = 'rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary';
+                nivel.textContent = evento.level;
+
+                const hora = document.createElement('time');
+                hora.className = 'text-xs text-slate-400';
+                hora.textContent = evento.timestamp;
+
+                const mensaje = document.createElement('p');
+                mensaje.className = 'min-w-[220px] flex-1 text-sm text-slate-700';
+                mensaje.textContent = evento.message;
+
+                fila.append(nivel, hora, mensaje);
+                contenedor.appendChild(fila);
+            });
+        }
+
+        async function refrescarDashboard() {
+            if (dashboardConsultando || document.hidden) return;
+            dashboardConsultando = true;
+            try {
+                const respuesta = await fetch('index_ad.php?dashboard_datos=1', {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!respuesta.ok) return; // 423/440 (sesión bloqueada o vencida) los maneja inactividad.js
+                const texto = await respuesta.text();
+                const datos = JSON.parse(texto.replace(/^\uFEFF/, ''));
+                if (datos.status !== 'exito') return;
+
+                const firma = JSON.stringify(datos);
+                if (firma === dashboardUltimaFirma) return; // nada cambió: no se toca el DOM
+                dashboardUltimaFirma = firma;
+                const firmaEventos = JSON.stringify(datos.eventos);
+                const eventosCambiaron = firmaEventos !== dashboardUltimosEventos;
+                dashboardUltimosEventos = firmaEventos;
+
+                const resumen = datos.resumen;
+                dashboardEscribir('dash-ocupacion', `${resumen.ocupacion}%`);
+                dashboardEscribir('dash-ocupacion-detalle', `${resumen.habitaciones_ocupadas} de ${resumen.total_habitaciones} habitaciones ocupadas`);
+                dashboardEscribir('dash-llegadas', String(resumen.check_ins_hoy));
+                dashboardEscribir('dash-ingresos', `$${resumen.ingresos_hoy}`);
+                if (eventosCambiaron) dashboardPintarEventos(datos.eventos);
+            } catch (error) {
+                console.error('Error al actualizar el dashboard:', error);
+            } finally {
+                dashboardConsultando = false;
+            }
+        }
+
+        setInterval(refrescarDashboard, DASHBOARD_INTERVALO_MS);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescarDashboard(); });
+        // Cambios hechos desde otra pestaña (o desde la sección de reservas de esta): se refleja al instante.
+        window.addEventListener('storage', evento => {
+            if (['reservas_actualizadas', 'habitaciones_actualizadas', 'tareas_actualizadas'].includes(evento.key)) {
+                refrescarDashboard();
+            }
+        });
+        if (typeof BroadcastChannel !== 'undefined') {
+            new BroadcastChannel('software_hotel_reservas').addEventListener('message', evento => {
+                if (evento.data && evento.data.tipo === 'reserva_actualizada') refrescarDashboard();
+            });
+        }
+        refrescarDashboard();
     </script>
 </section>

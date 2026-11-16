@@ -341,7 +341,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
 
                         echo '<tr class="hover:bg-slate-50 transition-colors" data-reserva-id="' . $id_reserva . '">';
-                        echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800">' . $nombreUsuario . '</td>';
+                        echo '<td class="py-5 px-4 align-middle font-semibold text-slate-800"><span class="mb-1 block w-fit rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary" title="Número de reserva">Reserva #' . $id_reserva . '</span>' . $nombreUsuario . '</td>';
                         echo '<td class="py-5 px-4 align-middle text-slate-600 font-bold">'
                             . '<div class="flex items-start gap-2"><span class="material-symbols-outlined text-[17px] text-primary">hotel</span>'
                             . '<div class="flex flex-col gap-2">' . $habitacionesHtml . '</div></div>'

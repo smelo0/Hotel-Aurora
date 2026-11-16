@@ -156,12 +156,6 @@ function cuenta_construir(mysqli $db, int $codRes, bool $puedeExperiencias, bool
          FROM reservas r
          INNER JOIN agenda_actividad a
             ON a.cod_res_agenda = r.cod_res
-            OR (
-                a.id_usu_agenda = r.id_usu_res
-                AND a.fecha_agenda IS NOT NULL
-                AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
-                AND LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado')
-            )
          WHERE r.cod_res = ?
          ORDER BY a.fecha_agenda, a.hora_agenda, a.id_agenda",
         'i',
@@ -338,7 +332,7 @@ function cuenta_cobrar_experiencia(mysqli $db, int $codRes, int $idAgenda, strin
 {
     $db->begin_transaction();
     try {
-        // Validamos que la experiencia pertenezca al huésped y caiga dentro de las fechas de su estancia (o esté vinculada)
+        // Validamos que la experiencia esté vinculada a ESTA reserva (no se cruza con otras reservas del mismo huésped)
         $filas = cuenta_filas(
             $db,
             'SELECT a.id_agenda, a.cod_res_agenda, a.actividad, a.selecciones_personas_json, a.precios_personas_json,
@@ -348,11 +342,6 @@ function cuenta_cobrar_experiencia(mysqli $db, int $codRes, int $idAgenda, strin
              WHERE a.id_agenda = ?
                AND (
                    a.cod_res_agenda = r.cod_res
-                   OR (
-                       a.id_usu_agenda = r.id_usu_res
-                       AND a.fecha_agenda IS NOT NULL
-                       AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
-                   )
                )
              FOR UPDATE',
             'ii',

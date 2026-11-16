@@ -12,6 +12,13 @@ header('Content-Type: application/json; charset=utf-8');
 // Obtenemos el ID del usuario actual de la sesión para auditoría
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 
+// Cuentas que se agrupan bajo cada perfil de la tabla (el login trata 2, 4 y 5 como Empleado).
+const GRUPOS_CUENTAS_ROL = [
+    1 => [1],
+    3 => [2, 3, 4, 5],
+    6 => [6],
+];
+
 function responder_roles($status, $mensaje, $datos = []) {
     http_response_code($status);
     echo json_encode(array_merge(['status' => $status < 300 ? 'exito' : 'error', 'mensaje' => $mensaje], $datos), JSON_UNESCAPED_UNICODE);
@@ -45,6 +52,28 @@ if ($metodo === 'GET' && $accion === 'listar') {
         $roles[$rol['cod_rol']] = $rol;
     }
 
+    $conteos_cuentas = [];
+    $resultado_cuentas = $conexion->query(
+        'SELECT cod_rol_usu, COUNT(*) AS total, SUM(est_usu = 1) AS activas FROM usuario GROUP BY cod_rol_usu'
+    );
+    while ($fila_cuentas = $resultado_cuentas->fetch_assoc()) {
+        $conteos_cuentas[(int) $fila_cuentas['cod_rol_usu']] = [
+            'total' => (int) $fila_cuentas['total'],
+            'activas' => (int) $fila_cuentas['activas'],
+        ];
+    }
+    foreach (GRUPOS_CUENTAS_ROL as $grupo => $codigos_rol) {
+        if (!isset($roles[$grupo])) {
+            continue;
+        }
+        $roles[$grupo]['total_cuentas'] = 0;
+        $roles[$grupo]['cuentas_activas'] = 0;
+        foreach ($codigos_rol as $codigo_rol_usuario) {
+            $roles[$grupo]['total_cuentas'] += $conteos_cuentas[$codigo_rol_usuario]['total'] ?? 0;
+            $roles[$grupo]['cuentas_activas'] += $conteos_cuentas[$codigo_rol_usuario]['activas'] ?? 0;
+        }
+    }
+
     $permisos = [];
     $resultado_permisos = $conexion->query("SELECT cod_permiso, modulo, accion, des_permiso FROM permiso ORDER BY modulo, accion");
     while ($permiso = $resultado_permisos->fetch_assoc()) {
@@ -63,6 +92,63 @@ if ($metodo === 'GET' && $accion === 'listar') {
     }
 
     responder_roles(200, 'Roles cargados', ['roles' => array_values($roles), 'permisos' => $permisos, 'puede_gestionar' => usuario_tiene_permiso($conexion, 'roles.gestionar'), 'puede_asignar' => usuario_tiene_permiso($conexion, 'roles.asignar_permisos')]);
+}
+
+if ($metodo === 'GET' && $accion === 'cuentas') {
+    $grupo = filter_var($_GET['cod_rol'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!$grupo || !isset(GRUPOS_CUENTAS_ROL[$grupo])) {
+        responder_roles(422, 'El rol indicado no es válido');
+    }
+
+    $codigos_rol = GRUPOS_CUENTAS_ROL[$grupo];
+    $marcadores = implode(',', array_fill(0, count($codigos_rol), '?'));
+    $stmt = $conexion->prepare(
+        "SELECT u.id_usu, u.nom_usu, u.corr_usu, u.est_usu, u.cod_rol_usu, r.des_rol
+         FROM usuario u
+         LEFT JOIN rol r ON r.cod_rol = u.cod_rol_usu
+         WHERE u.cod_rol_usu IN ($marcadores)
+         ORDER BY (u.est_usu = 1) DESC, u.nom_usu ASC"
+    );
+    if (!$stmt) {
+        Logger::registrarLog('ERROR', 'No se pudo preparar la consulta de cuentas de un rol', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $grupo,
+            'error_db' => $conexion->error,
+        ]);
+        responder_roles(500, 'No se pudieron cargar las cuentas');
+    }
+    $stmt->bind_param(str_repeat('i', count($codigos_rol)), ...$codigos_rol);
+    if (!$stmt->execute()) {
+        Logger::registrarLog('ERROR', 'No se pudieron consultar las cuentas de un rol', [
+            'id_usuario' => $idUsuarioLog,
+            'cod_rol' => $grupo,
+            'error_db' => $stmt->error,
+        ]);
+        $stmt->close();
+        responder_roles(500, 'No se pudieron cargar las cuentas');
+    }
+    $resultado = $stmt->get_result();
+
+    $cuentas = [];
+    while ($fila = $resultado->fetch_assoc()) {
+        $idCuenta = (int) $fila['id_usu'];
+        $esActual = $idCuenta === (int) $idUsuarioLog;
+        $cuentas[] = [
+            'id_usu' => $idCuenta,
+            'nombre' => (string) $fila['nom_usu'],
+            'correo' => (string) ($fila['corr_usu'] ?? ''),
+            'rol' => (string) ($fila['des_rol'] ?? ''),
+            'activa' => (int) $fila['est_usu'] === 1,
+            'es_actual' => $esActual,
+            'editable' => $grupo !== 1 && !$esActual,
+        ];
+    }
+    $stmt->close();
+
+    responder_roles(200, 'Cuentas cargadas', [
+        'cuentas' => $cuentas,
+        'puede_gestionar' => usuario_tiene_permiso($conexion, 'roles.gestionar'),
+    ]);
 }
 
 if ($metodo !== 'POST') {
@@ -213,6 +299,69 @@ if ($accion === 'guardar') {
 
         responder_roles(500, 'No se pudo guardar el rol');
     }
+}
+
+if ($accion === 'cambiar_estado_cuenta') {
+    $idCuenta = filter_var($_POST['id_usu'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $estadoEntrada = $_POST['est_usu'] ?? null;
+    if (!$idCuenta || !is_string($estadoEntrada) || !in_array($estadoEntrada, ['0', '1'], true)) {
+        responder_roles(422, 'Los datos de la cuenta no son válidos');
+    }
+    $nuevoEstado = (int) $estadoEntrada;
+
+    if ($idCuenta === (int) $idUsuarioLog) {
+        Logger::registrarLog('WARN', 'Intento de cambiar el estado de la propia cuenta', [
+            'id_usuario' => $idUsuarioLog,
+        ]);
+        responder_roles(403, 'No puedes cambiar el estado de tu propia cuenta');
+    }
+
+    $stmt = $conexion->prepare('SELECT cod_rol_usu FROM usuario WHERE id_usu = ? LIMIT 1');
+    if (!$stmt) {
+        responder_roles(500, 'No se pudo actualizar la cuenta');
+    }
+    $stmt->bind_param('i', $idCuenta);
+    $stmt->execute();
+    $stmt->bind_result($rolCuenta);
+    $existe = $stmt->fetch();
+    $stmt->close();
+
+    if (!$existe) {
+        responder_roles(404, 'La cuenta no existe');
+    }
+    if (!in_array((int) $rolCuenta, [2, 3, 4, 5, 6], true)) {
+        Logger::registrarLog('WARN', 'Intento bloqueado de cambiar el estado de una cuenta protegida', [
+            'id_usuario' => $idUsuarioLog,
+            'id_cuenta' => $idCuenta,
+        ]);
+        responder_roles(403, 'Las cuentas del Gerente General están protegidas');
+    }
+
+    $stmt = $conexion->prepare('UPDATE usuario SET est_usu = ? WHERE id_usu = ? AND cod_rol_usu IN (2, 3, 4, 5, 6)');
+    if (!$stmt) {
+        responder_roles(500, 'No se pudo actualizar la cuenta');
+    }
+    $stmt->bind_param('ii', $nuevoEstado, $idCuenta);
+    if (!$stmt->execute()) {
+        Logger::registrarLog('ERROR', 'No se pudo cambiar el estado de una cuenta', [
+            'id_usuario' => $idUsuarioLog,
+            'id_cuenta' => $idCuenta,
+            'error_db' => $stmt->error,
+        ]);
+        $stmt->close();
+        responder_roles(500, 'No se pudo actualizar la cuenta');
+    }
+    $stmt->close();
+
+    Logger::registrarLog('INFO', $nuevoEstado === 1 ? 'Cuenta habilitada' : 'Cuenta deshabilitada', [
+        'id_usuario' => $idUsuarioLog,
+        'id_cuenta' => $idCuenta,
+        'cod_rol_cuenta' => (int) $rolCuenta,
+    ]);
+    responder_roles(200, $nuevoEstado === 1 ? 'Cuenta habilitada correctamente' : 'Cuenta deshabilitada correctamente', [
+        'id_usu' => $idCuenta,
+        'activa' => $nuevoEstado === 1,
+    ]);
 }
 
 if ($accion === 'eliminar') {

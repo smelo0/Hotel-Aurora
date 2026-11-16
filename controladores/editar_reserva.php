@@ -99,11 +99,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                  WHERE a.estado_pago_experiencia = 'Pagada'
                    AND (
                        a.cod_res_agenda = r.cod_res
-                       OR (
-                           a.cod_res_agenda IS NULL
-                           AND a.id_usu_agenda = r.id_usu_res
-                           AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
-                       )
                    )
                  LIMIT 1"
             );

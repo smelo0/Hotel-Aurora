@@ -26,6 +26,45 @@ require_once '../../src/RoomService/RoomServiceSchemaMigrator.php';
 /** @var mysqli $conexion */
 // Room Service: crea tablas y permisos la primera vez (no hace nada si ya existen).
 \App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
+// Datos del dashboard en JSON: los consulta el panel cada pocos segundos para refrescarse solo (sin recargar la página).
+// Va ANTES de head.php para que la respuesta sea JSON puro, sin el HTML del documento.
+if (($_GET['dashboard_datos'] ?? '') === '1') {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (!usuario_tiene_permiso($conexion, 'dashboard.ver')) {
+        http_response_code(403);
+        echo json_encode(['status' => 'error', 'mensaje' => 'No tienes permisos para ver el dashboard'], JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+
+    try {
+        $repositorioDashboard = new \App\Admin\AdminDashboardRepository($conexion);
+        $resumenDashboard = $repositorioDashboard->obtenerResumen();
+        echo json_encode([
+            'status' => 'exito',
+            'resumen' => [
+                'ocupacion' => (int) $resumenDashboard['ocupacion'],
+                'habitaciones_ocupadas' => (int) $resumenDashboard['habitaciones_ocupadas'],
+                'total_habitaciones' => (int) $resumenDashboard['total_habitaciones'],
+                'check_ins_hoy' => (int) $resumenDashboard['check_ins_hoy'],
+                'ingresos_hoy' => number_format((float) $resumenDashboard['ingresos_hoy'], 0, ',', '.'),
+            ],
+            'eventos' => $repositorioDashboard->obtenerEventosRecientes(),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (\Throwable $e) {
+        \App\Logger::registrarLog('ERROR', 'No se pudo refrescar el dashboard del administrador', [
+            'id_usuario' => (int) $_SESSION['emp_auth']['id_usuario'],
+            'error' => $e->getMessage(),
+        ]);
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'mensaje' => 'No se pudo actualizar el dashboard'], JSON_UNESCAPED_UNICODE);
+    }
+    exit();
+}
+
 require_once 'componentes_ad/head.php';
 
 $permisos_usuario = [];

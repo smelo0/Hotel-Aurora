@@ -86,11 +86,6 @@ final class AdminReservationRepository
                             WHERE a.estado_pago_experiencia = 'Pagada'
                               AND (
                                   a.cod_res_agenda = r.cod_res
-                                  OR (
-                                      a.cod_res_agenda IS NULL
-                                      AND a.id_usu_agenda = r.id_usu_res
-                                      AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
-                                  )
                               )
                         )
                     ) AS tiene_cobro
@@ -108,22 +103,14 @@ final class AdminReservationRepository
         $experienciasPorReserva = [];
         $codigosReservas = array_filter(array_map(static fn($reserva): int => is_array($reserva) ? (int) ($reserva['cod_res'] ?? 0) : 0, $reservas));
         
-        // Una experiencia aparece en una reserva si está vinculada a ella (cod_res_agenda) o si es del
-        // mismo huésped y su fecha cae dentro de la estancia, incluido el día de salida. Antes solo se
-        // miraba el vínculo, y una experiencia vinculada a otra reserva del huésped (p. ej. la que empieza
-        // el día de salida de la anterior) no se veía en la fila que el administrador estaba revisando.
+        // Una experiencia pertenece SOLO a la reserva a la que está vinculada (cod_res_agenda).
+        // Ya no se cruza por huésped y fechas: así las experiencias de una reserva no aparecen en las demás reservas del mismo huésped.
         $experiencias = $codigosReservas === [] ? [] : $this->obtenerFilas(
             "SELECT r.cod_res AS cod_res_fila, a.id_agenda, a.cod_res_agenda, a.actividad, a.fecha_agenda, a.hora_agenda,
                     a.estado_agenda, a.estado_pago_experiencia, a.monto_experiencia
              FROM reservas r
              INNER JOIN agenda_actividad a
                 ON a.cod_res_agenda = r.cod_res
-                OR (
-                    a.id_usu_agenda = r.id_usu_res
-                    AND a.fecha_agenda IS NOT NULL
-                    AND a.fecha_agenda BETWEEN DATE(r.fec_ent_res) AND DATE(r.fec_sal_res)
-                    AND LOWER(TRIM(r.est_res)) NOT IN ('cancelada', 'cancelado')
-                )
              WHERE r.cod_res IN (" . implode(',', array_fill(0, count($codigosReservas), '?')) . ")
              ORDER BY a.fecha_agenda, a.hora_agenda, a.id_agenda",
             str_repeat('i', count($codigosReservas)),
