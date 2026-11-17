@@ -113,7 +113,6 @@ try {
             'catalogo' => $repo->catalogoPublico(),
             'habitaciones' => $repo->habitacionesEnEstancia($idCliente),
             'pedidos' => $repo->pedidosCliente($idCliente),
-            'eta_minutos' => RoomServiceRepository::ETA_MINUTOS,
             'ventana_cancelacion_minutos' => RoomServiceRepository::VENTANA_CANCELACION_MINUTOS,
         ]);
     }
@@ -134,15 +133,17 @@ try {
         }
 
         $lineas = [];
+        $totalArticulos = 0;
         foreach ($items as $linea) {
             $id = is_array($linea) ? filter_var($linea['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
-            $cantidad = is_array($linea) ? filter_var($linea['cantidad'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 3]]) : false;
+            $cantidad = is_array($linea) ? filter_var($linea['cantidad'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => RoomServiceRepository::MAX_ARTICULOS_PEDIDO]]) : false;
             if (!$id || !$cantidad) {
-                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 3 por artículo).');
+                rs_responder(422, 'Revisa las cantidades: puedes solicitar hasta 3 artículos en total.');
             }
             $lineas[$id] = ($lineas[$id] ?? 0) + $cantidad;
-            if ($lineas[$id] > 3) {
-                rs_responder(422, 'Revisa las cantidades de tu pedido (de 1 a 3 por artículo).');
+            $totalArticulos += $cantidad;
+            if ($lineas[$id] > RoomServiceRepository::MAX_ARTICULOS_PEDIDO || $totalArticulos > RoomServiceRepository::MAX_ARTICULOS_PEDIDO) {
+                rs_responder(422, 'Revisa las cantidades: puedes solicitar hasta 3 artículos en total.');
             }
         }
 
@@ -167,9 +168,7 @@ try {
             'total' => $pedido['total'],
         ]);
         rs_responder(200, sprintf(
-            'Tu pedido llegará a la habitación %d en aproximadamente %d minutos. Puedes cancelarlo durante los próximos %d minutos.',
-            $pedido['num_hab'],
-            $pedido['minutos_estimados'],
+            'Tu pedido fue recibido. Puedes cancelarlo durante los próximos %d minutos.',
             $pedido['ventana_cancelacion']
         ), ['pedido' => $pedido]);
     }

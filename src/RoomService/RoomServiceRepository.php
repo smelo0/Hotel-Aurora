@@ -13,12 +13,12 @@ require_once __DIR__ . '/../Billing/BillingRegistrar.php';
  * Toda la lógica de datos del room service: catálogo, pedidos del huésped,
  * cola del administrador y cobro/facturación.
  *
- * Las reglas de tiempo (tiempo de llegada y ventana de cancelación) se calculan
- * con el reloj de MySQL, igual que ya se hace con las experiencias.
+ * La ventana de cancelación se calcula con el reloj de MySQL, igual que ya se
+ * hace con las experiencias.
  */
 final class RoomServiceRepository
 {
-    /** Minutos que se le anuncian al cliente para recibir el pedido. */
+    /** Minutos estimados que se muestran en la cola del personal. */
     public const ETA_MINUTOS = 5;
     /** Minutos durante los que el cliente puede cancelar su pedido. */
     public const VENTANA_CANCELACION_MINUTOS = 3;
@@ -29,7 +29,7 @@ final class RoomServiceRepository
     public const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
 
     private const MAX_LINEAS = 20;
-    private const MAX_CANTIDAD = 20;
+    public const MAX_ARTICULOS_PEDIDO = 3;
     private const MAX_PEDIDOS_ACTIVOS = 5;
 
     public function __construct(private mysqli $db)
@@ -204,15 +204,20 @@ final class RoomServiceRepository
 
     /**
      * @param array<int,int> $lineas id_item => cantidad
-     * @return array{id_pedido:int,total:float,num_hab:int,minutos_estimados:int,ventana_cancelacion:int,estado_pago:string}
+     * @return array{id_pedido:int,total:float,num_hab:int,ventana_cancelacion:int,estado_pago:string}
      */
     public function crearPedido(int $userId, array $lineas, int $codHab, string $notas): array
     {
         if ($lineas === [] || count($lineas) > self::MAX_LINEAS) {
             throw new RuntimeException('carrito_invalido');
         }
+        $totalArticulos = 0;
         foreach ($lineas as $idItem => $cantidad) {
-            if ($idItem < 1 || $cantidad < 1 || $cantidad > self::MAX_CANTIDAD) {
+            if ($idItem < 1 || $cantidad < 1 || $cantidad > self::MAX_ARTICULOS_PEDIDO) {
+                throw new RuntimeException('carrito_invalido');
+            }
+            $totalArticulos += $cantidad;
+            if ($totalArticulos > self::MAX_ARTICULOS_PEDIDO) {
                 throw new RuntimeException('carrito_invalido');
             }
         }
@@ -294,7 +299,6 @@ final class RoomServiceRepository
                 'id_pedido' => $idPedido,
                 'total' => $total,
                 'num_hab' => $habitacion['num_hab'],
-                'minutos_estimados' => $eta,
                 'ventana_cancelacion' => self::VENTANA_CANCELACION_MINUTOS,
                 'estado_pago' => $estadoPago,
             ];
@@ -310,11 +314,10 @@ final class RoomServiceRepository
         $ventana = self::VENTANA_CANCELACION_MINUTOS;
         $filas = $this->filas(
             "SELECT p.id_pedido, p.cod_res_pedido, p.cod_hab_pedido, p.estado, p.total, p.notas, p.estado_pago,
-                    p.creado_en, p.minutos_estimados, h.num_hab, h.tipo_hab,
+                    p.creado_en, h.num_hab, h.tipo_hab,
                     (p.estado IN ('Pendiente', 'En preparación') AND p.estado_pago <> 'Pagado'
                      AND p.creado_en >= DATE_SUB(NOW(), INTERVAL {$ventana} MINUTE)) AS puede_cancelar,
-                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(p.creado_en, INTERVAL {$ventana} MINUTE))) AS segundos_cancelacion,
-                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(p.creado_en, INTERVAL p.minutos_estimados MINUTE))) AS segundos_llegada
+                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(p.creado_en, INTERVAL {$ventana} MINUTE))) AS segundos_cancelacion
              FROM room_service_pedidos p
              LEFT JOIN habitacion h ON h.cod_hab = p.cod_hab_pedido
              WHERE p.id_usu_pedido = ?
@@ -634,17 +637,16 @@ final class RoomServiceRepository
                 'total' => (float) $pedido['total'],
                 'notas' => (string) ($pedido['notas'] ?? ''),
                 'creado_en' => (string) $pedido['creado_en'],
-                'minutos_estimados' => (int) $pedido['minutos_estimados'],
                 'items' => $porPedido[$id] ?? [],
             ];
             if ($paraCliente) {
                 $salida['puede_cancelar'] = (int) $pedido['puede_cancelar'] === 1;
                 $salida['segundos_cancelacion'] = (int) $pedido['segundos_cancelacion'];
-                $salida['segundos_llegada'] = (int) $pedido['segundos_llegada'];
             } else {
                 $salida['id_usuario'] = (int) $pedido['id_usu_pedido'];
                 $salida['cliente'] = (string) ($pedido['nom_usu'] ?? 'Huésped');
                 $salida['correo'] = (string) ($pedido['corr_usu'] ?? '');
+                $salida['minutos_estimados'] = (int) $pedido['minutos_estimados'];
                 $salida['metodo_pago'] = $pedido['metodo_pago'];
                 $salida['fecha_pago'] = $pedido['fecha_pago'];
                 $salida['folio'] = $pedido['folio'];

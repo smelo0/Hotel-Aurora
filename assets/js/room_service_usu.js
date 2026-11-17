@@ -54,8 +54,6 @@
             estado.habitaciones = d.habitaciones;
             estado.pedidos = d.pedidos;
             estado.cargadoEn = Date.now();
-            $('rsEta').textContent = d.eta_minutos;
-            $('rsVentana').textContent = d.ventana_cancelacion_minutos;
             // Quita del carrito lo que el administrador ya ocultó o eliminó.
             Object.keys(estado.carrito).forEach(id => {
                 if (!estado.catalogo.some(i => String(i.id) === id)) delete estado.carrito[id];
@@ -88,6 +86,7 @@
     function pintarCatalogo() {
         const delTipo = estado.catalogo.filter(i => i.tipo === estado.tipo);
         const categorias = [...new Set(delTipo.map(i => i.categoria))];
+        const limiteAlcanzado = Object.values(estado.carrito).reduce((total, cantidad) => total + cantidad, 0) >= 3;
         if (estado.categoria && !categorias.includes(estado.categoria)) estado.categoria = '';
         $('rsCategorias').innerHTML = categorias.length > 1
             ? ['', ...categorias].map(c => `<button type="button" data-rs-cat="${esc(c)}" class="rounded-full px-3 py-1 text-xs font-bold ${c === estado.categoria ? 'bg-white text-emerald-950' : 'border border-white/20 text-white/80 hover:bg-white/10'}">${c === '' ? 'Todo' : esc(c)}</button>`).join('')
@@ -110,8 +109,8 @@
                     <div class="mt-3 flex items-center justify-between gap-3">
                         <span class="text-sm font-black text-white">${i.precio > 0 ? cop.format(i.precio) : 'Cortesía'}</span>
                         ${cantidad > 0
-                            ? `<div class="flex items-center gap-2"><button type="button" data-rs-menos="${i.id}" class="h-8 w-8 rounded-full bg-white/15 font-black text-white hover:bg-white/25" aria-label="Quitar uno">−</button><span class="w-5 text-center text-sm font-black text-white">${cantidad}</span><button type="button" data-rs-mas="${i.id}" class="h-8 w-8 rounded-full bg-emerald-400 font-black text-emerald-950 hover:bg-emerald-300" aria-label="Agregar uno">+</button></div>`
-                            : `<button type="button" data-rs-mas="${i.id}" class="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-300">Agregar</button>`}
+                            ? `<div class="flex items-center gap-2"><button type="button" data-rs-menos="${i.id}" class="h-8 w-8 rounded-full bg-white/15 font-black text-white hover:bg-white/25" aria-label="Quitar uno">−</button><span class="w-5 text-center text-sm font-black text-white">${cantidad}</span><button type="button" data-rs-mas="${i.id}" class="h-8 w-8 rounded-full bg-emerald-400 font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Agregar uno" ${limiteAlcanzado ? 'disabled' : ''}>+</button></div>`
+                            : `<button type="button" data-rs-mas="${i.id}" class="rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40" ${limiteAlcanzado ? 'disabled' : ''}>Agregar</button>`}
                     </div>
                 </div>
             </article>`;
@@ -177,7 +176,6 @@
                         <p class="mt-1 text-sm font-black text-white">${p.total > 0 ? cop.format(p.total) : 'Cortesía'}</p></div>
                 </div>
                 <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                    ${activo ? `<span class="text-white/70" data-rs-llegada="${p.segundos_llegada}"></span>` : ''}
                     ${p.puede_cancelar ? `<button type="button" data-rs-cancelar="${p.id_pedido}" data-rs-seg="${p.segundos_cancelacion}" class="rounded-lg border border-rose-300/50 px-3 py-2 font-bold text-rose-100 hover:bg-rose-500/20"></button>` : (activo ? '<span class="text-white/40">Ya no se puede cancelar</span>' : '')}
                 </div>
             </article>`;
@@ -187,10 +185,6 @@
 
     function actualizarReloj() {
         let vencido = false;
-        seccion.querySelectorAll('[data-rs-llegada]').forEach(el => {
-            const s = restante(Number(el.dataset.rsLlegada));
-            el.textContent = s > 0 ? `Llega en aprox. ${reloj(s)}` : 'Debería estar llegando a tu habitación';
-        });
         seccion.querySelectorAll('[data-rs-cancelar]').forEach(el => {
             const s = restante(Number(el.dataset.rsSeg));
             if (s <= 0) vencido = true;
@@ -202,9 +196,11 @@
 
     // ---- Acciones ----
     function cambiarCantidad(id, delta) {
+        const totalActual = Object.values(estado.carrito).reduce((total, cantidad) => total + cantidad, 0);
+        if (delta > 0 && totalActual >= 3) return;
         const nueva = (estado.carrito[id] || 0) + delta;
         if (nueva <= 0) delete estado.carrito[id];
-        else estado.carrito[id] = Math.min(20, nueva);
+        else estado.carrito[id] = nueva;
         pintarCatalogo();
         pintarCarrito();
     }
@@ -215,6 +211,22 @@
         estado.enviando = true;
         pintarCarrito();
         try {
+            if (window.Swal) {
+                const confirmacion = await window.Swal.fire({
+                    icon: 'question',
+                    title: '¿Estás seguro de solicitar este pedido?',
+                    text: 'Puedes cancelarlo durante los próximos 3 minutos',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, solicitar',
+                    cancelButtonText: 'Seguir revisando',
+                    confirmButtonColor: '#10b981',
+                    cancelButtonColor: '#64748b'
+                });
+                if (!confirmacion.isConfirmed) return;
+            } else if (!window.confirm('¿Estás seguro de solicitar este pedido?\n\nPuedes cancelarlo durante los próximos 3 minutos')) {
+                return;
+            }
+
             const f = new URLSearchParams({
                 accion: 'crear_pedido',
                 csrf_token: csrf(),
@@ -226,9 +238,6 @@
             estado.carrito = {};
             $('rsNotas').value = '';
             aviso(r.mensaje, 'ok');
-            if (window.Swal) {
-                Swal.fire({ icon: 'success', title: '¡Pedido recibido!', text: r.mensaje, confirmButtonColor: '#10b981' });
-            }
             await cargar();
         } catch (e) {
             aviso(e.message, 'error');
@@ -240,8 +249,26 @@
     }
 
     async function cancelarPedido(id, boton) {
+        if (boton.disabled) return;
         boton.disabled = true;
         try {
+            const confirmado = window.Swal
+                ? (await window.Swal.fire({
+                    icon: 'warning',
+                    title: '¿Estás seguro de cancelar el pedido?',
+                    text: 'El pedido seguirá activo si decides no cancelarlo.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, cancelar pedido',
+                    cancelButtonText: 'No, volver',
+                    confirmButtonColor: '#e11d48',
+                    cancelButtonColor: '#64748b'
+                })).isConfirmed
+                : window.confirm('¿Estás seguro de cancelar el pedido?');
+            if (!confirmado) {
+                boton.disabled = false;
+                return;
+            }
+
             const r = await llamar({ cuerpo: new URLSearchParams({ accion: 'cancelar_pedido', id_pedido: id, csrf_token: csrf() }) });
             aviso(r.mensaje, 'ok');
         } catch (e) {

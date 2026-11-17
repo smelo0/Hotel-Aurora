@@ -812,7 +812,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">Room service</p>
                 <h2 class="mt-2 text-3xl font-black text-white">Pide a tu habitación</h2>
-                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Tu pedido llega en aproximadamente <span id="rsEta">5</span> minutos y puedes cancelarlo durante los primeros <span id="rsVentana">3</span>.</p>
+                <p class="mt-2 max-w-2xl text-sm text-white/70">Comidas y objetos para tu estancia, directo a tu puerta. Puedes cancelar tu pedido dentro de los próximos 3 minutos.</p>
             </div>
         </div>
 
@@ -863,7 +863,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
 <button id="rsIrCarrito" type="button" class="fixed bottom-6 right-6 z-[70] hidden items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-emerald-950 shadow-2xl lg:!hidden">
     <span class="material-symbols-outlined">shopping_cart</span> <span id="rsIrCarritoTexto">Ver pedido</span>
 </button>
-<script src="assets/js/room_service_usu.js?v=1" defer></script>
+<script src="assets/js/room_service_usu.js?v=4" defer></script>
 <section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
     <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         
