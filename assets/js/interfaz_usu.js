@@ -1311,6 +1311,7 @@ function inicializarCancelacionHistorial() {
     }
 
     let experienciaActual = null;
+    let fechaHorarioActual = '';
 
     function cargarExperienciaDesdeBoton(boton) {
         try {
@@ -1595,26 +1596,30 @@ function inicializarCancelacionHistorial() {
 
     function horasDeRangosCompartidos(fecha, rangos, ahora) {
         const horas = new Set();
-        rangos.forEach(rango => {
-            const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
-            const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
-            const inicio = horaInicio * 60 + minutoInicio;
-            const fin = horaFin * 60 + minutoFin;
-            const [horaBase, minutoBase] = rango.bases[0].inicio.split(':').map(Number);
-            const inicioBase = horaBase * 60 + minutoBase;
-            let primerMinuto = inicioBase;
-            while (primerMinuto < inicio) primerMinuto += 30;
-            for (let minuto = primerMinuto; minuto < fin; minuto += 30) {
-                if (fecha === ahora.fecha && minuto <= ahora.minutos) continue;
-                if (rango.bases.every(base => {
-                    const [baseHora, baseMinuto] = base.inicio.split(':').map(Number);
-                    return (minuto - (baseHora * 60 + baseMinuto)) % 30 === 0;
-                })) {
-                    horas.add(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`);
-                }
-            }
-        });
+        rangos.forEach(rango => horasDeRangoCompartido(fecha, rango, ahora).forEach(hora => horas.add(hora)));
         return [...horas].sort();
+    }
+
+    function horasDeRangoCompartido(fecha, rango, ahora) {
+        const [horaInicio, minutoInicio] = rango.inicio.split(':').map(Number);
+        const [horaFin, minutoFin] = rango.fin.split(':').map(Number);
+        const inicio = horaInicio * 60 + minutoInicio;
+        const fin = horaFin * 60 + minutoFin;
+        const [horaBase, minutoBase] = rango.bases[0].inicio.split(':').map(Number);
+        const inicioBase = horaBase * 60 + minutoBase;
+        let primerMinuto = inicioBase;
+        while (primerMinuto < inicio) primerMinuto += 30;
+        const horas = [];
+        for (let minuto = primerMinuto; minuto < fin; minuto += 30) {
+            if (fecha === ahora.fecha && minuto <= ahora.minutos) continue;
+            if (rango.bases.every(base => {
+                const [baseHora, baseMinuto] = base.inicio.split(':').map(Number);
+                return (minuto - (baseHora * 60 + baseMinuto)) % 30 === 0;
+            })) {
+                horas.push(`${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`);
+            }
+        }
+        return horas;
     }
 
     function fechasDentroEstancia(fechas, reservas) {
@@ -1803,14 +1808,22 @@ function inicializarCancelacionHistorial() {
     }
 
     const selectFecha = $('fechaActividad');
+    const selectHora = $('horaActividad');
     if (selectFecha) selectFecha.addEventListener('change', () => pintarHoras(selectFecha.value));
+    if (selectHora) selectHora.addEventListener('change', () => {
+        actualizarCupoExperiencia(selectFecha?.value || '', selectHora.value);
+    });
 
     function pintarHoras(fecha) {
         const contenedor = $('listaHorasActividad');
-        const inputHora = $('horaActividad');
-        if (!contenedor) return;
-        if (inputHora) inputHora.value = '';
+        if (!contenedor || !selectHora) return;
+        const horaAnterior = fechaHorarioActual === fecha ? selectHora.value : '';
+        fechaHorarioActual = fecha;
+        selectHora.replaceChildren(new Option('Selecciona una hora', ''));
+        selectHora.disabled = true;
         if (!fecha || !experienciaActual) {
+            fechaHorarioActual = '';
+            selectHora.replaceChildren(new Option('Primero elige una experiencia y un día', ''));
             contenedor.textContent = 'Primero elige una experiencia y un día.';
             return;
         }
@@ -1818,6 +1831,7 @@ function inicializarCancelacionHistorial() {
         const rangos = horarioCompartido(fecha);
         if (!rangos) {
             contenedor.textContent = 'No hay un horario común disponible para las opciones seleccionadas.';
+            actualizarCupoExperiencia('', '');
             return;
         }
         const ahoraBogota = fechaActualBogota();
@@ -1828,17 +1842,55 @@ function inicializarCancelacionHistorial() {
             return;
         }
         const reserva = reservaSeleccionada();
-        const horaProgramada = horasDisponibles.find(hora =>
-            reserva && personasYaAgendadasEnHorario(reserva, fecha, hora) < Number(reserva.limite_personas)
-        );
-        if (!horaProgramada) {
+        const franjasPorRango = new Map();
+        rangos.forEach(rango => {
+            const clave = `${rango.inicio}|${rango.fin}`;
+            if (!franjasPorRango.has(clave)) {
+                franjasPorRango.set(clave, { rango, horas: new Set() });
+            }
+            horasDeRangoCompartido(fecha, rango, ahoraBogota)
+                .forEach(hora => franjasPorRango.get(clave).horas.add(hora));
+        });
+        const franjasUnicas = [...franjasPorRango.values()].map(franja => ({
+            ...franja,
+            horas: [...franja.horas].sort()
+        }));
+        let hayHorasConCupo = false;
+        franjasUnicas.forEach(franja => {
+            const horaDisponible = franja.horas.find(hora =>
+                reserva && personasYaAgendadasEnHorario(reserva, fecha, hora) < Number(reserva.limite_personas)
+            );
+            const personasAgendadas = horaDisponible && reserva
+                ? personasYaAgendadasEnHorario(reserva, fecha, horaDisponible)
+                : 0;
+            const cuposDisponibles = horaDisponible && reserva
+                ? Math.max(0, Number(reserva.limite_personas) - personasAgendadas)
+                : 0;
+            const opcion = new Option(
+                cuposDisponibles > 0
+                    ? `${franja.rango.inicio} - ${franja.rango.fin} · ${cuposDisponibles} ${cuposDisponibles === 1 ? 'cupo' : 'cupos'}`
+                    : `${franja.rango.inicio} - ${franja.rango.fin} · Sin cupos`,
+                horaDisponible || ''
+            );
+            opcion.disabled = cuposDisponibles === 0;
+            selectHora.add(opcion);
+            if (cuposDisponibles > 0) hayHorasConCupo = true;
+        });
+        if (!hayHorasConCupo) {
             contenedor.textContent = 'Ya se asignaron todas las personas de esta reserva a experiencias en los horarios publicados para este día.';
             actualizarCupoExperiencia(fecha, '', true);
             return;
         }
-        if (inputHora) inputHora.value = horaProgramada;
-        actualizarCupoExperiencia(fecha, horaProgramada);
-        contenedor.textContent = `Horarios publicados: ${rangos.map(rango => `${rango.inicio}–${rango.fin}`).join(', ')}. La experiencia quedará programada a las ${horaProgramada}.`;
+        selectHora.disabled = false;
+        if ([...selectHora.options].some(opcion => opcion.value === horaAnterior && !opcion.disabled)) {
+            selectHora.value = horaAnterior;
+        }
+        contenedor.textContent = `Horarios publicados: ${franjasUnicas.map(franja => `${franja.rango.inicio} - ${franja.rango.fin}`).join(', ')}. La experiencia se programará en la primera hora disponible de la franja seleccionada.`;
+        if (selectHora.value) {
+            actualizarCupoExperiencia(fecha, selectHora.value);
+        } else {
+            actualizarCupoExperiencia('', '');
+        }
     }
 
     form.addEventListener('submit', async event => {
@@ -1851,7 +1903,9 @@ function inicializarCancelacionHistorial() {
         const reservationId = $('reservaExperienciaActividad')?.value || '';
         const participantesRaw = $('participantesActividad')?.value || '';
         const fecha = $('fechaActividad')?.value || '';
-        const hora = $('horaActividad')?.value || '';
+        const selectHoraExperiencia = $('horaActividad');
+        const hora = selectHoraExperiencia?.value || '';
+        const franjaSeleccionada = selectHoraExperiencia?.selectedOptions[0]?.textContent.split(' · ')[0] || '';
 
         if (!experienciaActual) return mostrarError(feedback, 'Selecciona una experiencia disponible.');
         if (!reservaSeleccionada()) return mostrarError(feedback, 'Selecciona la reserva de las personas que asistirán.');
@@ -1884,8 +1938,8 @@ function inicializarCancelacionHistorial() {
                 && experiencia.status.trim().toLocaleLowerCase('es-CO') !== 'cancelada'
             );
             const textoConfirmacion = experienciasMismoDia.length > 0
-                ? `Ya tienes ${experienciasMismoDia.length === 1 ? 'una experiencia programada' : `${experienciasMismoDia.length} experiencias programadas`} para el ${fechaLegible(fecha)}${experienciasMismoDia.length === 1 ? '' : `: ${experienciasMismoDia.map(experiencia => experiencia.name).join(', ')}`}. ¿Seguro que quieres programar "${experienciaActual.nombre}" para este día?`
-                : `La reserva #${reservationId} cubre el ${fechaLegible(fecha)}. ¿Confirmas programar "${experienciaActual.nombre}" ese día a las ${hora}?`;
+                ? `Ya tienes ${experienciasMismoDia.length === 1 ? 'una experiencia programada' : `${experienciasMismoDia.length} experiencias programadas`} para el ${fechaLegible(fecha)}${experienciasMismoDia.length === 1 ? '' : `: ${experienciasMismoDia.map(experiencia => experiencia.name).join(', ')}`}. La nueva experiencia se programará en la franja ${franjaSeleccionada}, a la primera hora disponible. ¿Deseas continuar?`
+                : `La reserva #${reservationId} cubre el ${fechaLegible(fecha)}. ¿Confirmas programar "${experienciaActual.nombre}" en la franja ${franjaSeleccionada}? Se asignará la primera hora disponible dentro de esa franja.`;
             const confirmacion = await Swal.fire({
                 icon: 'question',
                 title: experienciasMismoDia.length > 0 ? 'Ya tienes experiencias para este día' : 'Confirma tu experiencia',

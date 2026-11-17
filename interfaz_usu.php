@@ -786,10 +786,12 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     </div>
 
                                     <div>
-                                        <p id="etiquetaHoraActividad" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70">Horario publicado</p>
-                                        <input id="horaActividad" name="hora" type="hidden">
-                                        <div id="listaHorasActividad" class="experience-time-list mt-2 rounded-2xl border border-white/20 bg-white/90 p-3 text-sm text-slate-700" role="status" aria-labelledby="etiquetaHoraActividad">
-                                            <p>Primero elige una experiencia y un día.</p>
+                                        <label id="etiquetaHoraActividad" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-white/70" for="horaActividad">Horario disponible</label>
+                                        <select id="horaActividad" name="hora" required disabled class="w-full rounded-2xl border-white/20 bg-white/90 text-slate-900 disabled:opacity-60">
+                                            <option value="">Primero elige una experiencia y un día</option>
+                                        </select>
+                                        <div id="listaHorasActividad" class="mt-2 rounded-2xl border border-white/20 bg-white/90 p-3 text-sm text-slate-700" role="status" aria-labelledby="etiquetaHoraActividad">
+                                            Elige la hora específica a la que deseas asistir.
                                         </div>
                                     </div>
                                     <p id="experienceAvailabilitySummary" class="md:col-span-2 rounded-xl border border-emerald-300/20 bg-emerald-950/30 px-4 py-3 text-sm leading-6 text-emerald-100" aria-live="polite"></p>
