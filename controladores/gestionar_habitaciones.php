@@ -4,7 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/sesion_seguridad.php';
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
-require_once __DIR__ . '/../src/Reserva/RoomRateSettings.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateCalculator.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
 
 use App\Admin\AdminDashboardRepository;
 use App\Logger;
@@ -54,6 +55,7 @@ function comodidades_desde_json(?string $json): array
 }
 
 /** @var mysqli $conexion */
+\App\Reserva\RoomRateSchemaMigrator::ensureOffers($conexion);
 if (!usuario_tiene_permiso($conexion, 'habitaciones.ver')) {
     responder_habitaciones(403, 'No tienes permiso para consultar las habitaciones');
 }
@@ -64,6 +66,7 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? 'listar';
 // ---------------------------------------------------------------- LISTAR
 if ($metodo === 'GET' && $accion === 'listar') {
     $sql = "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.obs_hab, h.des_hab, h.img_hab, h.car_hab,
+                   h.oferta_precio, h.oferta_inicio, h.oferta_fin,
                    (SELECT COUNT(*) FROM detalle d WHERE d.cod_hab_det = h.cod_hab) AS total_reservas
             FROM habitacion h
             ORDER BY h.num_hab ASC";
@@ -83,6 +86,14 @@ if ($metodo === 'GET' && $accion === 'listar') {
             'numero'         => (int) $fila['num_hab'],
             'tipo'           => (string) $fila['tipo_hab'],
             'precio'         => $precio,
+            'oferta_precio'  => $fila['oferta_precio'] !== null ? (float) $fila['oferta_precio'] : null,
+            'oferta_inicio'  => $fila['oferta_inicio'],
+            'oferta_fin'     => $fila['oferta_fin'],
+            'oferta_activa'  => \App\Reserva\RoomRateCalculator::activeOfferPrice(
+                $fila['oferta_precio'] !== null ? (float) $fila['oferta_precio'] : null,
+                $fila['oferta_inicio'],
+                $fila['oferta_fin']
+            ) !== null,
             'estado'         => (string) $fila['est_hab'],
             'observacion'    => (string) ($fila['obs_hab'] ?? ''),
             'descripcion'    => (string) ($fila['des_hab'] ?? ''),
@@ -145,16 +156,8 @@ if ($metodo === 'GET' && $accion === 'listar') {
     $resultadoReservas->free();
     $stmtReservas->close();
 
-    try {
-        $cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
-    } catch (RuntimeException $error) {
-        error_log('No se pudo cargar el cargo por persona adicional: ' . $error->getMessage());
-        responder_habitaciones(500, 'No se pudo cargar la configuración de tarifas');
-    }
-
     responder_habitaciones(200, 'Habitaciones cargadas', [
         'habitaciones'    => $habitaciones,
-        'suplemento_nino_adicional' => $cargoPersonaAdicional,
         'puede_gestionar' => usuario_tiene_permiso($conexion, 'habitaciones.gestionar'),
     ]);
 }
@@ -169,29 +172,9 @@ if (!usuario_tiene_permiso($conexion, 'habitaciones.gestionar')) {
     responder_habitaciones(403, 'No tienes permiso para gestionar las habitaciones');
 }
 
-if ($accion === 'guardar_tarifa_nino') {
-    $precioTexto = $_POST['precio_nino_adicional'] ?? null;
-    if (!is_string($precioTexto) || !preg_match('/^\d{1,8}$/', $precioTexto)) {
-        responder_habitaciones(422, 'El cargo por persona adicional debe ser un monto entero entre 0 y 99.999.999 pesos');
-    }
-    try {
-        \App\Reserva\RoomRateSettings::setAdditionalPersonSupplement($conexion, (float) $precioTexto);
-    } catch (RuntimeException $error) {
-        error_log('No se pudo guardar el cargo por persona adicional: ' . $error->getMessage());
-        responder_habitaciones(500, 'No se pudo guardar el cargo por persona adicional');
-    }
-    Logger::registrarLog('INFO', 'Cargo por persona adicional actualizado desde el panel admin', [
-        'usuario_id' => actor_habitaciones(),
-        'precio_nino_adicional' => (int) $precioTexto,
-    ]);
-    responder_habitaciones(200, 'Cargo por persona adicional actualizado', [
-        'suplemento_nino_adicional' => (float) $precioTexto,
-    ]);
-}
-
 // ---------------------------------------------------------------- GUARDAR (crear / editar)
 if ($accion === 'guardar') {
-    foreach (['id', 'numero', 'tipo', 'precio', 'descripcion', 'comodidades', 'quitar_imagen'] as $campo) {
+    foreach (['id', 'numero', 'tipo', 'precio', 'descripcion', 'comodidades', 'quitar_imagen', 'oferta_precio', 'oferta_inicio', 'oferta_fin'] as $campo) {
         if (isset($_POST[$campo]) && !is_string($_POST[$campo])) {
             responder_habitaciones(422, 'Datos de habitación no válidos');
         }
@@ -218,6 +201,37 @@ if ($accion === 'guardar') {
     }
     if (mb_strlen($descripcion) > 500) {
         responder_habitaciones(422, 'La descripción admite máximo 500 caracteres');
+    }
+
+    // Oferta (opcional): precio menor al normal y, si se desea, fechas de inicio y fin.
+    $ofertaPrecioTexto = trim((string) ($_POST['oferta_precio'] ?? ''));
+    $ofertaInicioTexto = trim((string) ($_POST['oferta_inicio'] ?? ''));
+    $ofertaFinTexto    = trim((string) ($_POST['oferta_fin'] ?? ''));
+    $ofertaPrecio = null;
+    $ofertaInicio = null;
+    $ofertaFin    = null;
+    if ($ofertaPrecioTexto !== '') {
+        if (!preg_match('/^\d{1,8}$/', $ofertaPrecioTexto) || (int) $ofertaPrecioTexto < 1) {
+            responder_habitaciones(422, 'El precio de oferta debe ser un monto entero mayor a 0 (COP)');
+        }
+        if ((int) $ofertaPrecioTexto >= (int) $precioTexto) {
+            responder_habitaciones(422, 'El precio de oferta debe ser menor al precio normal de la habitación');
+        }
+        foreach ([['inicio', $ofertaInicioTexto], ['fin', $ofertaFinTexto]] as [$nombre, $valor]) {
+            if ($valor === '') {
+                continue;
+            }
+            $fecha = DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+            if (!$fecha || $fecha->format('Y-m-d') !== $valor) {
+                responder_habitaciones(422, "La fecha de $nombre de la oferta no es válida");
+            }
+        }
+        if ($ofertaInicioTexto !== '' && $ofertaFinTexto !== '' && $ofertaFinTexto < $ofertaInicioTexto) {
+            responder_habitaciones(422, 'La fecha final de la oferta no puede ser anterior a la inicial');
+        }
+        $ofertaPrecio = $ofertaPrecioTexto . '.00';
+        $ofertaInicio = $ofertaInicioTexto === '' ? null : $ofertaInicioTexto;
+        $ofertaFin    = $ofertaFinTexto === '' ? null : $ofertaFinTexto;
     }
 
     // Comodidades: una por línea, máximo 8, hasta 40 caracteres cada una, sin repetidas.
@@ -310,22 +324,11 @@ if ($accion === 'guardar') {
     };
 
     if ($id) {
-        $precioPersistido = $precio;
-        $esSencillaActual = preg_match('/sencilla|simple|individual/i', (string) $tipoActual) === 1;
-        $esSencillaNueva = preg_match('/sencilla|simple|individual/i', $tipo) === 1;
-        if (
-            $esSencillaActual
-            && $esSencillaNueva
-            && (float) $precioConfiguradoActual === 50000.0
-            && (float) $precioTexto === 80000.0
-        ) {
-            $precioPersistido = '50000.00';
-        }
-
         $stmt = $conexion->prepare(
-            'UPDATE habitacion SET num_hab = ?, tipo_hab = ?, pre_hab = ?, des_hab = ?, img_hab = ?, car_hab = ? WHERE cod_hab = ?'
+            'UPDATE habitacion SET num_hab = ?, tipo_hab = ?, pre_hab = ?, des_hab = ?, img_hab = ?, car_hab = ?,
+                    oferta_precio = ?, oferta_inicio = ?, oferta_fin = ? WHERE cod_hab = ?'
         );
-        $stmt->bind_param('isssssi', $numero, $tipo, $precioPersistido, $descripcion, $imagen, $comodidadesJson, $id);
+        $stmt->bind_param('issssssssi', $numero, $tipo, $precio, $descripcion, $imagen, $comodidadesJson, $ofertaPrecio, $ofertaInicio, $ofertaFin, $id);
         if (!$stmt->execute()) {
             $errno = $stmt->errno;
             error_log('Error al actualizar habitación: ' . $stmt->error);
@@ -349,9 +352,10 @@ if ($accion === 'guardar') {
 
     // Las habitaciones nuevas nacen "Disponible"; el estado lo gestiona Operaciones/Housekeeping.
     $stmt = $conexion->prepare(
-        "INSERT INTO habitacion (num_hab, tipo_hab, pre_hab, est_hab, des_hab, img_hab, car_hab) VALUES (?, ?, ?, 'Disponible', ?, ?, ?)"
+        "INSERT INTO habitacion (num_hab, tipo_hab, pre_hab, est_hab, des_hab, img_hab, car_hab, oferta_precio, oferta_inicio, oferta_fin)
+         VALUES (?, ?, ?, 'Disponible', ?, ?, ?, ?, ?, ?)"
     );
-    $stmt->bind_param('isssss', $numero, $tipo, $precio, $descripcion, $imagen, $comodidadesJson);
+    $stmt->bind_param('issssssss', $numero, $tipo, $precio, $descripcion, $imagen, $comodidadesJson, $ofertaPrecio, $ofertaInicio, $ofertaFin);
     if (!$stmt->execute()) {
         $errno = $stmt->errno;
         error_log('Error al crear habitación: ' . $stmt->error);

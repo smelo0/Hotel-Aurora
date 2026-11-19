@@ -9,6 +9,8 @@ use mysqli;
 use RuntimeException;
 
 require_once __DIR__ . '/../../configuracion/capacidad_habitaciones.php';
+require_once __DIR__ . '/../Reserva/RoomRateCalculator.php';
+require_once __DIR__ . '/../Reserva/RoomRateSchemaMigrator.php';
 
 final class PortalRepository
 {
@@ -198,8 +200,10 @@ final class PortalRepository
 
     public function fetchRoomCatalog(mysqli $connection): array
     {
+        \App\Reserva\RoomRateSchemaMigrator::ensureOffers($connection);
         $statement = $connection->prepare(
-            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab
+            "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.est_hab, h.des_hab, h.img_hab, h.car_hab,
+                    h.oferta_precio, h.oferta_inicio, h.oferta_fin
              FROM habitacion h
              WHERE LOWER(TRIM(COALESCE(h.est_hab, ''))) NOT IN ('mantenimiento', 'sucia')
              ORDER BY h.num_hab ASC"
@@ -209,7 +213,7 @@ final class PortalRepository
         }
 
         $statement->execute();
-        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description, $image, $amenitiesJson);
+        $statement->bind_result($roomId, $roomNumber, $roomType, $primaryPrice, $secondaryPrice, $status, $description, $image, $amenitiesJson, $offerPrice, $offerStart, $offerEnd);
 
         $rooms = [];
         while ($statement->fetch()) {
@@ -219,8 +223,13 @@ final class PortalRepository
                 : [];
 
             $configuredPrice = (float) ($primaryPrice ?: $secondaryPrice ?: 0);
-            $isSingleRoom = preg_match('/sencilla|simple|individual/i', (string) $roomType) === 1;
-            $finalPrice = RoomRateCalculator::standardNightlyRate((string) $roomType, $configuredPrice);
+            $regularPrice = RoomRateCalculator::standardNightlyRate((string) $roomType, $configuredPrice);
+            $activeOffer = RoomRateCalculator::activeOfferPrice(
+                $offerPrice !== null ? (float) $offerPrice : null,
+                $offerStart !== null ? (string) $offerStart : null,
+                $offerEnd !== null ? (string) $offerEnd : null
+            );
+            $finalPrice = $activeOffer ?? $regularPrice;
 
             $rooms[] = [
                 'img_hab' => $image !== null && trim((string) $image) !== '' ? (string) $image : null,
@@ -234,7 +243,8 @@ final class PortalRepository
                 'pre_hab'  => $finalPrice,
                 'precio_hab' => $finalPrice,
                 'precio'   => $finalPrice,
-                'precio_una_persona' => $isSingleRoom && $configuredPrice === 50000.0 ? 50000.0 : null,
+                'precio_original' => $activeOffer !== null ? $regularPrice : null,
+                'oferta_hasta' => $activeOffer !== null && $offerEnd !== null && $offerEnd !== '' ? (string) $offerEnd : null,
                 'est_hab'  => (string) ($status ?: 'Disponible'),
                 'obs_hab'  => $description !== null && trim((string) $description) !== ''
                     ? (string) $description

@@ -8,7 +8,6 @@ const isUserAuthenticated = window.PORTAL_CONFIG.isUserAuthenticated;
 const SCHEDULED_EXPERIENCES = Array.isArray(window.PORTAL_CONFIG.scheduledExperiences)
     ? window.PORTAL_CONFIG.scheduledExperiences
     : [];
-const ROOM_RATE_POLICY = window.PORTAL_CONFIG.roomPricing;
 // Adultos y menores de edad se eligen por separado; el precio y el límite usan el total de personas.
 const guests = {
     adults: 2,
@@ -59,12 +58,9 @@ let availabilitySearchApplied = false;
     prev.addEventListener('click', () => carousel.scrollBy({ left: -step(), behavior: 'smooth' }));
     next.addEventListener('click', () => carousel.scrollBy({ left: step(), behavior: 'smooth' }));
 
-    carousel.addEventListener('wheel', (e) => {
-        if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
-            e.preventDefault();
-            carousel.scrollBy({ left: e.deltaY, behavior: 'auto' });
-        }
-    }, { passive: false });
+    // Se eliminó el listener de "wheel": convertía el scroll vertical en horizontal y bloqueaba
+    // el scroll de la página al pasar el mouse sobre las habitaciones. El carrusel se mueve con
+    // las flechas, arrastrando/trackpad horizontal o Shift + rueda.
 
     function applyFilter(filter){
         selectedRoomFilter = filter.toLowerCase();
@@ -135,11 +131,7 @@ function formatCurrency(value) {
 }
 
 function nightlyRateForRoom(room, people) {
-    if (Number.isFinite(room.singleOccupancyPrice) && people === 1) {
-        return Number(room.singleOccupancyPrice);
-    }
-    const additionalPeople = Math.max(0, people - ROOM_RATE_POLICY.standardOccupancy);
-    return Number(room.price || 0) + additionalPeople * ROOM_RATE_POLICY.additionalPersonSupplement;
+    return Number(room.price || 0);
 }
 
 function calculateBookingNightlyRate() {
@@ -306,7 +298,7 @@ function updateGuestSummary(updateRoomVisibility = true) {
         $('guestLimitHint').innerText = limits.rooms === 0
             ? (range.min === range.max
                 ? `Cada habitación admite ${limitsText(range.max)}. Si viajan más, agrega otra habitación.`
-                : `El límite depende de la habitación (de ${range.min} a ${range.max} personas). Elige tu habitación para ver el suyo; si viajan más, agrega otra.`)
+                : '')
             : limits.rooms === 1
                 ? `La habitación elegida admite ${limitsText(limits.people)}.`
                 : `Tus ${limits.rooms} habitaciones admiten ${limitsText(limits.people)} en total. Cada habitación necesita al menos una persona.`;
@@ -767,9 +759,6 @@ function toggleRoomInCart(button) {
             id,
             name: button.dataset.roomName || `Habitación ${id}`,
             price: Number(button.dataset.roomPrice || 0),
-            singleOccupancyPrice: button.dataset.roomSingleOccupancyPrice === ''
-                ? null
-                : Number(button.dataset.roomSingleOccupancyPrice),
             type: button.dataset.roomType || '',
             maxPeople: Number(button.dataset.roomMaxPeople || capacityRangeFromCards().max),
         });
@@ -787,7 +776,7 @@ function renderRoomCart() {
     const summary = $('roomCartSummary');
     if (!cart || !summary) return;
     if (roomCart.length === 0) { cart.classList.add('hidden'); return; }
-    summary.textContent = `${roomCart.length} habitación${roomCart.length > 1 ? 'es' : ''} · tarifa ajustada a la ocupación`;
+    summary.textContent = `${roomCart.length} habitación${roomCart.length > 1 ? 'es' : ''}`;
     cart.classList.remove('hidden');
 }
 

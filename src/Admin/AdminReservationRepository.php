@@ -51,7 +51,7 @@ final class AdminReservationRepository
                         ORDER BY h.num_hab ASC SEPARATOR '||'
                     ) AS habitaciones,
                     COALESCE(
-                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente'),
+                        (SELECT SUM(pg.monto) FROM pagos pg WHERE pg.cod_res_pago = r.cod_res AND pg.estado_pago = 'Pendiente' AND pg.concepto <> 'adicional'),
                         GREATEST(
                             COALESCE((
                                 SELECT SUM(COALESCE(d2.precio_noche_det, NULLIF(h2.pre_hab, 0), h2.precio_hab, 0))

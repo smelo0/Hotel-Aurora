@@ -146,7 +146,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $factura = null;
         if ($accion === 'cobrar') {
             $pagosPendientes = $conexion->prepare(
-                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' FOR UPDATE"
+                "SELECT id_pago, monto FROM pagos WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto <> 'adicional' FOR UPDATE"
             );
             $pagosPendientes->bind_param('i', $cod_res);
             $pagosPendientes->execute();
@@ -191,7 +191,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($idsPagosPendientes !== []) {
                 $stmtActualizarPagos = $conexion->prepare(
                     "UPDATE pagos SET metodo_pago = ?, estado_pago = 'Aprobado', fecha_pago = CURRENT_TIMESTAMP
-                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente'"
+                     WHERE cod_res_pago = ? AND estado_pago = 'Pendiente' AND concepto <> 'adicional'"
                 );
                 $stmtActualizarPagos->bind_param('si', $metodoPago, $cod_res);
                 $stmtActualizarPagos->execute();

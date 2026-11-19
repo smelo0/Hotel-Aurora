@@ -9,8 +9,8 @@ require_once '../configuracion/permiso.php';
 require_once __DIR__ . '/../src/Billing/BillingRegistrar.php';
 require_once __DIR__ . '/../src/Database/ReceptionGuestSchemaMigrator.php';
 require_once __DIR__ . '/../configuracion/capacidad_habitaciones.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateCalculator.php';
 require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
-require_once __DIR__ . '/../src/Reserva/RoomRateSettings.php';
 /**@var mysqli $conexion */
 \App\Billing\BillingRegistrar::asegurarEsquema($conexion);
 
@@ -26,6 +26,7 @@ if (!isset($_SESSION['user_auth'])) {
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 \App\Reserva\RoomRateSchemaMigrator::ensure($conexion);
+\App\Reserva\RoomRateSchemaMigrator::ensureOffers($conexion);
 
 function jsonResponse(int $statusCode, array $payload): never
 {
@@ -508,7 +509,7 @@ try {
     if ($habitacionesIdsPost !== []) {
         $placeholders = implode(',', array_fill(0, count($habitacionesIdsPost), '?'));
         $sqlRooms = "SELECT cod_hab, num_hab, tipo_hab,
-                            COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                            " . \App\Reserva\RoomRateCalculator::effectivePriceSql() . " AS precio_habitacion,
                             est_hab
                      FROM habitacion
                      WHERE cod_hab IN ($placeholders)
@@ -552,7 +553,7 @@ try {
     // ═══════════════════════════════════════════════════════════════
     elseif ($tipoHabitacion !== '') {
         $sqlRooms = "SELECT cod_hab, num_hab, tipo_hab,
-                            COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                            " . \App\Reserva\RoomRateCalculator::effectivePriceSql() . " AS precio_habitacion,
                             est_hab
                      FROM habitacion
                      WHERE tipo_hab = ?
@@ -600,7 +601,7 @@ try {
     // ═══════════════════════════════════════════════════════════════
     elseif ($idHabitacion > 0) {
         $sqlRoom = 'SELECT cod_hab, num_hab, tipo_hab,
-                           COALESCE(NULLIF(pre_hab, 0), precio_hab, 0) AS precio_habitacion,
+                           ' . \App\Reserva\RoomRateCalculator::effectivePriceSql() . ' AS precio_habitacion,
                            est_hab
                     FROM habitacion WHERE cod_hab = ? LIMIT 1 FOR UPDATE';
         $stmtRoom = $conexion->prepare($sqlRoom);
@@ -644,14 +645,12 @@ try {
         $cantidadPersonas,
         count($habitacionesSeleccionadas) > 1 || $distribucionDetallada ? $distribucionHuespedes : null
     );
-    $cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
     foreach ($habitacionesSeleccionadas as &$habitacionTarificada) {
         $personasHabitacion = (int) ($distribucionValidada[$habitacionTarificada['cod_hab']]['personas'] ?? $cantidadPersonas);
         $habitacionTarificada['precio'] = \App\Reserva\RoomRateCalculator::nightlyRate(
             (string) $habitacionTarificada['tipo_hab'],
             (float) $habitacionTarificada['precio'],
-            $personasHabitacion,
-            $cargoPersonaAdicional
+            $personasHabitacion
         );
     }
     unset($habitacionTarificada);

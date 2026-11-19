@@ -10,11 +10,9 @@ require_once __DIR__ . '/configuracion/wompi.php';
 require_once __DIR__ . '/configuracion/capacidad_habitaciones.php';
 require_once __DIR__ . '/src/Usuario/PortalRepository.php';
 require_once __DIR__ . '/src/Usuario/PortalService.php';
-require_once __DIR__ . '/src/Reserva/RoomRateSettings.php';
 
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
 $portalRepository = new \App\Usuario\PortalRepository();
 
 function e(string $value): string
@@ -269,6 +267,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
     <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=16">
+    <link rel="stylesheet" href="assets/css/animaciones_usu.css?v=2">
+    <script>if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("anim-ready");</script>
     <script>
         window.PORTAL_CONFIG = <?php echo json_encode([
             'wompiPublicKey' => WOMPI_PUBLIC_KEY,
@@ -289,10 +289,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     static fn(array $experience): bool => mb_strtolower(trim((string) ($experience['estado_agenda'] ?? 'Pendiente'))) !== 'cancelada'
                 )
             )),
-            'roomPricing' => [
-                'standardOccupancy' => \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY,
-                'additionalPersonSupplement' => $cargoPersonaAdicional,
-            ],
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     </script>
 </head>
@@ -490,7 +486,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 $tipoHab = (string) ($room['tipo_hab'] ?? $room['tipo'] ?? 'Habitación');
                                 $precioConfiguradoHab = (float) ($room['pre_hab'] ?? $room['precio_hab'] ?? $room['precio'] ?? 0);
                                 $precioHab = \App\Reserva\RoomRateCalculator::standardNightlyRate($tipoHab, $precioConfiguradoHab);
-                                $precioUnaPersona = isset($room['precio_una_persona']) ? (float) $room['precio_una_persona'] : null;
+                                $precioOriginal = isset($room['precio_original']) ? (float) $room['precio_original'] : null;
+                                $ofertaHasta = !empty($room['oferta_hasta']) ? (string) $room['oferta_hasta'] : null;
                                 $roomName = 'Habitación ' . $numHab . ' · ' . $tipoHab;
                                 $capacidadHab = capacidad_habitacion($tipoHab);
 
@@ -561,10 +558,15 @@ $historialExperiencias = $portalData['historialExperiencias'];
 
                                         <div class="mt-6 flex items-center justify-between gap-4">
                                             <div>
-                                                <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa estándar</p>
-                                                <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?></p>
-                                                <?php if ($precioUnaPersona !== null): ?>
-                                                    <p class="mt-1 text-xs font-bold text-emerald-200">1 persona: $<?php echo number_format($precioUnaPersona, 0, ',', '.'); ?> por noche</p>
+                                                <?php if ($precioOriginal !== null): ?>
+                                                    <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Oferta</p>
+                                                    <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?> <span class="text-sm font-bold text-white/50 line-through">$<?php echo number_format($precioOriginal, 0, ',', '.'); ?></span></p>
+                                                    <?php if ($ofertaHasta !== null): ?>
+                                                        <p class="mt-1 text-xs font-bold text-emerald-200">Hasta el <?php echo e(date('d/m/Y', strtotime($ofertaHasta))); ?></p>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <p class="text-xs font-black uppercase tracking-[0.18em] text-white/60">Tarifa estándar</p>
+                                                    <p class="mt-1 text-2xl font-black text-white">$<?php echo number_format($precioHab, 0, ',', '.'); ?></p>
                                                 <?php endif; ?>
                                             </div>
                                            <button
@@ -574,7 +576,6 @@ $historialExperiencias = $portalData['historialExperiencias'];
     data-room-id="<?php echo (int) $codHab; ?>"
     data-room-name="<?php echo e($roomName); ?>"
     data-room-price="<?php echo $precioHab; ?>"
-    data-room-single-occupancy-price="<?php echo $precioUnaPersona === null ? '' : $precioUnaPersona; ?>"
     data-room-type="<?php echo e($tipoHab); ?>"
     data-room-max-people="<?php echo (int) $capacidadHab['personas']; ?>"
 >
@@ -735,10 +736,10 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <?php else: ?>
                     <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Prepara algo especial</h3>
-                        <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles <strong>SEGUN</strong> la fecha de tu reserva.</p>
-                        <button id="openActivityModal" type="button" class="hero-button primary-button mt-5 w-full px-5 py-4 text-sm uppercase tracking-[0.18em]">
-                            Programar experiencia
-                        </button>
+                        <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles <strong>SEGÚN</strong> la fecha de tu reserva. Al pulsar “Elegir esta experiencia” en su tarjeta se abrirá el formulario para solicitarla.</p>
+                        <a href="#experiencias" id="goToExperiences" class="hero-button primary-button mt-5 inline-flex w-full items-center justify-center px-5 py-4 text-sm uppercase tracking-[0.18em]">
+                            Ver experiencias
+                        </a>
                     </div>
 
                     <dialog id="activityModal" class="activity-modal" aria-labelledby="activityModalTitle">
@@ -1284,7 +1285,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 
-    <script src="assets/js/interfaz_usu.js?v=29"></script>
+    <script src="assets/js/animaciones_usu.js?v=2"></script>
+    <script src="assets/js/interfaz_usu.js?v=30"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

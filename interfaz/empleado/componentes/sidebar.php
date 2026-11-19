@@ -21,6 +21,10 @@
         <button type="button" data-section="huespedes" aria-label="Huéspedes" title="Huéspedes" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">group</span><span class="text-sm font-bold">Huéspedes</span>
         </button>
+        <button type="button" data-section="experiencias" aria-label="Experiencias" title="Experiencias" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">local_activity</span><span class="text-sm font-bold">Experiencias</span>
+            <span id="expEmpBadge" class="hidden ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black text-white">0</span>
+        </button>
         <?php if (!empty($puedeRoomServiceEmpleado)): ?>
         <button type="button" data-section="roomservice" aria-label="Room Service" title="Room Service" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">room_service</span><span class="text-sm font-bold">Room Service</span>

@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Cuenta consolidada de una reserva: alojamiento + experiencias + room service.
  *
  *   GET  ?cod_res=N         Devuelve las líneas de la cuenta (total, pagado y pendiente de cada una).
- *   POST accion=cobrar      Cobra las líneas indicadas. Se puede dividir la cuenta: solo algunas líneas,
+ *   POST accion=cobrar      Cobra las líneas indicadas (alojamiento, experiencias, room service y cobros adicionales). Se puede dividir la cuenta: solo algunas líneas,
  *                           un monto parcial del alojamiento y un método de pago distinto por línea.
  *
  * Cada cobro se registra igual que los cobros individuales de la app (tablas `pagos` y `factura`
@@ -32,6 +32,7 @@ exigir_permiso($conexion, 'reservas.editar');
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 BillingRegistrar::asegurarEsquema($conexion);
 \App\Reserva\RoomRateSchemaMigrator::ensure($conexion);
+
 
 $puedeCobrarExperiencias = usuario_tiene_permiso($conexion, 'finanzas.ver') && usuario_tiene_permiso($conexion, 'experiencias.gestionar');
 $puedeCobrarRoomService = usuario_tiene_permiso($conexion, 'finanzas.ver') && usuario_tiene_permiso($conexion, 'roomservice.gestionar');
@@ -227,6 +228,35 @@ function cuenta_construir(mysqli $db, int $codRes, bool $puedeExperiencias, bool
         ];
     }
 
+    // Cobros adicionales: filas de `pagos` con concepto 'adicional' (Pendiente hasta cobrarse).
+    // La descripción va en la referencia del pago: "ADI-<id>: descripción".
+    $adicionales = cuenta_filas(
+        $db,
+        "SELECT id_pago, monto, metodo_pago, estado_pago, referencia_pago FROM pagos
+         WHERE cod_res_pago = ? AND concepto = 'adicional' AND estado_pago IN ('Pendiente', 'Aprobado')
+         ORDER BY id_pago",
+        'i',
+        [$codRes]
+    );
+    foreach ($adicionales as $adicional) {
+        $monto = round((float) $adicional['monto'], 2);
+        $pagado = (string) $adicional['estado_pago'] === 'Aprobado';
+        $partes = explode(': ', (string) $adicional['referencia_pago'], 2);
+        $descripcion = trim($partes[1] ?? '');
+        $lineas[] = [
+            'tipo' => 'adicional',
+            'id' => (int) $adicional['id_pago'],
+            'concepto' => 'Cobro adicional',
+            'detalle' => trim($descripcion . ($pagado ? ' · ' . $adicional['metodo_pago'] : ''), ' ·'),
+            'total' => $monto,
+            'pagado' => $pagado ? $monto : 0.0,
+            'pendiente' => $pagado ? 0.0 : $monto,
+            'cobrable' => !$pagado && !$cancelada,
+            'nota' => '',
+            'folio' => $pagado ? 'FAC-ADI-' . (int) $adicional['id_pago'] : null,
+        ];
+    }
+
     $totales = ['total' => 0.0, 'pagado' => 0.0, 'pendiente' => 0.0];
     foreach ($lineas as $linea) {
         $totales['total'] += $linea['total'];
@@ -405,6 +435,51 @@ function cuenta_cobrar_experiencia(mysqli $db, int $codRes, int $idAgenda, strin
     return $factura;
 }
 
+/** Cobra un cobro adicional pendiente: aprueba su fila en `pagos` y registra la factura. */
+function cuenta_cobrar_adicional(mysqli $db, int $codRes, int $idPago, string $metodo, array $cuenta): array
+{
+    $db->begin_transaction();
+    try {
+        $filas = cuenta_filas(
+            $db,
+            "SELECT id_pago, monto, referencia_pago FROM pagos
+             WHERE id_pago = ? AND cod_res_pago = ? AND concepto = 'adicional' AND estado_pago = 'Pendiente' FOR UPDATE",
+            'ii',
+            [$idPago, $codRes]
+        );
+        $pago = $filas[0] ?? null;
+        if (!$pago || (float) $pago['monto'] <= 0) {
+            throw new RuntimeException('linea_no_cobrable');
+        }
+        $monto = round((float) $pago['monto'], 2);
+        cuenta_ejecutar(
+            $db,
+            "UPDATE pagos SET metodo_pago = ?, estado_pago = 'Aprobado', fecha_pago = CURRENT_TIMESTAMP WHERE id_pago = ?",
+            'si',
+            [$metodo, $idPago]
+        );
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        throw $e;
+    }
+
+    $partes = explode(': ', (string) $pago['referencia_pago'], 2);
+    $factura = [
+        'tipo' => 'adicional',
+        'folio' => 'FAC-ADI-' . $idPago,
+        'fecha' => date('Y-m-d H:i:s'),
+        'huesped' => $cuenta['huesped'],
+        'correo' => $cuenta['correo'],
+        'cod_reserva' => $codRes,
+        'descripcion' => trim($partes[1] ?? ''),
+        'metodo_pago' => $metodo,
+        'monto' => $monto,
+    ];
+    BillingRegistrar::registrarFactura($db, $factura['folio'], 'adicional', $codRes, $monto, $metodo, $factura);
+    return $factura;
+}
+
 $idUsuarioLog = $_SESSION['emp_auth']['id_usuario'] ?? $_SESSION['user_auth']['id_usuario'] ?? 0;
 $metodoHttp = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -432,6 +507,75 @@ if ($metodoHttp !== 'POST') {
 }
 
 exigir_csrf();
+
+$accionPost = (string) ($_POST['accion'] ?? 'cobrar');
+if ($accionPost === 'agregar_adicional' || $accionPost === 'eliminar_adicional') {
+    $codResAd = filter_var($_POST['cod_res'] ?? null, FILTER_VALIDATE_INT);
+    if (!$codResAd) {
+        cuenta_responder(422, ['status' => 'error', 'mensaje' => 'Reserva no válida.']);
+    }
+    $codResAd = (int) $codResAd;
+    try {
+        $cuentaAd = cuenta_construir($conexion, $codResAd, $puedeCobrarExperiencias, $puedeCobrarRoomService);
+        if ($cuentaAd === null) {
+            cuenta_responder(404, ['status' => 'error', 'mensaje' => 'No se encontró la reserva.']);
+        }
+        if ($accionPost === 'agregar_adicional') {
+            $descripcionAd = trim((string) ($_POST['descripcion'] ?? ''));
+            $montoTexto = trim((string) ($_POST['monto'] ?? ''));
+            if (in_array(strtolower(trim($cuentaAd['estado'])), ['cancelada', 'cancelado'], true)) {
+                cuenta_responder(422, ['status' => 'error', 'mensaje' => 'No se pueden agregar cobros a una reserva cancelada.']);
+            }
+            if ($descripcionAd === '' || mb_strlen($descripcionAd) > 70) {
+                cuenta_responder(422, ['status' => 'error', 'mensaje' => 'Escribe una descripción de máximo 70 caracteres.']);
+            }
+            if (!preg_match('/^\d{1,8}$/', $montoTexto) || (int) $montoTexto < 1) {
+                cuenta_responder(422, ['status' => 'error', 'mensaje' => 'El valor debe ser un monto entero mayor a 0 (COP).']);
+            }
+            $montoAd = (float) $montoTexto;
+            // Queda en `pagos` como Pendiente; al cobrarse pasa a Aprobado con su método y su factura.
+            [, $idPagoAd] = cuenta_ejecutar(
+                $conexion,
+                "INSERT INTO pagos (cod_res_pago, monto, metodo_pago, referencia_pago, estado_pago, concepto)
+                 VALUES (?, ?, 'Pendiente', ?, 'Pendiente', 'adicional')",
+                'ids',
+                [$codResAd, $montoAd, 'ADI-tmp-' . bin2hex(random_bytes(12))]
+            );
+            cuenta_ejecutar(
+                $conexion,
+                'UPDATE pagos SET referencia_pago = ? WHERE id_pago = ?',
+                'si',
+                ['ADI-' . $idPagoAd . ': ' . $descripcionAd, $idPagoAd]
+            );
+            Logger::registrarLog('INFO', 'Cobro adicional agregado a una reserva', [
+                'id_usuario' => $idUsuarioLog, 'cod_res' => $codResAd, 'id_pago' => $idPagoAd, 'monto' => $montoAd,
+            ]);
+            $mensajeAd = 'Cobro adicional agregado.';
+        } else {
+            $idPagoAd = filter_var($_POST['id_cobro'] ?? null, FILTER_VALIDATE_INT);
+            if (!$idPagoAd) {
+                cuenta_responder(422, ['status' => 'error', 'mensaje' => 'Cobro no válido.']);
+            }
+            [$borradas] = cuenta_ejecutar(
+                $conexion,
+                "DELETE FROM pagos WHERE id_pago = ? AND cod_res_pago = ? AND concepto = 'adicional' AND estado_pago = 'Pendiente'",
+                'ii',
+                [(int) $idPagoAd, $codResAd]
+            );
+            if ($borradas !== 1) {
+                cuenta_responder(409, ['status' => 'error', 'mensaje' => 'Solo se pueden quitar cobros adicionales pendientes.']);
+            }
+            $mensajeAd = 'Cobro adicional eliminado.';
+        }
+        $cuentaAd = cuenta_construir($conexion, $codResAd, $puedeCobrarExperiencias, $puedeCobrarRoomService);
+    } catch (Throwable $e) {
+        Logger::registrarLog('ERROR', 'No se pudo gestionar el cobro adicional', [
+            'id_usuario' => $idUsuarioLog, 'cod_res' => $codResAd, 'error_excepcion' => $e->getMessage(),
+        ]);
+        cuenta_responder(500, ['status' => 'error', 'mensaje' => 'No se pudo guardar el cobro adicional.']);
+    }
+    cuenta_responder(200, ['status' => 'exito', 'mensaje' => $mensajeAd, 'cuenta' => $cuentaAd]);
+}
 
 const CUENTA_MENSAJES = [
     'linea_no_cobrable' => 'Ya fue pagado o no se puede cobrar. Actualiza la cuenta e inténtalo de nuevo.',
@@ -490,6 +634,8 @@ foreach ($solicitadas as $pedido) {
             $factura = cuenta_cobrar_alojamiento($conexion, $codRes, $monto, $metodo, $puedeCobrarExperiencias, $puedeCobrarRoomService);
         } elseif ($tipo === 'experiencia') {
             $factura = cuenta_cobrar_experiencia($conexion, $codRes, $id, $metodo, $cuentaInicial);
+        } elseif ($tipo === 'adicional') {
+            $factura = cuenta_cobrar_adicional($conexion, $codRes, $id, $metodo, $cuentaInicial);
         } elseif ($tipo === 'room_service') {
             $factura = $repoRoomService->cobrar($metodo, null, $id);
         } else {

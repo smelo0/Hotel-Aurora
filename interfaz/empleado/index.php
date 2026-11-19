@@ -44,6 +44,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
             <?php include __DIR__ . '/secciones/habitaciones.php'; ?>
             <?php include __DIR__ . '/secciones/huespedes.php'; ?>
             <?php include __DIR__ . '/secciones/room_service.php'; ?>
+            <?php include __DIR__ . '/secciones/experiencias.php'; ?>
 
         </main>
     </div>
@@ -60,6 +61,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
     </script>
 
     <script src="js/panel.js?v=6"></script>
+    <script src="js/experiencias.js?v=1"></script>
     <?php if ($puedeRoomServiceEmpleado): ?>
     <script src="js/room_service.js?v=1"></script>
     <?php endif; ?>

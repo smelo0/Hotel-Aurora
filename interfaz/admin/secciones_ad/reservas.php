@@ -6,7 +6,6 @@ if (
     require_once __DIR__ . '/../../../includes/sesion_seguridad.php';
     require_once __DIR__ . '/../../../configuracion/conexion.php';
     require_once __DIR__ . '/../../../configuracion/permiso.php';
-    require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
 
     $rolUsuario = (int) ($_SESSION['emp_auth']['rol_usuario'] ?? 0);
     if (
@@ -23,8 +22,6 @@ if (
 if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
     return;
 }
-require_once __DIR__ . '/../../../src/Reserva/RoomRateSettings.php';
-$cargoPersonaAdicional = \App\Reserva\RoomRateSettings::additionalPersonSupplement($conexion);
 
 if (!function_exists('formatear_fecha_reserva_admin')) {
     function formatear_fecha_reserva_admin($fecha) {
@@ -444,7 +441,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             <input type="number" id="cantNinosReserva" name="cant_ninos" min="0" max="4" value="0" required class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold normal-case">
                         </label>
                     </div>
-                    <p id="descripcionCargoPersonaAdmin" class="mt-2 text-xs text-slate-500">La tarifa de cada habitación cubre hasta 4 personas (máximo 3 en habitaciones sencillas). Cada persona adicional (adulto o niño) suma $<?php echo number_format($cargoPersonaAdicional, 0, ',', '.'); ?> por noche. Los niños se registran solo como dato: no cambian el precio.</p>
                 </div>
                 <label class="block text-xs font-black uppercase tracking-wider text-slate-500">Peticiones especiales
                     <textarea name="notas_reserva" rows="2" maxlength="500" class="reserva-field mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium normal-case" placeholder="Opcional"></textarea>
@@ -601,10 +597,6 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
     <!-- SCRIPT JAVASCRIPT -->
     <script>
         const HUESPEDES_RESERVA = <?php echo json_encode($huespedes_reserva, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        const POLITICA_TARIFA_RESERVA = {
-            ocupacionEstandar: <?php echo \App\Reserva\RoomRateCalculator::STANDARD_OCCUPANCY; ?>,
-            cargoPersonaAdicional: <?php echo $cargoPersonaAdicional; ?>
-        };
         const formatoMonedaReserva = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
         let solicitudDisponibilidadHabitacionesAdmin = 0;
@@ -637,11 +629,10 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                     datos.habitaciones.forEach(habitacion => {
                         const capacidad = habitacion.capacidad;
                         const opcion = new Option(
-                            `Hab. ${habitacion.numero} · ${habitacion.tipo} · ${new Intl.NumberFormat('es-CO').format(habitacion.precio)} COP/noche · máximo ${capacidad.personas} personas`,
+                            `Hab. ${habitacion.numero} · ${habitacion.tipo} · ${new Intl.NumberFormat('es-CO').format(habitacion.precio)} COP/noche${habitacion.precio_original ? ' (oferta)' : ''} · máximo ${capacidad.personas} personas`,
                             String(habitacion.id)
                         );
                         opcion.dataset.price = String(habitacion.precio);
-                        opcion.dataset.singlePersonPrice = habitacion.precio_una_persona === null ? '' : String(habitacion.precio_una_persona);
                         opcion.dataset.roomType = habitacion.tipo;
                         opcion.dataset.maxPeople = String(capacidad.personas);
                         selector.add(opcion);
@@ -696,11 +687,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 return;
             }
 
-            const personasAdicionales = Math.max(0, personas - POLITICA_TARIFA_RESERVA.ocupacionEstandar);
-            const precioUnaPersona = Number(habitacion?.selectedOptions[0]?.dataset.singlePersonPrice || 0);
-            const tarifaNoche = personas === 1 && precioUnaPersona > 0
-                ? precioUnaPersona
-                : precioBase + personasAdicionales * POLITICA_TARIFA_RESERVA.cargoPersonaAdicional;
+            const tarifaNoche = precioBase;
             const subtotal = tarifaNoche * noches;
             const iva = Math.round(subtotal * 0.19 * 100) / 100;
             const total = subtotal + iva;
@@ -967,6 +954,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 ['alojamiento', 'hotel', 'Alojamiento'],
                 ['experiencia', 'celebration', 'Experiencias'],
                 ['room_service', 'room_service', 'Room Service'],
+                ['adicional', 'add_card', 'Cobro adicional'],
             ];
             const metodos = '<option value="">Método general</option><option value="Efectivo">Efectivo</option><option value="Tarjeta">Tarjeta</option><option value="Transferencia">Transferencia</option>';
             let html = '';
@@ -974,7 +962,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                 const lineas = cuenta.lineas.filter(l => l.tipo === tipo);
                 let cuerpo = '';
                 if (!lineas.length) {
-                    cuerpo = `<p class="italic text-slate-400 text-xs py-1">${tipo === 'experiencia' ? 'Sin experiencias registradas.' : 'Sin pedidos de room service registrados.'}</p>`;
+                    cuerpo = `<p class="italic text-slate-400 text-xs py-1">${tipo === 'experiencia' ? 'Sin experiencias registradas.' : (tipo === 'adicional' ? 'Sin cobros adicionales.' : 'Sin pedidos de room service registrados.')}</p>`;
                 }
                 lineas.forEach(l => {
                     const clave = `${l.tipo}|${l.id}`;
@@ -1026,8 +1014,23 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                                 </div>
                                 <span class="font-bold text-slate-700 whitespace-nowrap">${l.total > 0 ? moneda(l.total) : 'Sin precio'}</span>
                             </div>${controles}${dividirAlojamiento}
+                            ${(l.tipo === 'adicional' && l.pendiente > 0) ? `<button type="button" onclick="quitarCobroAdicional(${Number(l.id)})" class="mt-2 text-[11px] font-bold text-rose-600 underline">Quitar cobro</button>` : ''}
                         </div>`;
                 });
+                if (tipo === 'adicional' && !/^cancelad/i.test(cuenta.estado)) {
+                    cuerpo += `
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            <p class="text-[11px] font-bold text-slate-700">Agregar cobro adicional (se cobra junto con los demás conceptos)</p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="text" id="adicionalDescripcion" maxlength="70" placeholder="Descripción (ej. daño de toalla, minibar)"
+                                    class="min-w-[180px] flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                                <input type="text" id="adicionalMonto" inputmode="numeric" maxlength="13" placeholder="Valor (COP)" oninput="this.value = formatearMontoCuenta(this.value)"
+                                    class="w-32 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700">
+                                <button type="button" id="btnAgregarAdicional" onclick="agregarCobroAdicional()" class="rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-heading">Agregar</button>
+                            </div>
+                            <p id="adicionalError" class="hidden text-[11px] font-bold text-rose-600"></p>
+                        </div>`;
+                }
                 html += `
                     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p class="text-xs font-black text-slate-700 flex items-center gap-1.5 mb-2"><span class="material-symbols-outlined text-sm text-primary">${icono}</span> ${titulo}</p>
@@ -1148,6 +1151,50 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             ];
         }
 
+        async function enviarCobroAdicional(parametros, error) {
+            error.classList.add('hidden');
+            try {
+                const respuesta = await fetch('../../controladores/cuenta_reserva.php', {
+                    method: 'POST',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({
+                        cod_res: document.getElementById('edit_cod_res').value,
+                        csrf_token: document.querySelector('#formEditarReserva [name="csrf_token"]').value,
+                        ...parametros,
+                    })
+                });
+                const datos = await leerRespuestaCuenta(respuesta);
+                if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudo guardar el cobro adicional.');
+                pintarCuentaReserva(datos.cuenta);
+                if (typeof refrescarTablaReservas === 'function') await refrescarTablaReservas();
+                if (typeof notificarCambioReservas === 'function') notificarCambioReservas();
+            } catch (e) {
+                error.textContent = e.message;
+                error.classList.remove('hidden');
+            }
+        }
+
+        async function agregarCobroAdicional() {
+            const error = document.getElementById('adicionalError');
+            const descripcion = document.getElementById('adicionalDescripcion').value.trim();
+            const monto = montoDigitosCuenta('adicionalMonto');
+            if (!descripcion || !(monto > 0)) {
+                error.textContent = 'Escribe la descripción y un valor mayor a 0.';
+                error.classList.remove('hidden');
+                return;
+            }
+            const boton = document.getElementById('btnAgregarAdicional');
+            boton.disabled = true;
+            await enviarCobroAdicional({ accion: 'agregar_adicional', descripcion, monto: String(monto) }, error);
+            boton.disabled = false;
+        }
+
+        async function quitarCobroAdicional(idCobro) {
+            const error = document.getElementById('adicionalError');
+            if (!error) return;
+            await enviarCobroAdicional({ accion: 'eliminar_adicional', id_cobro: String(idCobro) }, error);
+        }
+
         function lineasSeleccionadasCuenta() {
             if (!cuentaReservaActual) return [];
             return cuentaReservaActual.lineas
@@ -1263,7 +1310,9 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             const moneda = valor => formatoMonedaReserva.format(Number(valor) || 0);
             const concepto = f => f.tipo === 'experiencia'
                 ? `Experiencia: ${f.experiencia}`
-                : (f.tipo === 'room_service'
+                : (f.tipo === 'adicional'
+                ? `Cobro adicional: ${f.descripcion}`
+                : f.tipo === 'room_service'
                     ? `Room service ${(f.pedidos || []).map(id => '#' + id).join(', ')}`
                     : `Alojamiento (${f.noches} noche(s), IVA incluido)`);
             const filas = facturas.map(f => `<tr><td>${escaparCuenta(f.folio)}</td><td>${escaparCuenta(concepto(f))}</td><td>${escaparCuenta(f.metodo_pago)}</td><td>${moneda(f.monto)}</td></tr>`).join('');

@@ -286,6 +286,7 @@ function imprimirFacturaReserva(factura, ventana) {
     };
     const esExperiencia = factura.tipo === 'experiencia';
     const esRoomService = factura.tipo === 'room_service';
+    const esAdicional = factura.tipo === 'adicional';
     const filasRoomService = (factura.items || []).map(item => `
             <tr>
                 <td>Pedido #${escapar(item.pedido)} · ${escapar(item.cantidad)} × ${escapar(item.nombre)}</td>
@@ -295,7 +296,9 @@ function imprimirFacturaReserva(factura, ventana) {
     const detalleRoomService = `<h2>Detalle del consumo</h2>
            <p>${factura.cod_reserva ? `Reserva #${escapar(factura.cod_reserva)} · ` : ''}Habitación ${escapar(factura.habitacion)}</p>
            <p>Room service · pedidos ${(factura.pedidos || []).map(id => '#' + escapar(id)).join(', ')}. El alojamiento y las experiencias se facturan por separado.</p>`;
-    const filasFactura = esRoomService
+    const filasFactura = esAdicional
+        ? `<tr><td>Cobro adicional: ${escapar(factura.descripcion)}</td><td>${escapar(factura.metodo_pago)}</td><td>${moneda.format(Number(factura.monto) || 0)}</td></tr>`
+        : esRoomService
         ? filasRoomService
         : esExperiencia
         ? ((factura.opciones || []).length > 0 ? factura.opciones : [{ opcion: factura.experiencia, monto: factura.monto }]).map((item, indice) => `
@@ -305,7 +308,10 @@ function imprimirFacturaReserva(factura, ventana) {
                 <td>${item.monto === null ? 'Incluido' : moneda.format(Number(item.monto) || 0)}</td>
             </tr>`).join('')
         : `<tr><td>Alojamiento (${escapar(factura.noches)} noche(s), IVA incluido)</td><td>${escapar(factura.metodo_pago)}</td><td>${moneda.format(Number(factura.monto) || 0)}</td></tr>`;
-    const detalleFactura = esRoomService
+    const detalleFactura = esAdicional
+        ? `<h2>Detalle del cobro adicional</h2>
+           <p>${factura.cod_reserva ? `Reserva #${escapar(factura.cod_reserva)} · ` : ''}${escapar(factura.descripcion)}</p>`
+        : esRoomService
         ? detalleRoomService
         : esExperiencia
         ? `<h2>Detalle de la experiencia</h2>

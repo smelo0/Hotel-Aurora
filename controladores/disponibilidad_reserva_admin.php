@@ -6,6 +6,7 @@ require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../configuracion/permiso.php';
 require_once __DIR__ . '/../configuracion/capacidad_habitaciones.php';
 require_once __DIR__ . '/../src/Reserva/RoomRateCalculator.php';
+require_once __DIR__ . '/../src/Reserva/RoomRateSchemaMigrator.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -48,10 +49,11 @@ if ($checkin < $today) {
     responder_disponibilidad_admin(422, ['status' => 'error', 'mensaje' => 'La fecha de entrada no puede estar en el pasado.']);
 }
 
+\App\Reserva\RoomRateSchemaMigrator::ensureOffers($conexion);
 $checkinSql = $checkinDate->setTime(15, 0)->format('Y-m-d H:i:s');
 $checkoutSql = $checkoutDate->setTime(12, 0)->format('Y-m-d H:i:s');
 $statement = $conexion->prepare(
-    "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab
+    "SELECT h.cod_hab, h.num_hab, h.tipo_hab, h.pre_hab, h.precio_hab, h.oferta_precio, h.oferta_inicio, h.oferta_fin
      FROM habitacion h
      WHERE LOWER(TRIM(COALESCE(h.est_hab, ''))) NOT IN ('mantenimiento', 'sucia')
        AND NOT EXISTS (
@@ -85,14 +87,21 @@ while ($row = $result->fetch_assoc()) {
         continue;
     }
 
-    $configuredPrice = (float) ($row['pre_hab'] ?: $row['precio_hab']);
+    $configuredPrice = \App\Reserva\RoomRateCalculator::standardNightlyRate(
+        (string) $row['tipo_hab'],
+        (float) ($row['pre_hab'] ?: $row['precio_hab'])
+    );
+    $offerPrice = \App\Reserva\RoomRateCalculator::activeOfferPrice(
+        $row['oferta_precio'] !== null ? (float) $row['oferta_precio'] : null,
+        $row['oferta_inicio'] !== null ? (string) $row['oferta_inicio'] : null,
+        $row['oferta_fin'] !== null ? (string) $row['oferta_fin'] : null
+    );
     $rooms[] = [
         'id' => (int) $row['cod_hab'],
         'numero' => (int) $row['num_hab'],
         'tipo' => (string) $row['tipo_hab'],
-        'precio' => \App\Reserva\RoomRateCalculator::standardNightlyRate((string) $row['tipo_hab'], $configuredPrice),
-        'precio_una_persona' => preg_match('/sencilla|simple|individual/i', (string) $row['tipo_hab']) === 1
-            && $configuredPrice === 50000.0 ? 50000.0 : null,
+        'precio' => $offerPrice ?? $configuredPrice,
+        'precio_original' => $offerPrice !== null ? $configuredPrice : null,
         'capacidad' => $capacity,
     ];
 }
