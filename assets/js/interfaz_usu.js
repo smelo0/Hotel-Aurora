@@ -175,8 +175,24 @@ function currentSearchIsReady() {
     return searchState.checkin !== '' && searchState.checkout !== '';
 }
 
+function leerPagoSimulado(metodo) {
+    if (metodo === 'TransferenciaSim') {
+        const banco = $('simBanco')?.value || '';
+        return banco ? { tipo: 'transferencia', banco } : { error: 'Selecciona un banco para la transferencia.' };
+    }
+    const titular = $('simCardName')?.value.trim() || '';
+    const numero = ($('simCardNumber')?.value || '').replace(/\D/g, '');
+    const vencimiento = $('simCardExpiry')?.value.trim() || '';
+    const cvc = $('simCardCvc')?.value.trim() || '';
+    if (!titular || numero.length < 13 || !/^\d{2}\/\d{2}$/.test(vencimiento) || cvc.length < 3) {
+        return { error: 'Completa los datos de la tarjeta.' };
+    }
+    return { tipo: 'tarjeta', titular, numero, vencimiento, cvc };
+}
+
 function normalizePaymentMethod(method) {
     const value = String(method || '').trim();
+    if (value === 'TarjetaSim' || value === 'TransferenciaSim') return value;
     const normalized = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (normalized.includes('recepcion')) return 'Recepción';
     if (normalized.includes('transferencia') || normalized.includes('pse')) return 'Transferencia';
@@ -871,7 +887,17 @@ document.querySelectorAll('input[name="hospedaje_a_nombre_de"]').forEach(radio =
 async function processReservationPayment() {
     const feedback = document.getElementById('modalFeedback');
     const btn = document.getElementById('confirmBookingBtn');
-    const metodoPago = normalizePaymentMethod(selectedReservation.payment);
+    // El método sale del botón que el huésped ve seleccionado; sin selección no se abre ningún pago.
+    const chipActivo = document.querySelector('[data-payment].is-active');
+    if (!chipActivo) {
+        if (feedback) {
+            feedback.className = 'mt-4 text-sm font-bold text-rose-400 block';
+            feedback.innerText = 'Selecciona un método de pago.';
+            feedback.classList.remove('hidden');
+        }
+        return;
+    }
+    const metodoPago = normalizePaymentMethod(chipActivo.dataset.payment);
     selectedReservation.payment = metodoPago;
 
     if (!selectedReservation.roomId || !searchState.checkin || !searchState.checkout) {
@@ -906,6 +932,20 @@ async function processReservationPayment() {
         return;
     }
 
+    const esSimulado = metodoPago === 'TarjetaSim' || metodoPago === 'TransferenciaSim';
+    let datosSimulados = null;
+    if (esSimulado) {
+        datosSimulados = leerPagoSimulado(metodoPago);
+        if (datosSimulados.error) {
+            if (feedback) {
+                feedback.className = 'mt-4 text-sm font-bold text-rose-400 block';
+                feedback.innerText = datosSimulados.error;
+                feedback.classList.remove('hidden');
+            }
+            return;
+        }
+    }
+
     const confirmation = await Swal.fire({
         icon: 'question',
         title: '¿Confirmas esta reserva?',
@@ -922,12 +962,12 @@ async function processReservationPayment() {
 
     if (metodoPago !== 'Recepción' && btn) {
         btn.disabled = true;
-        btn.innerText = 'ABRIENDO WOMPI...';
+        btn.innerText = esSimulado ? 'PROCESANDO PAGO...' : 'ABRIENDO WOMPI...';
     }
 
     try {
         let transaction = null;
-        if (metodoPago !== 'Recepción') {
+        if (metodoPago !== 'Recepción' && !esSimulado) {
             if (typeof WidgetCheckout === 'undefined') throw new Error('No se pudo cargar el widget de Wompi.');
             const reference = `AURORA-${Date.now()}-${selectedReservation.roomId}`;
             const widgetCheckout = new WidgetCheckout({
@@ -969,7 +1009,20 @@ async function processReservationPayment() {
                 personas: roomGuests[r.id].adults + roomGuests[r.id].children.length,
             }))));
         }
-        fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
+        if (esSimulado) {
+            fd.append('metodo_pago', datosSimulados.tipo === 'tarjeta' ? 'Tarjeta' : 'Transferencia');
+            fd.append('pago_simulado', datosSimulados.tipo);
+            if (datosSimulados.tipo === 'tarjeta') {
+                fd.append('tarjeta_titular', datosSimulados.titular);
+                fd.append('tarjeta_numero', datosSimulados.numero);
+                fd.append('tarjeta_vencimiento', datosSimulados.vencimiento);
+                fd.append('tarjeta_cvc', datosSimulados.cvc);
+            } else {
+                fd.append('banco', datosSimulados.banco);
+            }
+        } else {
+            fd.append('metodo_pago', transaction ? 'Wompi' : metodoPago);
+        }
         fd.append('porcentaje_pago', selectedReservation.porcentajePago);
         fd.append('csrf_token', CSRF_TOKEN);
         if (RECAPTCHA_SITE_KEY) {
@@ -995,7 +1048,23 @@ async function processReservationPayment() {
         if (!res.ok || result.status !== 'exito') throw new Error(result.mensaje || 'No se pudo guardar la reserva.');
 
         closeBookingModal();
-        await Swal.fire({ icon: 'success', title: '¡Reserva Registrada!', text: result.mensaje || 'Guardado.', confirmButtonColor: '#17354f' });
+        const codReservaNueva = result.reserva?.cod_res;
+        const hayFactura = Boolean(codReservaNueva) && metodoPago !== 'Recepción';
+        let ventanaFactura = null;
+        const exito = await Swal.fire({
+            icon: 'success',
+            title: '¡Reserva Registrada!',
+            text: result.mensaje || 'Guardado.',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#17354f',
+            showDenyButton: hayFactura,
+            denyButtonText: 'Ver factura',
+            denyButtonColor: '#0f766e',
+            preDeny: () => { ventanaFactura = window.open('', '_blank'); return true; }
+        });
+        if (exito.isDenied && ventanaFactura) {
+            await abrirFacturaDeReservaNueva(codReservaNueva, ventanaFactura);
+        }
         window.location.reload();
     } catch (err) {
         if (RECAPTCHA_SITE_KEY && window.grecaptcha?.reset) window.grecaptcha.reset();
@@ -1150,15 +1219,16 @@ document.addEventListener('click', event => {
         selectedReservation.payment = normalizePaymentMethod(paymentButton.dataset.payment);
         document.querySelectorAll('[data-payment]').forEach(node => node.classList.remove('is-active'));
         paymentButton.classList.add('is-active');
-        const cardFields = $('cardFields');
-        const transferFields = $('transferFields');
-        if (selectedReservation.payment === 'Transferencia') {
-            if (cardFields) cardFields.classList.add('hidden');
-            if (transferFields) transferFields.classList.remove('hidden');
-        } else {
-            if (cardFields) cardFields.classList.remove('hidden');
-            if (transferFields) transferFields.classList.add('hidden');
-        }
+        const metodoElegido = selectedReservation.payment;
+        const esSimTarjeta = metodoElegido === 'TarjetaSim';
+        const esSimTransferencia = metodoElegido === 'TransferenciaSim';
+        const esSim = esSimTarjeta || esSimTransferencia;
+        $('cardFields')?.classList.toggle('hidden', esSim || metodoElegido === 'Transferencia');
+        $('transferFields')?.classList.toggle('hidden', esSim || metodoElegido !== 'Transferencia');
+        $('simCardFields')?.classList.toggle('hidden', !esSimTarjeta);
+        $('simTransferFields')?.classList.toggle('hidden', !esSimTransferencia);
+        const tituloPago = $('paymentFormTitulo');
+        if (tituloPago) tituloPago.textContent = esSim ? 'Pasarela simulada · no se cobra dinero real' : 'Pago seguro procesado por Wompi';
         void refreshSelectedRoomAvailability();
         return;
     }
@@ -1173,11 +1243,27 @@ document.addEventListener('keydown', event => {
     if (event.key === 'Escape') toggleSystemHelp(false);
 });
 
+// Formato de los campos de la tarjeta simulada.
+document.addEventListener('input', event => {
+    const campo = event.target;
+    if (campo.id === 'simCardNumber') {
+        campo.value = campo.value.replace(/\D/g, '').slice(0, 19).replace(/(.{4})/g, '$1 ').trim();
+    } else if (campo.id === 'simCardExpiry') {
+        let valor = campo.value.replace(/\D/g, '').slice(0, 4);
+        if (valor.length >= 3) valor = valor.slice(0, 2) + '/' + valor.slice(2);
+        campo.value = valor;
+    } else if (campo.id === 'simCardCvc') {
+        campo.value = campo.value.replace(/\D/g, '').slice(0, 4);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeCalendar();
     updateGuestSummary();
     attachLogoutFlow();
     inicializarCancelacionHistorial();
+    inicializarReembolsos();
+    inicializarFacturasHuesped();
     document.querySelectorAll('[data-collapse-target]').forEach(button => {
         button.addEventListener('click', () => {
             const content = document.getElementById(button.dataset.collapseTarget);
@@ -1204,6 +1290,121 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[Aurora] form activityForm existe?', !!document.getElementById('activityForm'));
     console.log('[Aurora] botones .experience-select-button:', document.querySelectorAll('.experience-select-button').length);
 });
+
+function inicializarFacturasHuesped() {
+    const etiquetas = { alojamiento: 'Pago de alojamiento', experiencia: 'Experiencia', room_service: 'Room service', adicional: 'Cobro adicional', reembolso: 'Reembolso' };
+    const esc = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const cop = valor => (Number(valor) < 0 ? '−$' : '$') + Math.abs(Number(valor)).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+
+    document.addEventListener('click', async evento => {
+        const boton = evento.target.closest('[data-ver-facturas]');
+        if (!boton || boton.disabled) return;
+        const codReserva = boton.dataset.verFacturas;
+        boton.disabled = true;
+        try {
+            const respuesta = await fetch(`controladores/mis_facturas.php?accion=listar&id_reserva=${encodeURIComponent(codReserva)}`, {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const datos = await respuesta.json().catch(() => ({}));
+            if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudieron cargar las facturas.');
+            if (datos.facturas.length === 0) {
+                await Swal.fire({ icon: 'info', title: 'Sin facturas', text: 'Esta reserva aún no tiene facturas.', confirmButtonColor: '#17354f' });
+                return;
+            }
+            await Swal.fire({
+                title: `Facturas de la reserva #${esc(codReserva)}`,
+                html: datos.facturas.map(f => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #e2e8f0;text-align:left">
+                        <div>
+                            <div style="font-weight:800">${esc(f.folio)} · ${esc(etiquetas[f.tipo] || f.tipo)}</div>
+                            <div style="font-size:12px;color:#64748b">${esc(String(f.fecha).slice(0, 10))} · ${esc(f.metodo || '')} · <b style="color:${f.total < 0 ? '#dc2626' : '#17354f'}">${cop(f.total)}</b></div>
+                        </div>
+                        <div style="white-space:nowrap">
+                            <button type="button" data-fac="${f.cod_fac}" data-modo="ver" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer">Ver</button>
+                            <button type="button" data-fac="${f.cod_fac}" data-modo="imprimir" style="background:#17354f;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer">Imprimir</button>
+                        </div>
+                    </div>`).join(''),
+                showConfirmButton: false,
+                showCloseButton: true,
+                didOpen: popup => {
+                    popup.querySelectorAll('[data-fac]').forEach(b => b.addEventListener('click', () => {
+                        const ventana = window.open('', '_blank');
+                        if (!ventana) { alert('Permite las ventanas emergentes para ver la factura.'); return; }
+                        mostrarFacturaHuesped(b.dataset.fac, b.dataset.modo === 'imprimir', ventana);
+                    }));
+                }
+            });
+        } catch (error) {
+            await Swal.fire({ icon: 'error', title: 'No se pudo completar', text: error.message, confirmButtonColor: '#17354f' });
+        } finally {
+            boton.disabled = false;
+        }
+    });
+}
+
+/** Tras pagar: abre la última factura de alojamiento de la reserva recién creada. */
+async function abrirFacturaDeReservaNueva(codReserva, ventana) {
+    try {
+        const respuesta = await fetch(`controladores/mis_facturas.php?accion=listar&id_reserva=${encodeURIComponent(codReserva)}`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const datos = await respuesta.json().catch(() => ({}));
+        const factura = (datos.facturas || []).filter(f => f.tipo === 'alojamiento').pop() || (datos.facturas || []).pop();
+        if (!factura) throw new Error('La factura aún no está disponible. Encuéntrala en "Ver facturas" de tu historial.');
+        await mostrarFacturaHuesped(factura.cod_fac, false, ventana);
+    } catch (error) {
+        ventana.close();
+        alert(error.message);
+    }
+}
+
+function inicializarReembolsos() {
+    document.addEventListener('click', async evento => {
+        const boton = evento.target.closest('[data-reembolso-reserva]');
+        if (!boton || boton.disabled) return;
+        const idReserva = boton.dataset.reembolsoReserva;
+        const cabeceras = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        const formatoCop = valor => '$' + Number(valor).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+
+        boton.disabled = true;
+        try {
+            const resp = await fetch(`controladores/reembolsos.php?accion=cotizar&id_reserva=${encodeURIComponent(idReserva)}`, { headers: cabeceras, credentials: 'same-origin' });
+            const cot = await resp.json();
+            if (!resp.ok || cot.status !== 'exito') throw new Error(cot.mensaje || 'No se pudo calcular el reembolso.');
+            if (!cot.elegible) {
+                await Swal.fire({ icon: 'info', title: 'Sin reembolso disponible', text: cot.mensaje, confirmButtonColor: '#17354f' });
+                return;
+            }
+            const { isConfirmed, value } = await Swal.fire({
+                icon: 'question',
+                title: 'Cancelar y pedir reembolso',
+                html: `<p style="margin-bottom:8px">Pagaste <b>${formatoCop(cot.pagado)}</b>. Según la política (${cot.politica}) te corresponde el <b>${cot.porcentaje}%</b>: <b>${formatoCop(cot.monto)}</b>.</p>
+                       <p style="font-size:13px;color:#64748b">La reserva se cancelará de inmediato y no se puede deshacer.</p>`,
+                input: 'textarea',
+                inputPlaceholder: 'Motivo (opcional)',
+                inputAttributes: { maxlength: 500 },
+                showCancelButton: true,
+                confirmButtonText: 'Cancelar reserva y solicitar',
+                cancelButtonText: 'Volver',
+                confirmButtonColor: '#b91c1c'
+            });
+            if (!isConfirmed) return;
+
+            const cuerpo = new URLSearchParams({ accion: 'solicitar', id_reserva: idReserva, motivo: value || '', csrf_token: CSRF_TOKEN });
+            const respuesta = await fetch('controladores/reembolsos.php', { method: 'POST', body: cuerpo, headers: cabeceras, credentials: 'same-origin' });
+            const datos = await respuesta.json();
+            if (!respuesta.ok || datos.status !== 'exito') throw new Error(datos.mensaje || 'No se pudo registrar la solicitud.');
+            await Swal.fire({ icon: 'success', title: 'Solicitud enviada', text: datos.mensaje, confirmButtonColor: '#17354f' });
+            window.location.reload();
+        } catch (error) {
+            await Swal.fire({ icon: 'error', title: 'No se pudo completar', text: error.message, confirmButtonColor: '#17354f' });
+        } finally {
+            boton.disabled = false;
+        }
+    });
+}
 
 function inicializarCancelacionHistorial() {
     const botones = document.querySelectorAll('[data-cancelar-reserva], [data-cancelar-experiencia]');

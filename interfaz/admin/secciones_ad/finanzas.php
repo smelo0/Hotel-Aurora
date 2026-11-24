@@ -13,6 +13,7 @@ $pagosFinanzas = $datosFinanzasAdmin['pagos'];
 $totalesFinanzas = $datosFinanzasAdmin['totales'];
 $movimientosExperienciasFinanzas = $datosFinanzasAdmin['movimientos_experiencias'];
 $movimientosRoomServiceFinanzas = $datosFinanzasAdmin['movimientos_room_service'] ?? [];
+$reembolsosPendientesFinanzas = $datosFinanzasAdmin['reembolsos_pendientes'] ?? [];
 $puedeActualizarPagosExperiencia = usuario_tiene_permiso($conexion, 'experiencias.gestionar');
 
 $escaparFinanzas = static fn($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
@@ -63,9 +64,12 @@ $clasesEstadoPago = [
                         <span class="material-symbols-outlined text-base">search</span>
                         Buscar
                     </button>
+                    <button id="btnToggleMovimientos" type="button" aria-expanded="true" aria-controls="movimientosPagoContenido" title="Ocultar movimientos de pago" aria-label="Ocultar movimientos de pago" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:text-primary">
+                        <span class="material-symbols-outlined text-xl">expand_less</span>
+                    </button>
                 </div>
             </div>
-            <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <div id="movimientosPagoContenido" class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="w-full min-w-[1050px] text-left">
                     <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
                         <tr>
@@ -78,11 +82,11 @@ $clasesEstadoPago = [
                         </tr>
                     </thead>
                     <tbody id="tablaMovimientosFinancieros" class="divide-y divide-slate-100 text-sm">
-                        <?php if ($pagosFinanzas === [] && $movimientosExperienciasFinanzas === [] && $movimientosRoomServiceFinanzas === []): ?>
+                        <?php if ($pagosFinanzas === [] && $movimientosExperienciasFinanzas === [] && $movimientosRoomServiceFinanzas === [] && $reembolsosPendientesFinanzas === []): ?>
                             <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No hay movimientos de pago.</td></tr>
                         <?php else: ?>
                             <?php foreach ($pagosFinanzas as $pago): ?>
-                                <?php $estadoPago = (string) ($pago['estado_pago'] ?? 'Pendiente'); ?>
+                                <?php $estadoPago = (string) ($pago['estado_pago'] ?? 'Pendiente'); $esReembolso = ($pago['concepto'] ?? '') === 'reembolso'; ?>
                                 <tr data-movimiento-pago class="hover:bg-slate-50/70">
                                     <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $pago['fecha_pago']))); ?></td>
                                     <td class="px-5 py-4">
@@ -90,13 +94,29 @@ $clasesEstadoPago = [
                                         <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas($pago['corr_usu'] ?? ''); ?></p>
                                     </td>
                                     <td class="px-5 py-4">
-                                        <p class="font-bold text-slate-700">Reserva #<?php echo (int) $pago['cod_res_pago']; ?></p>
+                                        <p class="font-bold text-slate-700"><?php echo $esReembolso ? 'Reembolso · ' : ''; ?>Reserva #<?php echo (int) $pago['cod_res_pago']; ?></p>
                                         <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas($pago['habitaciones']); ?></p>
                                         <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas(date('d/m/Y', strtotime((string) $pago['fec_ent_res']))); ?> – <?php echo $escaparFinanzas(date('d/m/Y', strtotime((string) $pago['fec_sal_res']))); ?></p>
                                     </td>
                                     <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas($pago['metodo_pago']); ?></td>
-                                    <td class="px-5 py-4"><span class="rounded-full px-3 py-1 text-[10px] font-black uppercase <?php echo $clasesEstadoPago[$estadoPago] ?? 'bg-slate-100 text-slate-600'; ?>"><?php echo $escaparFinanzas($estadoPago); ?></span></td>
-                                    <td class="px-5 py-4 text-right font-black <?php echo $estadoPago === 'Aprobado' ? 'text-primary' : 'text-slate-400'; ?>"><?php echo $formatearMontoFinanzas($pago['monto']); ?></td>
+                                    <td class="px-5 py-4"><span class="rounded-full px-3 py-1 text-[10px] font-black uppercase <?php echo $esReembolso ? 'bg-rose-100 text-rose-700' : ($clasesEstadoPago[$estadoPago] ?? 'bg-slate-100 text-slate-600'); ?>"><?php echo $esReembolso ? 'Reembolsado' : $escaparFinanzas($estadoPago); ?></span></td>
+                                    <td class="px-5 py-4 text-right font-black <?php echo $esReembolso ? 'text-rose-600' : ($estadoPago === 'Aprobado' ? 'text-primary' : 'text-slate-400'); ?>"><?php echo $esReembolso ? '−' . $formatearMontoFinanzas(abs((float) $pago['monto'])) : $formatearMontoFinanzas($pago['monto']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php foreach ($reembolsosPendientesFinanzas as $rbPendiente): ?>
+                                <tr data-movimiento-pago class="hover:bg-slate-50/70">
+                                    <td class="px-5 py-4 text-slate-600"><?php echo $escaparFinanzas(date('d/m/Y H:i', strtotime((string) $rbPendiente['creado_en']))); ?></td>
+                                    <td class="px-5 py-4">
+                                        <p class="font-bold text-slate-800"><?php echo $escaparFinanzas($rbPendiente['nom_usu'] ?? 'Huésped sin cuenta asociada'); ?></p>
+                                        <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas($rbPendiente['corr_usu'] ?? ''); ?></p>
+                                    </td>
+                                    <td class="px-5 py-4">
+                                        <p class="font-bold text-slate-700">Reembolso · Reserva #<?php echo (int) $rbPendiente['cod_res_reemb']; ?></p>
+                                        <p class="mt-1 text-xs text-slate-500"><?php echo $escaparFinanzas(date('d/m/Y', strtotime((string) $rbPendiente['fec_ent_res']))); ?> – <?php echo $escaparFinanzas(date('d/m/Y', strtotime((string) $rbPendiente['fec_sal_res']))); ?></p>
+                                    </td>
+                                    <td class="px-5 py-4 text-slate-600">Devolución</td>
+                                    <td class="px-5 py-4"><span class="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase text-amber-700">Reembolso <?php echo $escaparFinanzas($rbPendiente['estado']); ?></span></td>
+                                    <td class="px-5 py-4 text-right font-black text-slate-400">−<?php echo $formatearMontoFinanzas($rbPendiente['monto_reembolso']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             <?php foreach ($movimientosExperienciasFinanzas as $solicitud): ?>
@@ -204,6 +224,29 @@ $clasesEstadoPago = [
             </div>
         </div>
 
+        <script>
+        (() => {
+            const boton = document.getElementById('btnToggleMovimientos');
+            const contenido = document.getElementById('movimientosPagoContenido');
+            if (!boton || !contenido) return;
+            const clave = 'finanzas_oculto_movimientos';
+            const aplicar = oculto => {
+                contenido.classList.toggle('hidden', oculto);
+                boton.setAttribute('aria-expanded', String(!oculto));
+                boton.title = boton.ariaLabel = (oculto ? 'Mostrar' : 'Ocultar') + ' movimientos de pago';
+                boton.querySelector('.material-symbols-outlined').textContent = oculto ? 'expand_more' : 'expand_less';
+            };
+            let oculto = false;
+            try { oculto = sessionStorage.getItem(clave) === '1'; } catch (_) {}
+            aplicar(oculto);
+            boton.addEventListener('click', () => {
+                oculto = !oculto;
+                aplicar(oculto);
+                try { sessionStorage.setItem(clave, oculto ? '1' : '0'); } catch (_) {}
+            });
+        })();
+        </script>
+        <?php require __DIR__ . '/../../../includes/facturas_historial.php'; ?>
     </div>
 </section>
 <script>

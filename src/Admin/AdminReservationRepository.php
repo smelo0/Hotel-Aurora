@@ -17,6 +17,7 @@ final class AdminReservationRepository
     public function obtenerDatos(int $requestedPage = 1, string $search = ''): array
     {
         RoomRateSchemaMigrator::ensure($this->connection);
+        \App\Reserva\FinalizadorReservas::ejecutar($this->connection);
         // La columna pagos.concepto separa los pagos de alojamiento de los de experiencias y room service.
         \App\Billing\BillingRegistrar::asegurarEsquema($this->connection);
 

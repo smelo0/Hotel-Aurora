@@ -50,6 +50,10 @@
             <span class="material-symbols-outlined">payments</span><span class="text-sm font-bold">Finanzas</span>
         </button>
 
+        <button data-permiso="reembolsos.ver" onclick="navegar('reembolsos', this)" aria-label="Reembolsos" title="Reembolsos" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
+            <span class="material-symbols-outlined">currency_exchange</span><span class="text-sm font-bold">Reembolsos</span>
+        </button>
+
         <button data-permiso="logs.ver" onclick="navegar('logs', this)" aria-label="Logs" title="Logs" class="nav-item relative flex items-center gap-4 px-8 py-4 text-slate-400 hover:text-primary transition-all">
             <span class="material-symbols-outlined">history</span><span class="text-sm font-bold">Logs</span>
         </button>

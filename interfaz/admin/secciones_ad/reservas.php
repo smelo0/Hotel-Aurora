@@ -23,6 +23,10 @@ if (!usuario_tiene_permiso($conexion, 'reservas.ver')) {
     return;
 }
 
+// El panel del gerente usa index_ad.php; el de recepción define $panelReservasUrl = 'index_rec.php'.
+$panelReservasUrl = $panelReservasUrl ?? 'index_ad.php';
+$puedeEliminarReservas = usuario_tiene_permiso($conexion, 'reservas.eliminar');
+
 if (!function_exists('formatear_fecha_reserva_admin')) {
     function formatear_fecha_reserva_admin($fecha) {
         if (empty($fecha)) return '';
@@ -74,7 +78,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             </div>
 
             <div class="flex items-center gap-4">
-                <form method="get" action="index_ad.php" class="flex items-center gap-2">
+                <form method="get" action="<?php echo htmlspecialchars($panelReservasUrl, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center gap-2">
                     <input type="hidden" name="admin_seccion" value="reservas">
                     <div class="relative w-72">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
@@ -350,7 +354,9 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                         echo '<td class="py-5 px-4 align-middle text-right whitespace-nowrap" data-total-cuenta="' . htmlspecialchars(number_format($cuentaPendiente, 2, '.', ''), ENT_QUOTES, 'UTF-8') . '">' . $cuentaCelda . '</td>';
                         echo '<td class="py-5 px-4 align-middle"><div class="flex justify-center gap-2">';
                         echo "<button onclick=\"abrirEdicion(this)\" class=\"ui-action bg-amber-400 text-white px-5 py-2 rounded-lg hover:bg-amber-500 hover:shadow-lg hover:opacity-95 shadow-sm btn-editar-reserva\" title=\"Editar Reserva\" data-id=\"$id_reserva\" data-estado=\"" . htmlspecialchars($estado, ENT_QUOTES, 'UTF-8') . "\" data-habitacion=\"$hab_segura\" data-notas=\"$notas_seguras\" data-saldo-pendiente=\"$saldo_pendiente\" data-tiene-cobro=\"" . (!empty($reserva['tiene_cobro']) ? '1' : '0') . "\" data-detalles-json=\"$detallesJson\"><span class=\"material-symbols-outlined text-sm\">edit</span></button>";
-                        echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
+                        if ($puedeEliminarReservas) {
+                            echo "<button onclick=\"confirmarEliminacion($id_reserva)\" class=\"ui-action bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 hover:shadow-lg hover:opacity-95 shadow-sm\" title=\"Eliminar Reserva\"><span class=\"material-symbols-outlined text-sm\">delete</span></button>";
+                        }
                         echo '</div>';
                         echo '</td>';
                         echo '</tr>';
@@ -373,11 +379,11 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
             </p>
             <nav class="flex items-center gap-2" aria-label="Paginación de reservas">
                 <?php if ($paginacionReservas['pagina'] > 1): ?>
-                    <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] - 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Anterior</a>
+                    <a href="<?php echo htmlspecialchars($panelReservasUrl, ENT_QUOTES, 'UTF-8'); ?>?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] - 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Anterior</a>
                 <?php endif; ?>
                 <span class="px-2 text-xs font-bold text-slate-500">Página <?php echo (int) $paginacionReservas['pagina']; ?> de <?php echo (int)$paginacionReservas['paginas']; ?></span>
                 <?php if ($paginacionReservas['pagina'] <$paginacionReservas['paginas']): ?>
-                    <a href="index_ad.php?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] + 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Siguiente</a>
+                    <a href="<?php echo htmlspecialchars($panelReservasUrl, ENT_QUOTES, 'UTF-8'); ?>?<?php echo htmlspecialchars($consultaPaginacionReservas($paginacionReservas['pagina'] + 1), ENT_QUOTES, 'UTF-8'); ?>" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Siguiente</a>
                 <?php endif; ?>
             </nav>
         </div>
@@ -530,6 +536,7 @@ $busquedaReservas = is_string($busquedaReservas) ? trim(mb_substr($busquedaReser
                             <option value="Pendiente">Pendiente</option>
                             <option value="Confirmada">Confirmada</option>
                             <option value="En Casa">En Casa</option>
+                            <option value="Finalizada">Finalizada</option>
                             <option value="Cancelada">Cancelada</option>
                         </select>
                         <p id="editEstadoAvisoCobro" class="mt-2 hidden text-xs font-bold text-rose-600">No se puede cancelar porque esta reserva ya tiene cobros registrados.</p>

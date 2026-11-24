@@ -12,6 +12,8 @@ function redirigir_panel(string $estado, string $mensaje = ''): never
         $destino = '../interfaz/admin/index_ad.php';
     } elseif ($rol === 3) {
         $destino = '../interfaz/empleado/index.php';
+    } elseif ($rol === 7) {
+        $destino = '../interfaz/recepcion/index_rec.php';
     } else {
         header('Location: ../interfaz/loggins/index_ad_em.php');
         exit();
@@ -33,7 +35,7 @@ if (!isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuar
 }
 
 $rol = (int) $_SESSION['emp_auth']['rol_usuario'];
-if (!in_array($rol, [1, 3], true)) {
+if (!in_array($rol, [1, 3, 7], true)) {
     header('Location: ../interfaz/loggins/index_ad_em.php');
     exit();
 }

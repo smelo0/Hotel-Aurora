@@ -23,9 +23,12 @@ $firma_actor_panel = hash_hmac(
 require_once '../../configuracion/conexion.php';
 require_once '../../configuracion/permiso.php';
 require_once '../../src/RoomService/RoomServiceSchemaMigrator.php';
+require_once '../../src/Reception/ReceptionRoleMigrator.php';
 /** @var mysqli $conexion */
 // Room Service: crea tablas y permisos la primera vez (no hace nada si ya existen).
 \App\RoomService\RoomServiceSchemaMigrator::asegurar($conexion);
+// Recepcionista: crea el rol y sus permisos básicos la primera vez (no hace nada si ya existe).
+\App\Reception\ReceptionRoleMigrator::asegurar($conexion);
 // Datos del dashboard en JSON: los consulta el panel cada pocos segundos para refrescarse solo (sin recargar la página).
 // Va ANTES de head.php para que la respuesta sea JSON puro, sin el HTML del documento.
 if (($_GET['dashboard_datos'] ?? '') === '1') {
@@ -66,6 +69,10 @@ if (($_GET['dashboard_datos'] ?? '') === '1') {
 }
 
 require_once 'componentes_ad/head.php';
+
+\App\Reembolso\ReembolsoRepository::asegurarEsquema($conexion);
+\App\Reserva\FinalizadorReservas::ejecutar($conexion);
+\App\Billing\FacturaHistorial::asegurarEsquema($conexion);
 
 $permisos_usuario = [];
 $rol_sesion = (int) $_SESSION['emp_auth']['rol_usuario'];
@@ -110,7 +117,7 @@ if ($stmt_permisos) {
 }
 
 if ($permisos_usuario === []) {
-    $permisos_usuario = ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar', 'roomservice.ver', 'roomservice.gestionar'];
+    $permisos_usuario = ['dashboard.ver', 'reservas.ver', 'roles.ver', 'operaciones.ver', 'finanzas.ver', 'reembolsos.ver', 'reembolsos.gestionar', 'configuracion.ver', 'experiencias.ver', 'experiencias.gestionar', 'habitaciones.ver', 'habitaciones.gestionar', 'roomservice.ver', 'roomservice.gestionar'];
 }
 
 if (($_GET['reservas_fragmento'] ?? '') === '1') {
@@ -145,6 +152,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
             require_once 'secciones_ad/habitaciones.php';
             require_once 'secciones_ad/operaciones.php';
             require_once 'secciones_ad/finanzas.php';
+            require_once 'secciones_ad/reembolsos.php';
             require_once 'secciones_ad/panel_logs.php';
             ?>
         </div>
@@ -233,7 +241,7 @@ if (($_GET['reservas_fragmento'] ?? '') === '1') {
         const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
     </script>
 
- <script src="js_ad/admin.js?v=24" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=24';"></script>
+ <script src="js_ad/admin.js?v=25" onerror="this.onerror=null; this.src='../../assets/js/admin.js?v=25';"></script>
     <script src="js_ad/scroll_admin.js?v=1"></script>
 
 <?php if (!empty($_SESSION['emp_auth'])): ?>

@@ -68,7 +68,7 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
             <div class="mb-6 flex items-start justify-between gap-4">
                 <div>
                     <h2 id="tituloModalEmpleado" class="text-2xl font-black text-primary">Crear cuenta de empleado</h2>
-                    <p class="mt-1 text-xs text-slate-400">La cuenta tendrá el perfil Empleado.</p>
+                    <p class="mt-1 text-xs text-slate-400">Elige si la cuenta es de Empleado o de Recepcionista.</p>
                 </div>
                 <button type="button" onclick="cerrarModalEmpleado()" class="text-slate-400 hover:text-primary" aria-label="Cerrar">
                     <span class="material-symbols-outlined">close</span>
@@ -76,6 +76,13 @@ $escaparDashboard = static fn($valor): string => htmlspecialchars((string) $valo
             </div>
             <div id="mensajeCrearEmpleado" class="mb-5 hidden rounded-lg px-4 py-3 text-sm font-bold" role="status" aria-live="polite"></div>
             <form id="formCrearEmpleado" class="space-y-4">
+                <div>
+                    <label for="perfilNuevoEmpleado" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Perfil</label>
+                    <select id="perfilNuevoEmpleado" name="perfil" class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 focus:ring-1 focus:ring-primary">
+                        <option value="empleado">Empleado (habitaciones, limpieza, room service)</option>
+                        <option value="recepcionista">Recepcionista (reservas, check-in y cobro de alojamiento)</option>
+                    </select>
+                </div>
                 <div>
                     <label for="nombreNuevoEmpleado" class="mb-1 block text-[10px] font-black uppercase text-slate-500">Nombre completo</label>
                     <input type="text" id="nombreNuevoEmpleado" name="nombre" maxlength="100" autocomplete="name" required class="w-full rounded-lg border-slate-200 bg-slate-50 p-3 outline-none focus:ring-1 focus:ring-primary">

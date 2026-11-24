@@ -286,8 +286,29 @@ if ($esPersonal) {
         || ($accion === 'guardar' && $metodoPago !== 'Recepción')) {
         jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido para esta acción.']);
     }
-} elseif (!in_array($metodoPago, ['Wompi', 'Recepción'], true)) {
+} elseif (!in_array($metodoPago, ['Wompi', 'Tarjeta', 'Transferencia'], true)) {
     jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido.']);
+}
+
+// Pago simulado (tarjeta / transferencia) para huéspedes. Se valida aquí, en el servidor; nunca se guarda
+// el número de tarjeta ni el CVC, solo la referencia SIM-... que devuelve la pasarela simulada.
+$pagoSimulado = null;
+if (!$esPersonal && in_array($metodoPago, ['Tarjeta', 'Transferencia'], true)) {
+    $tipoSimulado = (string) ($_POST['pago_simulado'] ?? '');
+    if ($tipoSimulado !== strtolower($metodoPago)) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Selecciona un método de pago válido.']);
+    }
+    try {
+        $pagoSimulado = \App\Pago\PagoSimulado::procesar($tipoSimulado, [
+            'numero' => $_POST['tarjeta_numero'] ?? '',
+            'vencimiento' => $_POST['tarjeta_vencimiento'] ?? '',
+            'cvc' => $_POST['tarjeta_cvc'] ?? '',
+            'titular' => $_POST['tarjeta_titular'] ?? '',
+            'banco' => $_POST['banco'] ?? '',
+        ]);
+    } catch (RuntimeException $errorPagoSimulado) {
+        jsonResponse(422, ['status' => 'error', 'mensaje' => 'Pago no aprobado: ' . $errorPagoSimulado->getMessage()]);
+    }
 }
 
 $secretkey = trim((string) (
@@ -736,6 +757,10 @@ try {
         if ($pagoDuplicado) {
             throw new RuntimeException('wompi_transaction_reused');
         }
+    }
+
+    if ($pagoSimulado !== null) {
+        $refFinal = $pagoSimulado['referencia'];
     }
 
     if ($refFinal === '') {

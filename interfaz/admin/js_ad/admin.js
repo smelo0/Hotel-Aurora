@@ -136,6 +136,7 @@ function navegar(sec, btn) {
         roles: 'roles.ver',
         operaciones: 'operaciones.ver',
         finanzas: 'finanzas.ver',
+        reembolsos: 'reembolsos.ver',
         logs: 'logs.ver'
     }[sec];
     if (permisoSeccion && typeof PERMISOS_USUARIO !== 'undefined' && !PERMISOS_USUARIO.includes(permisoSeccion)) return;
@@ -815,7 +816,7 @@ function escaparHTMLAdmin(valor) {
 }
 
 function obtenerNombreRolAdmin(rol) {
-    const roles = { 1: 'Gerente General', 3: 'Empleado' };
+    const roles = { 1: 'Gerente General', 3: 'Empleado', 7: 'Recepcionista' };
     return roles[Number(rol)] || 'Personal';
 }
 
@@ -1306,7 +1307,7 @@ async function refrescarTablaReservas() {
     try {
         const parametros = new URLSearchParams(window.location.search);
         parametros.set('reservas_fragmento', '1');
-        const respuesta = await fetch(`index_ad.php?${parametros.toString()}`, {
+        const respuesta = await fetch(`${window.PANEL_URL || 'index_ad.php'}?${parametros.toString()}`, {
             cache: 'no-store',
             headers: { 'Accept': 'text/html' }
         });

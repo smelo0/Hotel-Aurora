@@ -17,6 +17,7 @@ const GRUPOS_CUENTAS_ROL = [
     1 => [1],
     3 => [2, 3, 4, 5],
     6 => [6],
+    7 => [7],
 ];
 
 function responder_roles($status, $mensaje, $datos = []) {
@@ -40,7 +41,7 @@ if ($metodo === 'GET' && $accion === 'listar') {
     $resultado_roles = $conexion->query(
         "SELECT r.cod_rol, r.des_rol, r.detalle_rol
          FROM rol r
-         WHERE r.cod_rol IN (1, 3, 6)
+         WHERE r.cod_rol IN (1, 3, 6, 7)
          GROUP BY r.cod_rol, r.des_rol, r.detalle_rol ORDER BY r.cod_rol"
     );
     while ($rol = $resultado_roles->fetch_assoc()) {
@@ -179,7 +180,7 @@ if ($accion === 'guardar_descripcion') {
     $descripcion = trim($descripcion);
     if (
         !$codigo
-        || !in_array($codigo, [1, 3, 6], true)
+        || !in_array($codigo, [1, 3, 6, 7], true)
         || mb_strlen($descripcion, 'UTF-8') > 200
     ) {
         responder_roles(422, 'La descripción debe tener máximo 200 caracteres y corresponder a un rol válido');
@@ -221,7 +222,7 @@ if ($accion === 'guardar') {
     $codigo = filter_var($codigoEntrada, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (
         !$codigo
-        || !in_array($codigo, [1, 3, 6], true)
+        || !in_array($codigo, [1, 3, 6, 7], true)
         || !is_array($permisos)
         || array_filter($permisos, static fn($permiso): bool => !is_string($permiso) || mb_strlen($permiso) > 60) !== []
     ) {
@@ -229,7 +230,7 @@ if ($accion === 'guardar') {
             'id_usuario' => $idUsuarioLog,
             'cod_rol' => $codigo
         ]);
-        responder_roles(422, 'Solo se pueden editar los permisos de Gerente General, Empleado y Cliente');
+        responder_roles(422, 'Solo se pueden editar los permisos de Gerente General, Empleado, Recepcionista y Cliente');
     }
     if ($codigo === 1) {
         Logger::registrarLog('WARN', 'Intento bloqueado de modificar los permisos del Gerente General', [
@@ -242,6 +243,7 @@ if ($accion === 'guardar') {
         1 => 'Gerente General',
         3 => 'Empleado',
         6 => 'Cliente',
+        7 => 'Recepcionista',
     ];
     $nombre = $nombresRoles[$codigo];
 
@@ -329,7 +331,7 @@ if ($accion === 'cambiar_estado_cuenta') {
     if (!$existe) {
         responder_roles(404, 'La cuenta no existe');
     }
-    if (!in_array((int) $rolCuenta, [2, 3, 4, 5, 6], true)) {
+    if (!in_array((int) $rolCuenta, [2, 3, 4, 5, 6, 7], true)) {
         Logger::registrarLog('WARN', 'Intento bloqueado de cambiar el estado de una cuenta protegida', [
             'id_usuario' => $idUsuarioLog,
             'id_cuenta' => $idCuenta,
@@ -337,7 +339,7 @@ if ($accion === 'cambiar_estado_cuenta') {
         responder_roles(403, 'Las cuentas del Gerente General están protegidas');
     }
 
-    $stmt = $conexion->prepare('UPDATE usuario SET est_usu = ? WHERE id_usu = ? AND cod_rol_usu IN (2, 3, 4, 5, 6)');
+    $stmt = $conexion->prepare('UPDATE usuario SET est_usu = ? WHERE id_usu = ? AND cod_rol_usu IN (2, 3, 4, 5, 6, 7)');
     if (!$stmt) {
         responder_roles(500, 'No se pudo actualizar la cuenta');
     }

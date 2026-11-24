@@ -31,6 +31,10 @@ exigir_csrf();
 $nombre = trim((string) ($_POST['nombre'] ?? ''));
 $correo = strtolower(trim((string) ($_POST['correo'] ?? '')));
 $contrasena = (string) ($_POST['contrasena'] ?? '');
+$perfil = (string) ($_POST['perfil'] ?? 'empleado');
+if (!in_array($perfil, ['empleado', 'recepcionista'], true)) {
+    responder_crear_empleado(422, 'El perfil de la cuenta no es válido.');
+}
 
 if (
     $nombre === ''
@@ -45,6 +49,7 @@ if (
 
 require_once __DIR__ . '/../configuracion/conexion.php';
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../src/Reception/ReceptionRoleMigrator.php';
 
 use App\Logger;
 
@@ -82,7 +87,10 @@ if ($contrasenaHash === false) {
     responder_crear_empleado(500, 'No se pudo crear la cuenta. Inténtalo de nuevo.');
 }
 
-$rolEmpleado = 3;
+$rolEmpleado = $perfil === 'recepcionista' ? \App\Reception\ReceptionRoleMigrator::COD_ROL : 3;
+if ($rolEmpleado === \App\Reception\ReceptionRoleMigrator::COD_ROL) {
+    \App\Reception\ReceptionRoleMigrator::asegurar($conexion);
+}
 $estadoActivo = 1;
 $insertar = $conexion->prepare(
     'INSERT INTO usuario (nom_usu, corr_usu, psw_usu, cod_rol_usu, est_usu) VALUES (?, ?, ?, ?, ?)'
@@ -115,9 +123,10 @@ Logger::registrarLog('INFO', 'El gerente general creó una cuenta de empleado', 
     'id_usuario' => $idAdministrador,
     'id_empleado' => $idEmpleado,
     'correo' => $correo,
+    'perfil' => $perfil,
 ]);
 
-responder_crear_empleado(201, 'Cuenta de empleado creada correctamente.', [
+responder_crear_empleado(201, $perfil === 'recepcionista' ? 'Cuenta de recepcionista creada correctamente.' : 'Cuenta de empleado creada correctamente.', [
     'id_usuario' => $idEmpleado,
     'correo' => $correo,
 ]);

@@ -125,6 +125,19 @@ switch ($rolActual) {
         header('Location: ../interfaz/empleado/index.php');
         exit();
 
+    case 7:
+        $_SESSION['emp_auth'] = [
+            'id_usuario' => (int) $idUsuario,
+            'nombre_usuario' => (string) $nombreUsuario,
+            'rol_usuario' => $rolActual,
+        ];
+        Logger::registrarLog('INFO', 'El usuario ha iniciado sesion como recepcionista', [
+            'id_usuario' => $_SESSION['emp_auth']['id_usuario'],
+            'rol_usuario' => $_SESSION['emp_auth']['rol_usuario']
+        ]);
+        header('Location: ../interfaz/recepcion/index_rec.php');
+        exit();
+
     case 6:
         $_SESSION['user_auth'] = [
             'id_usuario' => (int) $idUsuario,

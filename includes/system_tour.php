@@ -27,6 +27,14 @@ $tourSistemaPasos = [
         ['#panelTareasDerecho', 'Gestiona tareas', 'Usa esta cola lateral para revisar tareas y seguir su avance.'],
         ['.empleado-sidebar a[onclick*="abrirModalLogoutEmpleado"]', 'Cierra tu sesión', 'Al terminar tu turno, usa este acceso para cerrar sesión de forma segura.'],
     ],
+    'recepcion' => [
+        ['.nav-item[data-permiso="dashboard.ver"]', 'Mira el día de un vistazo', 'Inicio muestra la ocupación y las llegadas y salidas de hoy.'],
+        ['.nav-item[data-permiso="reservas.ver"]', 'Gestiona reservas', 'Crea reservas, registra llegadas y salidas, y cobra el alojamiento desde aquí.'],
+        ['.nav-item[data-permiso="operaciones.ver"]', 'Controla las habitaciones', 'Consulta y cambia el estado de cada habitación.'],
+        ['.nav-item[data-permiso="roomservice.estado"]', 'Atiende el room service', 'Revisa los pedidos de los huéspedes y márcalos como entregados.'],
+        ['#panelTareasDerechoAdmin', 'Organiza tareas', 'Usa esta cola lateral para revisar tareas pendientes y su avance.'],
+        ['.nav-item[onclick*="abrirModalLogout"]', 'Finaliza de forma segura', 'Cierra sesión al terminar tu turno, especialmente si compartes el equipo.'],
+    ],
     'admin' => [
         ['.nav-item[data-permiso="dashboard.ver"]', 'Revisa el tablero', 'El panel principal resume la operación. Usa el menú lateral para acceder a cada módulo.'],
         ['.nav-item[data-permiso="reservas.ver"]', 'Gestiona reservas', 'En esta sección puedes dar seguimiento a las reservas y revisar sus datos.'],
@@ -52,6 +60,7 @@ $tourSistemaTitulos = [
     'visitante' => 'Conoce Hotel Aurora',
     'usuario' => 'Tu espacio de huésped',
     'empleado' => 'Guía del panel operativo',
+    'recepcion' => 'Guía de recepción',
     'admin' => 'Guía de administración',
     'acceso' => 'Acceso a tu cuenta',
     'recuperar' => 'Recuperación de contraseña',

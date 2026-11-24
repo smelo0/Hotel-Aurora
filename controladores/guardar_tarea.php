@@ -12,7 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 if (
     !isset($_SESSION['emp_auth']['id_usuario'], $_SESSION['emp_auth']['rol_usuario'])
-    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 3], true)
+    || !in_array((int) $_SESSION['emp_auth']['rol_usuario'], [1, 3, 7], true)
 ) {
     Logger::registrarLog('WARNING', 'Intento de guardar tarea sin sesión activa', []);
     http_response_code(401);

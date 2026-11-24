@@ -15,8 +15,23 @@ final class AdminFinanceService
     {
         $pagos = [];
         $totales = [];
+        $reembolsosPendientes = [];
+        try {
+            \App\Reembolso\ReembolsoRepository::asegurarEsquema($this->connection);
+            $reembolsosPendientes = $this->obtenerFilas(
+                "SELECT rb.id_reembolso, rb.cod_res_reemb, rb.monto_reembolso, rb.estado, rb.creado_en,
+                        u.nom_usu, u.corr_usu, r.fec_ent_res, r.fec_sal_res
+                 FROM reembolsos rb
+                 LEFT JOIN usuario u ON u.id_usu = rb.id_usu_reemb
+                 LEFT JOIN reservas r ON r.cod_res = rb.cod_res_reemb
+                 WHERE rb.estado IN ('Solicitado', 'Aprobado')
+                 ORDER BY rb.id_reembolso DESC"
+            );
+        } catch (\Throwable $error) {
+            $reembolsosPendientes = [];
+        }
         $resultadoPagos = $this->obtenerFilas(
-            "SELECT p.id_pago, p.cod_res_pago, p.monto, p.metodo_pago, p.estado_pago, p.fecha_pago,
+            "SELECT p.id_pago, p.cod_res_pago, p.concepto, p.monto, p.metodo_pago, p.estado_pago, p.fecha_pago,
                     r.id_usu_res, r.fec_ent_res, r.fec_sal_res,
                     u.nom_usu, u.corr_usu, COALESCE(habitaciones.descripcion, 'Sin habitación registrada') AS habitaciones
              FROM pagos p
@@ -29,7 +44,7 @@ final class AdminFinanceService
                  INNER JOIN habitacion h ON h.cod_hab = d.cod_hab_det
                  GROUP BY d.cod_res_det
              ) habitaciones ON habitaciones.cod_res_det = r.cod_res
-             WHERE p.concepto = 'alojamiento'
+             WHERE p.concepto IN ('alojamiento', 'reembolso')
              ORDER BY p.fecha_pago DESC, p.id_pago DESC"
         );
         foreach ($resultadoPagos as $pago) {
@@ -46,7 +61,9 @@ final class AdminFinanceService
             );
             if ($pago['estado_pago'] === 'Aprobado') {
                 $totales[$identificador]['total_pagado'] += (float) $pago['monto'];
-                $totales[$identificador]['pagos_aprobados']++;
+                if ((float) $pago['monto'] > 0) {
+                    $totales[$identificador]['pagos_aprobados']++;
+                }
             }
         }
 
@@ -106,6 +123,7 @@ final class AdminFinanceService
             'totales' => $totales,
             'movimientos_experiencias' => $movimientosExperiencias,
             'movimientos_room_service' => $movimientosRoomService,
+            'reembolsos_pendientes' => $reembolsosPendientes,
         ];
     }
 

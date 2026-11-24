@@ -21,6 +21,16 @@ $ayudaSistemaContenido = [
             ['¿Qué hago si encuentro una novedad?', 'Registra la novedad en la sección correspondiente y deja una observación clara para que el siguiente turno pueda darle seguimiento.'],
         ],
     ],
+    'recepcion' => [
+        'eyebrow' => 'Ayuda de recepción',
+        'title' => '¿Qué necesitas consultar?',
+        'questions' => [
+            ['¿Cómo creo una reserva para un huésped?', 'Entra a Reservas, pulsa Nuevo, busca o crea al huésped, elige las fechas y la habitación, y guarda. Si el huésped paga en el momento, usa la opción de cobrar.'],
+            ['¿Cómo registro la llegada o la salida?', 'En Reservas abre Editar sobre la reserva y cambia su estado (Confirmada, En Casa). También puedes cambiar el estado de la habitación desde Habitaciones.'],
+            ['¿Cómo cobro el alojamiento?', 'Abre Editar en la reserva, revisa la cuenta, elige el método de pago y cobra. Al terminar se genera la factura para imprimir.'],
+            ['¿Cómo veo los pedidos de room service?', 'En Room Service aparecen los pedidos de los huéspedes. Márcalos como pendiente, en preparación o entregado según avancen.'],
+        ],
+    ],
     'admin' => [
         'eyebrow' => 'Ayuda administrativa',
         'title' => '¿Qué necesitas consultar?',

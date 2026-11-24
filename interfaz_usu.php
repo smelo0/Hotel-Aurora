@@ -223,6 +223,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     require __DIR__ . '/controladores/portal_huesped.php';
     exit;
 }
+\App\Reserva\FinalizadorReservas::ejecutar($conexion);
 $portalData = (new \App\Usuario\PortalService($portalRepository))->load($conexion, $_SESSION);
 $habitaciones = $portalData['habitaciones'];
 $experiencias = $portalData['experiencias'];
@@ -232,6 +233,28 @@ $usuarioAutenticado = $portalData['usuarioAutenticado'];
 $usuarioTieneReserva = $portalData['usuarioTieneReserva'];
 $reservasEstanciaExperiencia = $portalData['reservasEstanciaExperiencia'];
 $historialReservas = $portalData['historialReservas'];
+
+// Reembolsos: estado de las solicitudes y cotización de las reservas pagadas que aún se pueden reembolsar.
+$reembolsosPorReserva = [];
+$reservasConFactura = [];
+try {
+    $repoReembolsos = new \App\Reembolso\ReembolsoRepository($conexion);
+    if ($usuarioAutenticado && $historialReservas) {
+        $reembolsosPorReserva = $repoReembolsos->porReservasDelUsuario((int) $usuarioId);
+        $reservasConFactura = (new \App\Billing\FacturaHistorial($conexion))->reservasConFacturas(array_column($historialReservas, 'cod_res'), (int) $usuarioId);
+        foreach ($historialReservas as $i => $filaReserva) {
+            $estadoFila = mb_strtolower(trim((string) ($filaReserva['est_res'] ?? '')));
+            if (in_array($estadoFila, ['pendiente', 'confirmada'], true)) {
+                $cotizacion = $repoReembolsos->cotizar((int) $filaReserva['cod_res'], (int) $usuarioId);
+                $historialReservas[$i]['puede_reembolso'] = $cotizacion['elegible'] ? 1 : 0;
+                $historialReservas[$i]['reembolso_monto'] = $cotizacion['monto'];
+                $historialReservas[$i]['reembolso_pct'] = $cotizacion['porcentaje'];
+            }
+        }
+    }
+} catch (\Throwable $errorReembolsos) {
+    error_log('No se pudo cargar la información de reembolsos: ' . $errorReembolsos->getMessage());
+}
 $historialExperiencias = $portalData['historialExperiencias'];
 
 ?>
@@ -922,12 +945,29 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                     </span>
                                 </td>
                                 <td class="px-4 py-4">
-                                    <?php if ((int) ($reserva['puede_cancelar'] ?? 0) === 1): ?>
+                                    <?php if (in_array((int) $reserva['cod_res'], $reservasConFactura, true)): ?>
+                                        <button type="button" data-ver-facturas="<?php echo (int) $reserva['cod_res']; ?>" class="mb-2 block whitespace-nowrap rounded-lg border border-sky-300/50 px-3 py-2 text-xs font-bold text-sky-100 transition hover:bg-sky-500/20">Ver facturas</button>
+                                    <?php endif; ?>
+                                    <?php $reembolsoReserva = $reembolsosPorReserva[(int) $reserva['cod_res']] ?? null; ?>
+                                    <?php if ($reembolsoReserva && $reembolsoReserva['estado'] !== 'Rechazado'): ?>
+                                        <span class="inline-flex whitespace-nowrap rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-emerald-100">Reembolso <?php echo e((string) $reembolsoReserva['estado']); ?> · $<?php echo number_format((float) $reembolsoReserva['monto_reembolso'], 0, ',', '.'); ?></span>
+                                    <?php elseif ((int) ($reserva['puede_cancelar'] ?? 0) === 1): ?>
                                         <button type="button" data-cancelar-reserva="<?php echo (int) $reserva['cod_res']; ?>" data-segundos-cancelacion="<?php echo (int) ($reserva['segundos_cancelacion'] ?? 0); ?>" class="whitespace-nowrap rounded-lg border border-rose-300/50 px-3 py-2 text-xs font-bold text-rose-100 transition hover:bg-rose-500/20">Cancelar (<?php echo \App\Cancelacion\PoliticaCancelacion::etiquetaVentana(); ?>)</button>
+                                    <?php elseif ((int) ($reserva['puede_reembolso'] ?? 0) === 1): ?>
+                                        <button type="button" data-reembolso-reserva="<?php echo (int) $reserva['cod_res']; ?>" class="whitespace-nowrap rounded-lg border border-amber-300/60 px-3 py-2 text-xs font-bold text-amber-100 transition hover:bg-amber-500/20">Cancelar y pedir reembolso (<?php echo (int) ($reserva['reembolso_pct'] ?? 0); ?>%)</button>
                                     <?php elseif (in_array(mb_strtolower((string) ($reserva['est_res'] ?? '')), ['pendiente', 'confirmada'], true)): ?>
-                                        <span class="whitespace-nowrap text-xs text-white/50">Plazo vencido</span>
+                                        <?php $yaPaso = strtotime((string) $reserva['fec_ent_res']) <= time(); ?>
+                                        <span class="whitespace-nowrap text-xs text-white/50"><?php echo $yaPaso ? 'Reserva vencida: la fecha ya pasó' : 'Plazo de cancelación vencido'; ?></span>
                                     <?php else: ?>
-                                        <span class="text-xs text-white/50">No disponible</span>
+                                        <?php
+                                        $mensajeEstadoReserva = match (mb_strtolower(trim((string) ($reserva['est_res'] ?? '')))) {
+                                            'en casa' => 'Estancia en curso',
+                                            'cancelada', 'cancelado' => 'Reserva cancelada',
+                                            'finalizada' => 'Reserva finalizada: ya pasó',
+                                            default => 'No disponible',
+                                        };
+                                        ?>
+                                        <span class="whitespace-nowrap text-xs text-white/50"><?php echo e($mensajeEstadoReserva); ?></span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -1213,14 +1253,15 @@ $historialExperiencias = $portalData['historialExperiencias'];
                             <p class=" mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
                             <div class="grid gap-3 md:grid-cols-3">
                                 <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Recepción">Pago en Recepción</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="TarjetaSim">Tarjeta crédito / débito (simulada)</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="TransferenciaSim">Transferencia bancaria (simulada)</button>
                             </div>
                         </div>
 
                         <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
                             <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
                                 <span class="material-symbols-outlined text-[18px]">verified_user</span>
-                                Pago seguro procesado por Wompi
+                                <span id="paymentFormTitulo">Pago seguro procesado por Wompi</span>
                             </div>
                             <div id="cardFields" class="grid gap-3">
                                 <div>
@@ -1242,6 +1283,42 @@ $historialExperiencias = $portalData['historialExperiencias'];
                                 <p class="font-bold text-slate-800 mb-1">Datos bancarios para consignación:</p>
                                 <p>Cuenta de Ahorros: <strong>123-456789-00</strong></p>
                                 <p>Titular: <strong>Hotel Aurora S.A.S</strong></p>
+                            </div>
+                            <div id="simCardFields" class="hidden">
+                                <div class="grid gap-3">
+                                    <p class="rounded-lg bg-amber-50 p-2 text-[11px] font-bold text-amber-800">Pago simulado de pruebas: no uses tarjetas reales ni se cobra dinero. Se aprueba <b>4242 4242 4242 4242</b> (fecha futura y CVC de 3 dígitos). Se rechaza <b>4000 0000 0000 0002</b>.</p>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" for="simCardName">Titular de la tarjeta</label>
+                                        <input id="simCardName" type="text" maxlength="60" autocomplete="off" placeholder="Como aparece en la tarjeta" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" for="simCardNumber">Número de tarjeta</label>
+                                        <input id="simCardNumber" type="text" inputmode="numeric" maxlength="23" autocomplete="off" placeholder="0000 0000 0000 0000" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" for="simCardExpiry">Expiración</label>
+                                            <input id="simCardExpiry" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="MM/AA" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" for="simCardCvc">CVC / CVV</label>
+                                            <input id="simCardCvc" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="123" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="simTransferFields" class="hidden">
+                                <div class="grid gap-3">
+                                    <p class="rounded-lg bg-amber-50 p-2 text-[11px] font-bold text-amber-800">Transferencia simulada de pruebas: no se mueve dinero real. Elige "Banco de prueba (rechaza)" para ver un pago rechazado.</p>
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500" for="simBanco">Banco</label>
+                                        <select id="simBanco" class="w-full rounded-xl border-slate-300 bg-white text-sm">
+                                            <?php foreach (\App\Pago\PagoSimulado::BANCOS as $bancoSimulado): ?>
+                                                <option value="<?php echo e($bancoSimulado); ?>"><?php echo e($bancoSimulado); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1286,7 +1363,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
     </div>
 
     <script src="assets/js/animaciones_usu.js?v=2"></script>
-    <script src="assets/js/interfaz_usu.js?v=30"></script>
+    <script src="assets/js/factura_visor.js?v=1"></script>
+    <script src="assets/js/interfaz_usu.js?v=32"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';
