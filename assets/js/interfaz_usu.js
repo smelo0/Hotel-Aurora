@@ -427,7 +427,7 @@ function renderRoomGuestsEditor() {
         const childAges = guestState.children.map((age, index) => `
             <label class="block text-xs font-bold text-white/75">
                 <span class="mb-1 block">Edad del menor de edad ${index + 1}</span>
-                <select data-room-child-age="${room.id}|${index}" class="w-full rounded-lg border border-white/15 bg-[#17354f] px-3 py-2 text-sm text-white">
+                <select data-room-child-age="${room.id}|${index}" class="w-full rounded-lg border border-white/15 bg-[#03271b] px-3 py-2 text-sm text-white">
                     <option value="">Selecciona edad</option>
                     ${Array.from({ length: 18 }, (_, childAge) => `<option value="${childAge}" ${String(childAge) === String(age) ? 'selected' : ''}>${childAge} ${childAge === 1 ? 'año' : 'años'}</option>`).join('')}
                 </select>
@@ -949,7 +949,7 @@ async function processReservationPayment() {
     const confirmation = await Swal.fire({
         icon: 'question',
         title: '¿Confirmas esta reserva?',
-        text: `${selectedReservation.roomName} · ${searchState.checkin} al ${searchState.checkout} · Hospedaje a nombre de ${titularHospedaje === 'otra_persona' ? nombreHuespedAlternativo : 'tu cuenta'} · Total: ${formatCurrency(selectedReservation.montoTotal)}. La disponibilidad se validará nuevamente antes de guardar.`,
+        text: `${selectedReservation.roomName} · ${searchState.checkin} al ${searchState.checkout} · Hospedaje a nombre de ${titularHospedaje === 'otra_persona' ? nombreHuespedAlternativo : 'tu cuenta'} · A pagar ahora (${selectedReservation.porcentajePago}%): ${formatCurrency(selectedReservation.montoAPagar)} · Total de la reserva: ${formatCurrency(selectedReservation.montoTotal)}.${selectedReservation.porcentajePago < 100 ? ' El saldo se paga en recepción.' : ''} La disponibilidad se validará nuevamente antes de guardar.`,
         showCancelButton: true,
         confirmButtonText: 'Sí, continuar',
         cancelButtonText: 'Revisar reserva',

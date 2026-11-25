@@ -1160,10 +1160,11 @@ $historialExperiencias = $portalData['historialExperiencias'];
         <div class="flex min-h-full w-full items-center justify-center">
             <div class="booking-modal-scroll glass-card w-full max-w-5xl overflow-x-hidden rounded-[32px]">
                 <div class="grid lg:grid-cols-[1.05fr_0.95fr]">
-                    <aside class="bg-[#17354f] px-7 py-8 text-white">
+                    <aside class="bg-[#03271b] px-7 py-8 text-white">
                         <p class="text-[11px] font-black uppercase tracking-[0.24em] text-white/60">Confirmación y Cobro</p>
-                        <h3 id="modalRoomName" class="mt-2 text-3xl font-black">Habitación seleccionada</h3>
-                        <p class="mt-3 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
+                        <h3 class="mt-2 text-3xl font-black">Detalle de Reserva</h3>
+                        <h4 id="modalRoomName" class="mt-2 text-xl font-black">Habitación seleccionada</h4>
+                        <p class="mt-2 max-w-md text-white/74">Revisa el desglose financiero y confirma tu transacción.</p>
 
                         <div class="mt-6 space-y-4 rounded-[28px] border border-white/10 bg-white/6 p-5">
                             <div><p class="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">Check-in</p><p id="modalCheckin" class="mt-1 text-lg font-black">-</p></div>
@@ -1219,11 +1220,11 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         </div>
                     </aside>
 
-                    <section class="bg-white/88 px-7 py-8 backdrop-blur-lg">
+                    <section class="bg-white px-7 py-8">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-xs font-black uppercase tracking-[0.18em] text-black-300">Proceso de Cobro</p>
-                                <h4 class="mt-2 text-3xl font-black text-[#17354f]">Detalles de Pago</h4>
+                                <h4 class="mt-2 text-3xl font-black text-[#03271b]">Detalles de Pago</h4>
                             </div>
                             <button 
                                 id="closeBookingModal" 
@@ -1238,11 +1239,11 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <div class="mt-6">
                             <label class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-black-400">Modalidad de Cobro</label>
                             <div class="grid grid-cols-2 gap-3">
-                                <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="100">
+                                <button type="button" class="payment-option is-active rounded-xl border border-slate-300 p-3 text-left" data-pago-tipo="100">
                                     <p class="text-xs font-black uppercase text-[#000000]">Pago Total (100%)</p>
                                     <p class="text-xs text-black-500">Liquida el valor completo ahora</p>
                                 </button>
-                                <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left transition hover:border-[#000000]" data-pago-tipo="50">
+                                <button type="button" class="payment-option rounded-xl border border-slate-300 p-3 text-left" data-pago-tipo="50">
                                     <p class="text-xs font-black uppercase text-[#000000]">Abono inicial (50%)</p>
                                     <p class="text-xs text-black">Paga el resto en recepción</p>
                                 </button>
@@ -1252,14 +1253,14 @@ $historialExperiencias = $portalData['historialExperiencias'];
                         <div class="mt-6">
                             <p class=" mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black-300">Método de pago</p>
                             <div class="grid gap-3 md:grid-cols-3">
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="TarjetaSim">Tarjeta crédito / débito (simulada)</button>
-                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#17354f]" data-payment="TransferenciaSim">Transferencia bancaria (simulada)</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#03271b]" data-payment="Transferencia">Transferencia / PSE · Wompi</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#03271b]" data-payment="TarjetaSim">Tarjeta crédito / débito (simulada)</button>
+                                <button type="button" class="payment-chip px-3 py-3 text-xs font-black text-[#03271b]" data-payment="TransferenciaSim">Transferencia bancaria (simulada)</button>
                             </div>
                         </div>
 
                         <div id="paymentFormContainer" class="mt-5 rounded-2xl bg-slate-100 p-4 border border-slate-200">
-                            <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#17354f]">
+                            <div class="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-[#03271b]">
                                 <span class="material-symbols-outlined text-[18px]">verified_user</span>
                                 <span id="paymentFormTitulo">Pago seguro procesado por Wompi</span>
                             </div>

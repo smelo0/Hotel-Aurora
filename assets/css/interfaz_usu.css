@@ -465,7 +465,7 @@ body {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    scrollbar-color: #b89f12 #17354f;
+    scrollbar-color: #b89f12 #03271b;
     scrollbar-width: thin;
 }
 
@@ -474,13 +474,36 @@ body {
 }
 
 .booking-modal-scroll::-webkit-scrollbar-track {
-    background: #17354f;
+    background: #03271b;
 }
 
 .booking-modal-scroll::-webkit-scrollbar-thumb {
-    border: 2px solid #17354f;
+    border: 2px solid #03271b;
     border-radius: 999px;
     background: #b89f12;
+}
+
+.booking-modal [data-room-child-age] {
+    background-color: #03271b;
+    color: #ffffff;
+}
+
+.booking-modal [data-room-child-age]:focus-visible {
+    border-color: #34d399;
+    outline: 2px solid rgba(52, 211, 153, 0.45);
+    outline-offset: 1px;
+}
+
+.booking-modal [data-room-child-age] option {
+    background-color: #03271b;
+    color: #ffffff;
+}
+
+.booking-modal [data-room-child-age] option:checked,
+.booking-modal [data-room-child-age] option:hover,
+.booking-modal [data-room-child-age] option:focus {
+    background-color: #034e2b;
+    color: #ffffff;
 }
 
 .booking-modal-card {
@@ -569,17 +592,21 @@ body {
     }
 }
 
-.payment-chip {
+.payment-chip,
+.payment-option {
     border-radius: 16px;
-    border: 1px solid rgba(23, 53, 79, 0.12);
+    border: 1px solid rgba(3, 78, 43, 0.2);
     background: rgba(248, 250, 252, 0.95);
     transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
     will-change: transform;
 }
 
-.payment-chip.is-active {
-    border-color: rgba(8, 78, 55, 0.88);
-    background: rgba(23, 53, 79, 0.08);
+.payment-chip:hover,
+.payment-option:hover,
+.payment-chip.is-active,
+.payment-option.is-active {
+    border-color: rgba(3, 78, 43, 0.88);
+    background: rgba(3, 78, 43, 0.08);
     transform: translate3d(0, -1px, 0);
 }
 
@@ -608,6 +635,7 @@ body {
     .booking-modal,
     .booking-modal-card,
     .payment-chip,
+    .payment-option,
     .guest-stepper {
         animation: none !important;
         transition: none !important;
