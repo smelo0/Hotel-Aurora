@@ -1264,6 +1264,26 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarCancelacionHistorial();
     inicializarReembolsos();
     inicializarFacturasHuesped();
+    const normalizeHistorySearch = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+    document.querySelectorAll('[data-history-search]').forEach(input => {
+        const content = document.getElementById(input.dataset.historyTarget);
+        const rows = content ? Array.from(content.querySelectorAll('tbody tr')) : [];
+        const emptyMessage = document.getElementById(input.dataset.historyEmpty);
+        if (!rows.length) return;
+
+        const applyHistorySearch = () => {
+            const query = normalizeHistorySearch(input.value.trim());
+            let visibleRows = 0;
+            rows.forEach(row => {
+                const matches = normalizeHistorySearch(row.textContent).includes(query);
+                row.classList.toggle('hidden', !matches);
+                if (matches) visibleRows++;
+            });
+            if (emptyMessage) emptyMessage.classList.toggle('hidden', visibleRows > 0);
+        };
+        input.addEventListener('input', applyHistorySearch);
+        applyHistorySearch();
+    });
     document.querySelectorAll('[data-collapse-target]').forEach(button => {
         button.addEventListener('click', () => {
             const content = document.getElementById(button.dataset.collapseTarget);

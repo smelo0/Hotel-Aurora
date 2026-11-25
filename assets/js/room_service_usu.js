@@ -161,6 +161,7 @@
     function pintarPedidos() {
         if (!estado.pedidos.length) {
             $('rsPedidos').innerHTML = '<p class="rounded-2xl border border-dashed border-white/20 p-6 text-center text-sm text-white/60">Todavía no has hecho pedidos de room service.</p>';
+            $('rsPedidosSinResultados').classList.add('hidden');
             return;
         }
         $('rsPedidos').innerHTML = estado.pedidos.map(p => {
@@ -180,7 +181,19 @@
                 </div>
             </article>`;
         }).join('');
+        aplicarBusquedaPedidos();
         actualizarReloj();
+    }
+
+    function aplicarBusquedaPedidos() {
+        const consulta = $('rsBuscarPedidos').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+        let coincidencias = 0;
+        seccion.querySelectorAll('[data-rs-pedido]').forEach(pedido => {
+            const coincide = pedido.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').includes(consulta);
+            pedido.classList.toggle('hidden', !coincide);
+            if (coincide) coincidencias++;
+        });
+        $('rsPedidosSinResultados').classList.toggle('hidden', coincidencias > 0);
     }
 
     function actualizarReloj() {
@@ -289,6 +302,7 @@
         else if (t.id === 'rsPedir') hacerPedido();
     });
     $('rsIrCarrito').addEventListener('click', () => $('rsCarrito').scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    $('rsBuscarPedidos').addEventListener('input', aplicarBusquedaPedidos);
 
     cargar();
     setInterval(actualizarReloj, 1000);

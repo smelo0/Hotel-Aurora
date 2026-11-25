@@ -882,7 +882,10 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <h3 class="text-xl font-black text-white">Mis pedidos de room service</h3>
                 <button type="button" data-collapse-target="rsPedidos" aria-controls="rsPedidos" aria-expanded="true" data-collapse-hide="Ocultar historial" data-collapse-show="Mostrar historial" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar historial</button>
             </div>
+            <label for="rsBuscarPedidos" class="sr-only">Buscar en mis pedidos de room service</label>
+            <input id="rsBuscarPedidos" type="search" placeholder="Buscar por pedido, producto, habitación o estado…" class="mt-4 w-full rounded-xl border-0 bg-white px-4 py-3 text-sm text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-300">
             <div id="rsPedidos" class="mt-4 space-y-3"></div>
+            <p id="rsPedidosSinResultados" class="mt-4 hidden rounded-2xl border border-dashed border-white/20 p-6 text-center text-sm text-white/60" role="status">No hay pedidos que coincidan con tu búsqueda.</p>
         </div>
     </div>
 </section>
@@ -907,6 +910,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
 
         <div id="reservasHistorialContenido">
+        <label for="buscarReservasHistorial" class="sr-only">Buscar en mis reservas realizadas</label>
+        <input id="buscarReservasHistorial" type="search" data-history-search data-history-target="reservasHistorialContenido" data-history-empty="reservasSinResultados" placeholder="Buscar por número, habitación, fecha o estado…" class="mb-4 w-full rounded-xl border-0 bg-white px-4 py-3 text-sm text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-300">
         <?php if (empty($historialReservas)): ?>
             <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
                 <span class="material-symbols-outlined text-4xl text-emerald-700">travel_explore</span>
@@ -975,6 +980,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     </tbody>
                 </table>
             </div>
+            <p id="reservasSinResultados" class="hidden rounded-2xl border border-dashed border-white/20 p-6 text-center text-sm text-white/60" role="status">No hay reservas que coincidan con tu búsqueda.</p>
         <?php endif; ?>
         </div>
     </div>
@@ -995,6 +1001,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
 
         <div id="experienciasHistorialContenido">
+        <label for="buscarExperienciasHistorial" class="sr-only">Buscar en mis experiencias programadas</label>
+        <input id="buscarExperienciasHistorial" type="search" data-history-search data-history-target="experienciasHistorialContenido" data-history-empty="experienciasSinResultados" placeholder="Buscar por experiencia, opción, fecha, hora o estado…" class="mb-4 w-full rounded-xl border-0 bg-white px-4 py-3 text-sm text-slate-800 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-300">
         <?php if ($historialExperiencias === []): ?>
             <div class="rounded-[28px] border border-dashed border-slate-300 bg-slate-100 px-6 py-10 text-center">
                 <span class="material-symbols-outlined text-4xl text-emerald-700">event_note</span>
@@ -1053,6 +1061,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     </tbody>
                 </table>
             </div>
+            <p id="experienciasSinResultados" class="hidden rounded-2xl border border-dashed border-white/20 p-6 text-center text-sm text-white/60" role="status">No hay experiencias que coincidan con tu búsqueda.</p>
         <?php endif; ?>
         </div>
     </div>
