@@ -89,6 +89,80 @@ const $ = (id) => document.getElementById(id);
 
 let activityModalTrigger = null;
 
+function initializePortalNavigation() {
+    const navigationTriggers = Array.from(document.querySelectorAll('[data-portal-navigation]'));
+    const experiencesCatalog = $('experiencias');
+    const experiencePlanner = $('planner');
+    if (experiencesCatalog && experiencePlanner && experiencesCatalog.parentElement === experiencePlanner.parentElement) {
+        experiencesCatalog.parentElement.insertBefore(experiencePlanner, experiencesCatalog);
+    }
+    const panels = Array.from(document.querySelectorAll('[data-portal-panel]'));
+    const views = ['habitaciones', 'experiencias', 'roomservice', 'reservas'];
+    const viewByHash = {
+        inicio: 'habitaciones',
+        habitaciones: 'habitaciones',
+        experiencias: 'experiencias',
+        planner: 'experiencias',
+        'historial-experiencias': 'experiencias',
+        'room-service': 'roomservice',
+        historial: 'reservas',
+    };
+    if (!navigationTriggers.length || !panels.length) return;
+
+    function showView(view, hash, scrollTarget) {
+        if (!panels.some(panel => panel.dataset.portalPanel === view)) return;
+
+        panels.forEach(panel => {
+            panel.classList.toggle('hidden', panel.dataset.portalPanel !== view);
+        });
+        document.body.classList.add('portal-view-active');
+        views.forEach(name => document.body.classList.toggle(`portal-view-${name}`, name === view));
+        document.querySelectorAll('.portal-header__link').forEach(button => {
+            const isActive = button.dataset.portalNavigation === view;
+            button.classList.toggle('is-active', isActive);
+            if (isActive) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+        });
+
+        const nextHash = hash || ({
+            habitaciones: '#habitaciones',
+            experiencias: '#planner',
+            roomservice: '#room-service',
+            reservas: '#historial',
+        })[view];
+        if (nextHash && window.location.hash !== nextHash) {
+            window.history.replaceState(null, '', nextHash);
+        }
+
+        window.requestAnimationFrame(() => {
+            const target = scrollTarget ? document.getElementById(scrollTarget) : null;
+            if (target && !target.classList.contains('hidden')) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+    }
+
+    navigationTriggers.forEach(trigger => {
+        trigger.addEventListener('click', event => {
+            event.preventDefault();
+            const view = trigger.dataset.portalNavigation;
+            const href = trigger.getAttribute('href') || '';
+            const scrollTarget = href.startsWith('#') ? href.slice(1) : '';
+            const hash = scrollTarget ? href : null;
+            showView(view, hash, scrollTarget);
+        });
+    });
+
+    const initialHash = window.location.hash.slice(1);
+    const initialView = viewByHash[initialHash] || 'habitaciones';
+    const initialTarget = panels.some(panel => panel.id === initialHash && panel.dataset.portalPanel === initialView)
+        ? initialHash
+        : '';
+    showView(initialView, window.location.hash || null, initialTarget);
+}
+
 function openActivityModal(trigger = null) {
     const modal = $('activityModal');
     if (!modal) {
@@ -1258,6 +1332,7 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    initializePortalNavigation();
     initializeCalendar();
     updateGuestSummary();
     attachLogoutFlow();

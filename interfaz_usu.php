@@ -289,7 +289,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <?php if ($recaptchaSiteKey !== ''): ?>
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <?php endif; ?>
-    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=16">
+    <link rel="stylesheet" href="assets/css/interfaz_usu.css?v=21">
     <link rel="stylesheet" href="assets/css/animaciones_usu.css?v=2">
     <script>if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("anim-ready");</script>
     <script>
@@ -332,35 +332,41 @@ $historialExperiencias = $portalData['historialExperiencias'];
     </div>
 </div> 
 <body>
-    <nav class="site-nav fixed inset-x-0 top-0 z-50">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
-            <a href="#inicio" class="flex items-center gap-3 text-white">
+    <header class="site-nav fixed inset-x-0 top-0 z-50">
+        <div class="portal-header mx-auto max-w-7xl px-4 py-3 md:px-6">
+            <a href="#inicio" data-portal-navigation="habitaciones" class="flex items-center gap-3 text-white">
                 <span class="logo">
-                <img src="assets/images/logo.jpeg" class="h-10 w-auto">
-                
+                    <img src="assets/images/logo.jpeg" class="h-10 w-auto" alt="">
                 </span>
                 <div>
-                    <p class="font-display text-2xl leading-none text-white">Hotel Aurora</p>
+                    <p class="font-display text-xl leading-none text-white md:text-2xl">Hotel Aurora</p>
                 </div>
             </a>
-          
-            <div class="hidden items-center gap-8 text-sm font-bold text-white/85 lg:flex">
-                <a href="#habitaciones" class="transition hover:text-white">Habitaciones</a>
-                <a href="#experiencias" class="transition hover:text-white">Experiencias</a>
-                <a href="#planner" class="transition hover:text-white">Agenda</a>
+            <nav class="portal-header__navigation" aria-label="Secciones del portal">
+                <button type="button" data-portal-navigation="habitaciones" aria-current="page" class="portal-header__link is-active">
+                    <span>Habitaciones</span>
+                </button>
+                <button type="button" data-portal-navigation="experiencias" class="portal-header__link">
+                    <span>Experiencias</span>
+                </button>
                 <?php if ($usuarioAutenticado): ?>
-                    <a href="#room-service" class="transition hover:text-white">Room service</a>
+                    <button type="button" data-portal-navigation="roomservice" class="portal-header__link">
+                        <span>Room service</span>
+                    </button>
+                    <button type="button" data-portal-navigation="reservas" class="portal-header__link">
+                        <span>Historial de Reservas</span>
+                    </button>
                 <?php endif; ?>
-            </div>
-
-            <div class="flex items-center gap-3">
+            </nav>
+            <div class="portal-header__account">
                 <?php include __DIR__ . "/includes/translate.php";?>
                 <?php if ($usuarioAutenticado): ?>
                     <span class="hidden rounded-full border border-white/12 bg-white/10 px-4 py-2 text-sm font-semibold text-white md:inline-flex">
                         Hola, <?php echo e($usuarioNombre); ?>
                     </span>
-                    <button id="logoutButton" type="button" class="hero-button secondary-button px-4 py-3 text-sm">
-                        Cerrar sesión
+                    <button id="logoutButton" type="button" aria-label="Cerrar sesión" class="hero-button secondary-button px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm">
+                        <span class="hidden sm:inline">Cerrar sesión</span>
+                        <span class="sm:hidden">Salir</span>
                     </button>
                 <?php else: ?>
                     <a href="interfaz/loggins/index_usu.php" class="hero-button secondary-button px-4 py-3 text-sm">
@@ -372,9 +378,9 @@ $historialExperiencias = $portalData['historialExperiencias'];
                 <?php endif; ?>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <header id="inicio" class="hero-shell relative flex min-h-fit items-center px-4 pb-20 pt-36 md:px-6">
+    <header id="inicio" data-portal-panel="habitaciones" class="hero-shell relative flex min-h-fit items-center px-4 pb-20 pt-36 md:px-6">
         <div class="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
             <div class="reveal">
                 <p class="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-[#ffe3aa]">
@@ -390,7 +396,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     <a href="#bookingBar" class="hero-button primary-button inline-flex items-center gap-2 px-6 py-4 text-sm uppercase tracking-[0.18em]">
                         Reservar ahora
                     </a>
-                    <a href="#experiencias" class="hero-button secondary-button inline-flex items-center gap-2 px-6 py-4 text-sm">
+                    <a href="#experiencias" data-portal-navigation="experiencias" class="hero-button secondary-button inline-flex items-center gap-2 px-6 py-4 text-sm">
                         Explorar experiencias
                     </a>
                 </div>
@@ -467,8 +473,8 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </header>
 
-    <main class="px-4 pb-20 md:px-6">
-        <section id="vista-resultados" class="mx-auto mt-8 max-w-7xl reveal">
+    <main class="portal-content px-4 pb-20 md:px-6">
+        <section id="vista-resultados" data-portal-panel="habitaciones" class="mx-auto mt-8 max-w-7xl reveal">
             <div id="habitaciones" class="glass-section rounded-[34px] px-6 py-8 md:px-8">
                 <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
@@ -619,7 +625,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             </div>
         </section>
 
-        <section id="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
+        <section id="experiencias" data-portal-panel="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
             <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <h2 class="section-title font-display text-3xl text-white">Experiencias</h2>
                 <button type="button" data-collapse-target="experienciasCatalogo" aria-controls="experienciasCatalogo" aria-expanded="true" data-collapse-hide="Ocultar experiencias" data-collapse-show="Mostrar experiencias" class="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/20">Ocultar experiencias</button>
@@ -734,7 +740,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
             </div>
         </section>
 
-        <section id="planner" class="mx-auto mt-10 max-w-7xl reveal">
+        <section id="planner" data-portal-panel="experiencias" class="mx-auto mt-10 max-w-7xl reveal">
             <div class="glass-section grid gap-8 rounded-[34px] px-6 py-8 md:px-8 lg:grid-cols-[1fr_0.95fr]">
                 <div>
                     <p class="section-kicker text-xs font-black uppercase tracking-[0.22em]">Agenda tu estancia</p>
@@ -754,13 +760,13 @@ $historialExperiencias = $portalData['historialExperiencias'];
                     <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Haz tu reserva primero</h3>
                         <p class="muted-light mt-2 text-sm leading-6">Cuando tengas una reserva activa, podrás elegir la experiencia, las opciones por persona y el horario.</p>
-                        <a href="#habitaciones" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Ver habitaciones</a>
+                        <a href="#habitaciones" data-portal-navigation="habitaciones" class="hero-button primary-button mt-5 inline-flex px-5 py-3 text-sm font-bold">Ver habitaciones</a>
                     </div>
                 <?php else: ?>
                     <div class="rounded-[28px] bg-white/12 p-6 shadow-[0_18px_40px_rgba(23,53,79,0.12)] backdrop-blur-xl">
                         <h3 class="text-xl font-black text-white">Prepara algo especial</h3>
                         <p class="muted-light mt-2 text-sm leading-6">Elige una experiencia de las opciones disponibles <strong>SEGÚN</strong> la fecha de tu reserva. Al pulsar “Elegir esta experiencia” en su tarjeta se abrirá el formulario para solicitarla.</p>
-                        <a href="#experiencias" id="goToExperiences" class="hero-button primary-button mt-5 inline-flex w-full items-center justify-center px-5 py-4 text-sm uppercase tracking-[0.18em]">
+                        <a href="#experiencias" id="goToExperiences" data-portal-navigation="experiencias" class="hero-button primary-button mt-5 inline-flex w-full items-center justify-center px-5 py-4 text-sm uppercase tracking-[0.18em]">
                             Ver experiencias
                         </a>
                     </div>
@@ -832,7 +838,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </section>
 
         <?php if ($usuarioAutenticado): ?>
-<section id="room-service" class="mx-auto mt-10 max-w-7xl scroll-mt-24 reveal">
+<section id="room-service" data-portal-panel="roomservice" class="mx-auto mt-10 max-w-7xl scroll-mt-24 reveal">
     <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-12">
         <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -893,7 +899,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
     <span class="material-symbols-outlined">shopping_cart</span> <span id="rsIrCarritoTexto">Ver pedido</span>
 </button>
 <script src="assets/js/room_service_usu.js?v=4" defer></script>
-<section id="historial" class="mx-auto mt-10 max-w-7xl reveal">
+<section id="historial" data-portal-panel="reservas" class="mx-auto mt-10 max-w-7xl reveal">
     <div class="rounded-[34px] bg-transparent border-8 border-slate-300/30 px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -985,7 +991,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
         </div>
     </div>
 </section>
-<section id="historial-experiencias" class="mx-auto mt-8 max-w-7xl reveal">
+<section id="historial-experiencias" data-portal-panel="experiencias" class="mx-auto mt-8 max-w-7xl reveal">
     <div class="rounded-[34px] border-8 border-slate-300/30 bg-transparent px-6 py-8 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)] md:px-20">
         <div class="mb-6 flex items-center justify-between gap-4">
             <div>
@@ -1374,7 +1380,7 @@ $historialExperiencias = $portalData['historialExperiencias'];
 
     <script src="assets/js/animaciones_usu.js?v=2"></script>
     <script src="assets/js/factura_visor.js?v=1"></script>
-    <script src="assets/js/interfaz_usu.js?v=32"></script>
+    <script src="assets/js/interfaz_usu.js?v=36"></script>
     <?php require_once 'includes/banner_cookies.php'; ?>
     <?php
     $privacyPolicyCookiesUrl = 'interfaz/legal/politica_cookies.php';

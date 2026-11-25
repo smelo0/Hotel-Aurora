@@ -42,11 +42,87 @@ body {
 }
 
 .site-nav {
+    left: 0;
+    right: 0;
     background: rgba(8, 59, 38, 0.86);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.portal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.portal-header__navigation,
+.portal-header__account {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.portal-header__navigation {
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    overflow: hidden;
+}
+
+.portal-header__link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.65rem 0.6rem;
+    border: 0;
+    border-radius: 0.7rem;
+    color: rgba(255, 255, 255, 0.82);
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+    transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.portal-header__link:hover,
+.portal-header__link:focus-visible {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.portal-header__link.is-active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.13);
+    box-shadow: inset 0 -2px #a7f3d0;
+}
+
+.portal-header__link .material-symbols-outlined {
+    color: #a7f3d0;
+    font-size: 1.15rem;
+}
+
+.portal-content {
+    min-width: 0;
+}
+
+.portal-content > [data-portal-panel] {
+    min-width: 0;
+}
+
+body.portal-view-active footer {
+    display: none;
+}
+
+body.portal-view-active:not(.portal-view-habitaciones) #roomCart,
+body.portal-view-active:not(.portal-view-roomservice) #rsIrCarrito {
+    display: none !important;
 }
 
 .site-nav .language-switcher {
@@ -682,6 +758,44 @@ body {
 
     .rooms-carousel > [data-room-card] [data-room-select] {
         width: 100%;
+    }
+}
+
+@media (max-width: 1150px) {
+    .portal-header {
+        flex-wrap: wrap;
+    }
+
+    .portal-header__navigation {
+        order: 3;
+        flex: 0 0 100%;
+        justify-content: center;
+        padding-top: 0.35rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+}
+
+@media (max-width: 767px) {
+    .portal-header {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+    }
+
+    .portal-header__account {
+        justify-content: flex-end;
+        gap: 0.35rem;
+    }
+
+    .portal-header__navigation {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .portal-header__navigation::-webkit-scrollbar {
+        display: none;
     }
 }
 .inactivity-modal-overlay {
